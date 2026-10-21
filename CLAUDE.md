@@ -2,7 +2,7 @@
 
 Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6050) is built and every part has passed its bring-up test.
 
-**Next step:** a steady pitch angle (gyro bias calibration at startup + complementary filter), printed live so I can tilt the robot and watch it. After that: the balance loop (PID), then driving.
+**Next step:** a steady pitch angle (gyro bias calibration at startup + complementary filter), printed live so I can tilt the robot and watch it. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
 
 ## How to work with me
 
@@ -75,7 +75,7 @@ D153C 5V goes straight to VSYS. Switch the D153C on (battery connected) **before
 
 - `firmware/` sketches (one folder per sketch), `firmware/uf2/` prebuilt files
 - `cad/` OpenSCAD sources and `cad/stl/` the exact STLs printed
-- `docs/` BUILD_RECORD.md (as built + test results), WIRING.md, CHANGELOG.md
+- `docs/` BUILD_RECORD.md (as built + test results), WIRING.md, CHANGELOG.md, FIRMWARE_PLAN.md (draft plan, open choices), PID_TUNING.md
 
 ## Docs
 

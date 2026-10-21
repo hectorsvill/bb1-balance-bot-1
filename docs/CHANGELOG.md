@@ -10,6 +10,12 @@ Newest first.
 - Battery cradle (record the pack's size and capacity)
 - Next code step: pitch angle (gyro bias calibration + complementary filter), then the balance loop
 
+## 2026-10-21 - Firmware plan drafted
+
+- docs/FIRMWARE_PLAN.md: one `bb1` firmware, control on core 1 at 200 Hz, Wi-Fi page on core 0, UDP logging for analysis and later model training; three choices still open
+- docs/PID_TUNING.md: how the PID works, tuning steps for BB1, reading and videos
+- Toolchain checked: arduino-cli 1.5.1, rp2040 core 6.3.0, pyserial 3.5; no extra Arduino libraries needed
+
 ## 2026-10-20 - Moved to Claude Code
 
 - Project packaged as a repo (balance-bot) with CLAUDE.md holding the pins, signs, power rule and toolchain

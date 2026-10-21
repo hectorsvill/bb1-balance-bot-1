@@ -15,7 +15,7 @@ A two-wheel self-balancing robot, built by hand and programmed step by step as a
 | WHEELTEC 2-wheel chassis, 2S LiPo | Base and power |
 | 3D-printed reverse-T frame and carriers | Holds the boards; sources in `cad/` |
 
-Full pin map: [docs/WIRING.md](docs/WIRING.md). What was actually built and tested: [docs/BUILD_RECORD.md](docs/BUILD_RECORD.md).
+Full pin map: [docs/WIRING.md](docs/WIRING.md). Firmware plan for balancing and the Wi-Fi tuning page: [docs/FIRMWARE_PLAN.md](docs/FIRMWARE_PLAN.md). PID tuning: [docs/PID_TUNING.md](docs/PID_TUNING.md). What was actually built and tested: [docs/BUILD_RECORD.md](docs/BUILD_RECORD.md).
 
 > **Power rule (no 1N5819 diode yet):** switch the D153C on before plugging in USB, and unplug USB before switching it off.
 
@@ -26,7 +26,7 @@ cad/            OpenSCAD sources
 cad/stl/        the exact STLs that were printed
 firmware/       Arduino sketches, one folder each (see firmware/README.md)
 firmware/uf2/   prebuilt files you can drag onto the Pico
-docs/           BUILD_RECORD, WIRING, CHANGELOG
+docs/           BUILD_RECORD, WIRING, CHANGELOG, FIRMWARE_PLAN, PID_TUNING
 CLAUDE.md       project facts and working rules for Claude Code
 ```
 
