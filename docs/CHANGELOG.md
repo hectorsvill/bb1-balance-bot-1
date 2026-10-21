@@ -8,7 +8,13 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- Next code step: pitch angle (gyro bias calibration + complementary filter), then the balance loop
+- Test bb1 step 1 on the robot (pitch sign, gyro sign, drift), then step 2 (two cores + log buffer)
+
+## 2026-10-21 - bb1 step 1: pitch angle
+
+- firmware/bb1: config.h, imu.h (gyro +/-500 deg/s, 44 Hz DLPF, 200 Hz, bias calibration), angle.h (complementary filter, alpha 0.98), 200 Hz fixed loop with loop-time stats; motors held off
+- Plan updated with Hector's choices: own network by default plus a saved home-network setting (falls back to own network); web page before PID; logs saved from the browser or tools/logger.py, same CSV
+- tools/: Python venv (tools/venv, not committed), requirements.txt, serial_log.py
 
 ## 2026-10-21 - Firmware plan drafted
 
