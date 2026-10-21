@@ -6,6 +6,19 @@
 | `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
+## bb1, step 3: Wi-Fi + web page (no motors)
+
+Everything from step 2, plus the web page. How to connect and what's on it: [docs/WEB_INTERFACE.md](../docs/WEB_INTERFACE.md). New serial commands: `wifi` (network and address), `wifi reset` (forget the home network), `quiet` (pause the readout).
+
+Building on a new machine needs `secrets.h`: `cp firmware/bb1/secrets.example.h firmware/bb1/secrets.h`.
+
+What to check:
+1. Serial shows `Wi-Fi: own network "BB1" ... open http://192.168.42.1`.
+2. Phone: join **BB1** (password `bb1robot`), open http://192.168.42.1. The page says **connected**; tilting the robot moves the number and the chart.
+3. **Calibrate gyro** with the robot lying still: bias updates on the page.
+4. Network: save your home Wi-Fi. BB1 restarts and joins it; on your home Wi-Fi, http://bb1.local opens the page. Then **Use own network** brings back "BB1".
+5. While the page is open: `dump` still shows 0 missing ticks and 5000 us spacing (the web server mustn't disturb core 1).
+
 ## bb1, step 2: two cores + log buffer (no motors)
 
 The control loop (IMU, filter, logging) runs on core 1 at exactly 200 Hz; serial and the readout run on core 0. Every tick is stored in a 10 s ring buffer. Same readout as step 1, plus a `tick` counter and two new commands:

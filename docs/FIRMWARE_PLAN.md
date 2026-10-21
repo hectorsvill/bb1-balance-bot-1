@@ -47,9 +47,10 @@ firmware/bb1/
   pid.h            a small PID class (anti-windup, derivative on measurement)
   control.h        the balance controller, modes and safety checks
   shared.h         the data the two cores pass to each other
-  web.h            Wi-Fi, the page, the JSON endpoints
   telemetry.h      the log record and the ring buffer that holds the last few seconds
   wifi_setup.h     own network or home network, saved settings
+  web.h            web server routes
+  secrets.h        own-network password (not in git; copy secrets.example.h)
   page.h           the HTML/JS page as one string
 tools/             Python helpers, own virtual environment in tools/venv
   requirements.txt
@@ -117,7 +118,7 @@ Both are built in, chosen by a setting on the page:
 | **Home network** | robot joins your Wi-Fi; its own network turns off | `http://bb1.local` (or the IP it prints on serial) |
 
 - The page has a **Network** panel: type your home Wi-Fi name and password, press Save. The robot restarts and joins it.
-- **Settings persist.** They're saved in the Pico's flash (LittleFS file `/wifi.json`), so they survive power-off and re-flashing the same firmware. (Uploading with "erase flash" would clear them.)
+- **Settings persist.** They're saved in the Pico's flash through the `EEPROM` library (a small area at the end of flash; the default board setting has no LittleFS area), so they survive power-off and re-flashing. Erasing the whole flash would clear them.
 - **Can't lock yourself out:** if the home network isn't found within 15 s at boot, the robot falls back to its own network so you can fix the settings. A serial command `wifi reset` also clears them.
 - Settings are only saved while the motors are disarmed (flash writes pause the other core).
 - The home Wi-Fi password is stored in plain text on the Pico's flash. It never goes in git.

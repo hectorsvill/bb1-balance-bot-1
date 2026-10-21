@@ -1,11 +1,11 @@
 // bb1.ino - BB1 balance bot main firmware.
 //
-// Step 2 of docs/FIRMWARE_PLAN.md: two cores and the log buffer.
+// Step 3 of docs/FIRMWARE_PLAN.md: Wi-Fi and the web page.
 //
 //   core 1 (setup1 / loop1): the 200 Hz control loop and nothing else.
 //       read IMU -> complementary filter -> fill a LogRecord -> push it into the ring buffer
 //   core 0 (setup / loop):   everything slow.
-//       serial commands, the 10 Hz readout, dumping the log buffer (later: Wi-Fi + web page)
+//       Wi-Fi + web page, serial commands, the 10 Hz readout, dumping the log buffer
 //
 // Why split them: printing, and later Wi-Fi, can take milliseconds at random
 // moments. On its own core the control loop keeps its 5 ms beat no matter what.
@@ -22,12 +22,17 @@
 //   angle.h      complementary filter
 //   telemetry.h  LogRecord, the ring buffer, CSV output
 //   shared.h     requests from core 0 to core 1, status back
+//   wifi_setup.h own network / home network, saved settings
+//   web.h        web server routes;  page.h  the page itself
+//   secrets.h    own-network password (not in git; copy secrets.example.h)
 
 #include "config.h"
 #include "imu.h"
 #include "angle.h"
 #include "telemetry.h"
 #include "shared.h"
+#include "wifi_setup.h"
+#include "web.h"
 
 // Give core 1 its own 8 KB stack instead of splitting one 8 KB stack between the
 // cores (see the arduino-pico "Multicore" docs). Wi-Fi on core 0 will want room.
@@ -107,15 +112,19 @@ void loop1() {
 // =====================================================================
 
 bool csvMode = false;      // "csv": the old step-1 comma-separated readout (for summarize_serial.py)
+bool quiet = false;        // "quiet": pause the 10 Hz readout
 
 void printHelp() {
   Serial.println();
-  Serial.println("BB1 step 2 commands:");
+  Serial.println("BB1 step 3 commands:");
   Serial.println("  cal       measure the gyro bias again (lay the robot still first)");
   Serial.println("  alpha N   set the filter weight, 0.90 to 0.999 (now " + String(requestedAlpha, 3) + ")");
   Serial.println("  csv       switch the readout to comma-separated lines (again to switch back)");
   Serial.println("  dump      print the whole log buffer (about the last " + String(LOG_SECONDS - 1) + " s) as CSV");
   Serial.println("  dump N    print only the last N seconds");
+  Serial.println("  wifi      show the network and the page address");
+  Serial.println("  wifi reset  forget the home network and restart on the own network");
+  Serial.println("  quiet     stop / restart the 10 Hz readout (easier to read other output)");
   Serial.println("  help      this list");
 }
 
@@ -145,7 +154,7 @@ void dumpLog(float seconds) {
 
   // Lines starting with # are notes, not data. They record the settings, so a
   // log file can be understood on its own later (and fed to a model).
-  Serial.println("# bb1 log dump, step 2 firmware");
+  Serial.println("# bb1 log dump, step 3 firmware");
   Serial.print("# gyro_bias_dps,");
   Serial.print(gyroBias[0], 3); Serial.print(',');
   Serial.print(gyroBias[1], 3); Serial.print(',');
@@ -183,6 +192,15 @@ void handleCommand(String cmd) {
   } else if (cmd == "csv") {
     csvMode = !csvMode;
     if (csvMode) Serial.println("ms,pitch,accel_pitch,pitch_rate,loop_avg_us,loop_max_us");
+  } else if (cmd == "wifi") {
+    wifiPrintStatus();
+  } else if (cmd == "wifi reset") {
+    wifiForgetHomeNetwork();
+    Serial.println("Home network forgotten. Restarting on the own network...");
+    delay(200);
+    rp2040.reboot();
+  } else if (cmd == "quiet") {
+    quiet = !quiet;
   } else if (cmd.startsWith("dump")) {
     dumpLog(cmd.substring(4).toFloat());       // "dump" alone gives 0 = everything
   } else {
@@ -254,7 +272,10 @@ void setup() {
   while (!Serial && millis() - t0 < 5000) {}   // wait up to 5 s for a serial monitor
 
   Serial.println();
-  Serial.println("BB1 step 2: two cores + log buffer. Motors are off.");
+  Serial.println("BB1 step 3: Wi-Fi + web page. Motors are off.");
+  wifiStart();             // up to 15 s if a home network is saved; core 1 is already running
+  webBegin();
+  wifiPrintStatus();
   printHelp();
 }
 
@@ -280,9 +301,11 @@ void loop() {
   }
 
   readSerial();
+  wifiLoop();
+  webLoop();
 
   static unsigned long lastPrint = 0;
-  if (millis() - lastPrint >= 1000 / PRINT_HZ) {
+  if (!quiet && millis() - lastPrint >= 1000 / PRINT_HZ) {
     lastPrint = millis();
     printStatus();
   }

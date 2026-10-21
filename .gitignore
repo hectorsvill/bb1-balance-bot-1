@@ -10,6 +10,8 @@ images/
 secrets.h
 arduino_secrets.h
 *secret*
+# ...except the template, which has no real secrets
+!secrets.example.h
 *.key
 *.pem
 *.p12

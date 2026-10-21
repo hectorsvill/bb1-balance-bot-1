@@ -18,6 +18,8 @@ From the repo folder:
 arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/bb1 firmware/bb1
 ```
 
+On a new machine, create `secrets.h` first: `cp firmware/bb1/secrets.example.h firmware/bb1/secrets.h`.
+
 This checks the code and writes `build/bb1/bb1.ino.uf2` (the file the Pico runs). `build/` is not committed. A copy of each step's file is kept in `firmware/uf2/`.
 
 ## 2. Upload: the normal way (Pico already running one of our sketches)

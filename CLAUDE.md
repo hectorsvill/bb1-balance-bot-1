@@ -2,7 +2,7 @@
 
 Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6050) is built and every part has passed its bring-up test.
 
-**Next step:** `firmware/bb1` step 3: Wi-Fi (own network + saved home network) and the web page with a live pitch chart. Steps 1 (pitch angle) and 2 (two cores, log record + 10 s ring buffer, `dump`) passed on the robot 2026-10-21. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
+**Next step:** test `firmware/bb1` step 3 (Wi-Fi own network "BB1" / password `bb1robot` at http://192.168.42.1, saved home network at http://bb1.local, live pitch page; written 2026-10-21). Then step 4: Record / Download logs from the page. Steps 1 and 2 passed on the robot 2026-10-21. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
 
 ## How to work with me
 
@@ -17,6 +17,7 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 ## Firmware structure (bb1)
 
 - Core 1 (`setup1`/`loop1`) owns the IMU (and later the motors) and runs the 200 Hz loop; it never prints. Core 0 (`setup`/`loop`) does serial, later Wi-Fi. Core 0 asks core 1 for things through `shared.h` flags; core 1 acts between ticks.
+- Core 0 also runs Wi-Fi and the web server (`wifi_setup.h`, `web.h`, `page.h`); the page only reads log records and sets the same `shared.h` requests as serial commands. Home Wi-Fi settings live in Pico flash (EEPROM library); the own-network password is in `secrets.h` (gitignored; template `secrets.example.h`). See `docs/WEB_INTERFACE.md`.
 - Every tick fills one `LogRecord` (`telemetry.h`) into a mutex-guarded ring buffer. New fields go at the end of the struct, in `csvHeader()`/`printCsv()`, and in the column table in `docs/CALIBRATION_AND_LOGS.md`.
 
 ## Directions and signs (measured 2026-10-20)
@@ -84,7 +85,7 @@ D153C 5V goes straight to VSYS. Switch the D153C on (battery connected) **before
 - `firmware/bb1/` the main firmware (grown step by step), `firmware/motor_test` and `imu_test` bring-up sketches, `firmware/uf2/` prebuilt files
 - `tools/` Python helpers with their own venv (`tools/venv`, rebuilt from `tools/requirements.txt`, not committed); run them with `tools/venv/bin/python`
 - `cad/` OpenSCAD sources and `cad/stl/` the exact STLs printed
-- `docs/` BUILD_RECORD.md (as built + test results), WIRING.md, CHANGELOG.md, FIRMWARE_PLAN.md (plan and choices), PID_TUNING.md, FLASHING.md (power order, upload, BOOTSEL, monitor), TOOLS.md (every tool, venv, how to run, common errors; keep it current when a tool is added), CALIBRATION_AND_LOGS.md (gyro bias cal, readout fields, capturing and summarizing runs; add new log columns here)
+- `docs/` BUILD_RECORD.md (as built + test results), WIRING.md, CHANGELOG.md, FIRMWARE_PLAN.md (plan and choices), PID_TUNING.md, FLASHING.md (power order, upload, BOOTSEL, monitor), WEB_INTERFACE.md (connecting, endpoints, editing the page), TOOLS.md (every tool, venv, how to run, common errors; keep it current when a tool is added), CALIBRATION_AND_LOGS.md (gyro bias cal, readout fields, capturing and summarizing runs; add new log columns here)
 
 ## Docs
 

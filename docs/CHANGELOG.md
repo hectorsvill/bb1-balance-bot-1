@@ -8,7 +8,14 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- bb1 step 3 (Wi-Fi + web page)
+- Test bb1 step 3 on the robot; then step 4 (Record / Download logs)
+
+## 2026-10-21 - bb1 step 3: Wi-Fi + web page
+
+- wifi_setup.h: own network "BB1" (192.168.42.1) by default; home network saved to flash (EEPROM library) and joined at startup, with mDNS bb1.local; 15 s fallback to the own network; `wifi`, `wifi reset`
+- web.h + page.h: page with live pitch / accel pitch chart (10 s), live values, Calibrate, Set alpha, Network panel; endpoints /state, /cal, /alpha, /wifi, /wifi/forget
+- secrets.h (gitignored) + secrets.example.h; `quiet` serial command; docs/WEB_INTERFACE.md
+- Compiles: 19% flash, 109 KB RAM free
 
 ## 2026-10-21 - bb1 step 2: two cores + log buffer
 
