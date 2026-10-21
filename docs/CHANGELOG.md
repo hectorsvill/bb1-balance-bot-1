@@ -8,11 +8,12 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- Test bb1 step 1 on the robot (pitch sign, gyro sign, drift), then step 2 (two cores + log buffer)
+- bb1 step 2 (two cores + log buffer)
 
 ## 2026-10-21 - bb1 step 1: pitch angle
 
 - Tested on the robot: filter tracks the accel angle within ~0.3 deg, loop 446 us avg / 527 us max of 5000, 0 overruns. Forward lean read negative, so ACCEL_PITCH_SIGN and GYRO_PITCH_SIGN changed to +1 (the bring-up note "forward reads negative" was wrong). Upright reads about +6 deg.
+- Rerun after the sign fix and `cal`: lying on its front +88.7 deg, rock steady for 20 s with rate 0.0 (bias x -0.50, y +2.07, z -2.20 deg/s); forward tilt positive with positive rate; upright about -2.5 deg; filter within 0.3 deg of the accel angle at rest. Step 1 passed.
 
 - firmware/bb1: config.h, imu.h (gyro +/-500 deg/s, 44 Hz DLPF, 200 Hz, bias calibration), angle.h (complementary filter, alpha 0.98), 200 Hz fixed loop with loop-time stats; motors held off
 - Plan updated with Hector's choices: own network by default plus a saved home-network setting (falls back to own network); web page before PID; logs saved from the browser or tools/logger.py, same CSV

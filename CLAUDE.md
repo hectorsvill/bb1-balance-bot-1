@@ -2,7 +2,7 @@
 
 Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6050) is built and every part has passed its bring-up test.
 
-**Next step:** test `firmware/bb1` step 1 (pitch angle over serial, written 2026-10-21, not yet run on the robot), then step 2 of the plan. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
+**Next step:** `firmware/bb1` step 2 of the plan (two cores, 200 Hz loop on core 1, log record + ring buffer). Step 1 (pitch angle) passed on the robot 2026-10-21. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
 
 ## How to work with me
 
@@ -16,7 +16,7 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 
 ## Directions and signs (measured 2026-10-20)
 
-- **Front** = the "hectorsvill" side. **Back** = the side with the Pico's USB and the D153C motor plugs. Left and right as seen from behind, facing the front. (The .scad files call the "hectorsvill" flange the rear; their +Y is the robot's back.)
+- **Front** = the "hectorsvill" side. **Back** = the side with the Pico's USB and the D153C motor plugs. Left and right as seen from behind, facing the front. **"Laying on its front"** = lying down with the hectorsvill side facing the floor (reads about +89 deg pitch); "on its back" = the USB side down. (The .scad files call the "hectorsvill" flange the rear; their +Y is the robot's back.)
 - Motor A (D153C socket A) = left wheel; motor B (socket B) = right wheel.
 - Code settings that make forward positive (confirmed with the f / r test, "signs correct"):
   - `LEFT_MOTOR_REVERSED = true` (a- rolls forward)
