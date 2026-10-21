@@ -77,6 +77,10 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   button.stop { background:var(--bad); font-weight:700; }
   .num { width:90px; flex:none !important; min-width:0 !important; }
   .state { font-size:22px; font-weight:700; }
+  /* Things with a hint: dotted underline, "?" cursor. Hover (or tap on a phone) to read it. */
+  .hinted { text-decoration:underline dotted var(--muted); text-underline-offset:3px; cursor:help; }
+  #hintBox { position:fixed; left:16px; right:16px; bottom:16px; max-width:640px; margin:0 auto; padding:10px 14px;
+             background:#2b323c; border:1px solid var(--muted); border-radius:8px; font-size:14px; display:none; z-index:9; }
   .state.on { color:var(--ok); }
   .gains label { display:inline-flex; gap:6px; align-items:center; font-size:13px; color:var(--muted); }
 </style>
@@ -104,18 +108,18 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   <div class="panel" id="p-values">
     <div class="head"><h2>Live values</h2></div>
     <table>
-      <tr><td>Pitch rate</td><td id="rate">--</td></tr>
-      <tr><td>Accel-only pitch</td><td id="accel">--</td></tr>
-      <tr><td>Loop work (budget 5000 us)</td><td id="work">--</td></tr>
-      <tr><td>Tick</td><td id="tick">--</td></tr>
-      <tr><td>Gyro bias x / y / z (deg/s)</td><td id="bias">--</td></tr>
-      <tr><td>Filter alpha</td><td id="alphaNow">--</td></tr>
+      <tr><td id="h-rate">Pitch rate</td><td id="rate">--</td></tr>
+      <tr><td id="h-accel">Accel-only pitch</td><td id="accel">--</td></tr>
+      <tr><td id="h-work">Loop work (budget 5000 us)</td><td id="work">--</td></tr>
+      <tr><td id="h-tick">Tick</td><td id="tick">--</td></tr>
+      <tr><td id="h-bias">Gyro bias x / y / z (deg/s)</td><td id="bias">--</td></tr>
+      <tr><td id="h-alpha">Filter alpha</td><td id="alphaNow">--</td></tr>
       <tr><td>IMU</td><td id="imu">--</td></tr>
       <tr><td>Uptime</td><td id="uptime">--</td></tr>
-      <tr><td>Encoders left / right (counts, forward +)</td><td id="enc">--</td></tr>
-      <tr><td>Wheel speed left / right (counts/s)</td><td id="speed">--</td></tr>
-      <tr><td>Motor PWM left / right</td><td id="pwm">--</td></tr>
-      <tr><td>PID terms P / I / D (PWM)</td><td id="pid">--</td></tr>
+      <tr><td id="h-enc">Encoders left / right (counts, forward +)</td><td id="enc">--</td></tr>
+      <tr><td id="h-speed">Wheel speed left / right (counts/s)</td><td id="speed">--</td></tr>
+      <tr><td id="h-pwm">Motor PWM left / right</td><td id="pwm">--</td></tr>
+      <tr><td id="h-pid">PID terms P / I / D (PWM)</td><td id="pid">--</td></tr>
     </table>
   </div>
 
@@ -125,7 +129,7 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
     <div class="row">
       <button id="recBtn" onclick="toggleRecord()">Record</button>
       <button class="secondary" id="dlBtn" onclick="downloadRecording()" disabled>Download</button>
-      <button class="secondary" onclick="saveLast()">Save last 10 s</button>
+      <button class="secondary" id="saveLastBtn" onclick="saveLast()">Save last 10 s</button>
     </div>
     <div class="msg" id="logMsg">Record keeps every 5 ms tick until you press Stop. Save last 10 s grabs what just happened.</div>
   </div>
@@ -134,7 +138,7 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
     <div class="head"><h2>Live log</h2></div>
     <div class="row">
       <button id="liveBtn" onclick="toggleLive()">Start</button>
-      <select id="liveEvery" title="how many records to show">
+      <select id="liveEvery">
         <option value="1">every record (200/s)</option>
         <option value="10" selected>every 10th (20/s)</option>
         <option value="40">every 40th (5/s)</option>
@@ -152,8 +156,8 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
       <span class="msg" id="armReason"></span>
     </div>
     <div class="row">
-      <button onclick="arm()">ARM</button>
-      <button class="stop" onclick="disarm()">DISARM (space)</button>
+      <button id="armBtn" onclick="arm()">ARM</button>
+      <button class="stop" id="disarmBtn" onclick="disarm()">DISARM (space)</button>
     </div>
     <div class="msg">Hold it near upright to arm. It disarms by itself if it leans past 45 deg, or if this page stops for 1 s.</div>
     <div class="row gains" style="margin-top:10px">
@@ -167,8 +171,8 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
       <label>deadband <input class="num" id="gDb" type="number" step="1"></label>
     </div>
     <div class="row">
-      <button class="secondary" onclick="applyGains()">Apply</button>
-      <button class="secondary" onclick="post('/gains', {trim: 'here'}, 'gainsMsg')">Use current pitch as trim</button>
+      <button class="secondary" id="applyBtn" onclick="applyGains()">Apply</button>
+      <button class="secondary" id="trimHereBtn" onclick="post('/gains', {trim: 'here'}, 'gainsMsg')">Use current pitch as trim</button>
     </div>
     <div class="msg" id="gainsMsg">Changes apply on the next tick. Not saved: power-up goes back to the defaults in config.h.</div>
   </div>
@@ -194,7 +198,7 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   <div class="panel" id="p-actions">
     <div class="head"><h2>Actions</h2></div>
     <div class="row">
-      <button onclick="post('/cal', null, 'calMsg')">Calibrate gyro</button>
+      <button id="calBtn" onclick="post('/cal', null, 'calMsg')">Calibrate gyro</button>
       <span class="msg">lay the robot still first</span>
     </div>
     <div class="msg" id="calMsg"></div>
@@ -208,11 +212,11 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   <div class="panel" id="p-sys">
     <div class="head"><h2>Pico memory</h2></div>
     <table>
-      <tr><td>RAM used (of 256 KB)</td><td id="ramUsed">--</td></tr>
+      <tr><td id="h-ram">RAM used (of 256 KB)</td><td id="ramUsed">--</td></tr>
       <tr><td>&nbsp;&nbsp;fixed: globals, incl. the log buffer</td><td id="ramStatic">--</td></tr>
       <tr><td>&nbsp;&nbsp;heap in use (Wi-Fi, web requests)</td><td id="heapUsed">--</td></tr>
-      <tr><td>Heap free</td><td id="heapFree">--</td></tr>
-      <tr><td>Flash used by the program (of 2 MB)</td><td id="flashUsed">--</td></tr>
+      <tr><td id="h-heap">Heap free</td><td id="heapFree">--</td></tr>
+      <tr><td id="h-flash">Flash used by the program (of 2 MB)</td><td id="flashUsed">--</td></tr>
       <tr><td>&nbsp;&nbsp;this page</td><td id="pageSize">--</td></tr>
       <tr><td>CPU clock</td><td id="cpu">--</td></tr>
     </table>
@@ -232,9 +236,81 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
 
 </div>
 
+<div id="hintBox"></div>
+
 <script>
 const el = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ---------- hints ----------
+//
+// One place for every explanation on the page. Each key is an element id;
+// the text becomes its hover tooltip (the "title" attribute). For a box inside
+// a <label>, the label word gets it too. Phones can't hover, so tapping a
+// hinted word shows the same text in a box at the bottom for a few seconds.
+
+const HINTS = {
+  // Balance
+  armBtn: 'Start balancing: the PID drives both wheels from the lean. Only works within 10 deg of the trim, with the gyro calibrated.',
+  disarmBtn: 'Stop balancing now: brakes both wheels and puts the motor driver to sleep. The space bar does the same anywhere on the page.',
+  gKp: 'Kp (proportional): PWM per degree of lean past the trim. The main "fight back" strength. Too low: falls slowly. Too high: shakes fast.',
+  gKi: 'Ki (integral): pushes against a lean that lasts, to fix steady drift. Keep at 0 until Kp and Kd work.',
+  gKd: 'Kd (derivative): PWM per deg/s of falling speed, from the gyro. Brakes the swinging that Kp causes. Too high: motors buzz.',
+  gTrim: 'Trim: the pitch (deg) where BB1 really balances. The loop holds this angle, not 0. Measured -4.39 deg.',
+  gCap: 'Cap: the most PWM the balance loop may send (of 255). 80 = about 30% power, gentle for first tests. Raise it once it balances.',
+  gDb: 'Deadband: PWM added to every non-zero command, because the motors do not turn at all below a few PWM. 0 until we measure it.',
+  applyBtn: 'Send all six numbers to BB1. They apply on the next 5 ms tick. Not saved: a restart goes back to the defaults in config.h.',
+  trimHereBtn: 'Hold BB1 at its balance point (where it would tip neither way), then press: the current pitch becomes the trim.',
+  // Motor test
+  mL: 'Left wheel PWM, -150..150. Positive = roll forward. 100 is about 40% power.',
+  mR: 'Right wheel PWM, -150..150. Positive = roll forward.',
+  mMs: 'How long the test runs. It always stops by itself.',
+  // Logging
+  note: 'Saved in the file and its name, so you can tell runs apart later.',
+  recBtn: 'Record keeps every 5 ms record until you press Stop. Then Download saves it as a CSV.',
+  saveLastBtn: 'Download the last 10 s BB1 still has in memory, even if you were not recording.',
+  liveEvery: 'How many records to show in the box. Recording always keeps every record.',
+  // Actions
+  calBtn: 'Measures the gyro bias (its reading when still) for 2 s. Lay BB1 still first. Disarms if armed.',
+  alpha: 'Filter weight 0.90..0.999: how much the angle trusts the gyro over the accelerometer each tick. Higher = smoother, slower to correct drift.',
+  // Live values
+  'h-rate': 'How fast it is tipping, deg/s, from the gyro. Forward +.',
+  'h-accel': 'Pitch from the accelerometer alone: right on average, but jumpy when the robot moves or is bumped.',
+  'h-work': 'How long one 5 ms tick took. Must stay well under 5000 us or the loop runs late.',
+  'h-tick': 'Counts up 200 times a second. Every log row has one; a gap means lost records.',
+  'h-bias': 'What the gyro reads while still, subtracted from every reading. Measured at startup and by Calibrate gyro.',
+  'h-alpha': 'The complementary filter weight in use (see Set alpha).',
+  'h-enc': 'Encoder counts since startup, forward +. About 520 per wheel turn.',
+  'h-speed': 'Wheel speed over the last 50 ms. About 1750 counts/s at PWM 100 with the wheels in the air.',
+  'h-pwm': 'What is being sent to each motor right now, -255..255, forward +.',
+  'h-pid': 'The three parts of the balance output: P from the lean, I from lasting lean, D from tipping speed. PWM = P + I + D, clipped to the cap.',
+  // Memory
+  'h-ram': 'RAM used: fixed globals (mostly the 10 s log buffer) plus the heap in use.',
+  'h-heap': 'RAM left for Wi-Fi and web requests. Keep it above about 20 KB.',
+  'h-flash': 'Program size in the 2 MB flash chip, including this page.',
+};
+
+let hintTimer;
+function showHint(text) {
+  const box = el('hintBox');
+  box.textContent = text;
+  box.style.display = 'block';
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => box.style.display = 'none', 5000);
+}
+
+for (const [id, text] of Object.entries(HINTS)) {
+  const target = el(id);
+  if (!target) continue;
+  const label = target.closest('label');
+  for (const e of label ? [target, label] : [target]) e.title = text;
+  // The visible word that gets the dotted underline: the label, or the element itself.
+  const word = label || target;
+  word.classList.add('hinted');
+  if (target.tagName === 'TD' || label) word.addEventListener('click', ev => {
+    if (ev.target === word || ev.target.tagName === 'TD') showHint(text);   // a tap on the word, not in the box
+  });
+}
 
 // ---------- moving panels ----------
 //
