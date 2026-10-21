@@ -1,18 +1,20 @@
 // bb1.ino - BB1 balance bot main firmware.
 //
-// Step 5 of docs/FIRMWARE_PLAN.md: motors + encoders, and a timed motor test
-// from serial or the web page (on top of step 4's logging page).
+// Step 6 of docs/FIRMWARE_PLAN.md: arm / disarm, safety checks and the angle
+// PD loop (on top of step 5's motors and step 4's logging page).
 //
 //   core 1 (setup1 / loop1): the 200 Hz control loop and nothing else.
-//       read IMU -> complementary filter -> read encoders -> motor test -> LogRecord -> ring buffer
+//       read IMU -> complementary filter -> read encoders -> balance PID or motor test
+//       -> LogRecord -> ring buffer
 //   core 0 (setup / loop):   everything slow.
 //       Wi-Fi + web page, serial commands, the 10 Hz readout, dumping the log buffer
 //
 // Why split them: printing, and later Wi-Fi, can take milliseconds at random
 // moments. On its own core the control loop keeps its 5 ms beat no matter what.
 //
-// Motors are OFF (STBY low) except during a motor test, which always stops by
-// itself (MOTOR_TEST_MAX_MS in config.h). No balancing yet.
+// Motors are OFF (STBY low) unless armed (balancing) or during a motor test,
+// which always stops by itself (MOTOR_TEST_MAX_MS in config.h). Arming needs
+// the robot near upright; falling past 45 deg, IMU errors or losing the page disarm it.
 //
 // Board: Raspberry Pi Pico W, arduino-pico core by Earle Philhower (6.3.0).
 // Serial: 115200 baud, line ending "Newline". Type "help" for commands.
@@ -23,6 +25,7 @@
 //   imu.h        MPU-6050 driver + gyro bias calibration
 //   angle.h      complementary filter
 //   motors.h     D153C motor driver, encoders, wheel speed
+//   pid.h        a small PID;  control.h  arm / disarm, safety checks, the angle loop
 //   telemetry.h  LogRecord, the ring buffer, CSV output
 //   shared.h     requests from core 0 to core 1, status back
 //   wifi_setup.h own network / home network, saved settings
@@ -34,6 +37,7 @@
 #include "imu.h"
 #include "angle.h"
 #include "motors.h"
+#include "control.h"
 #include "telemetry.h"
 #include "shared.h"
 #include "wifi_setup.h"
@@ -117,12 +121,24 @@ void loop1() {
     requestMotorTest = false;
     if (test.running) motorTestStop();
   }
+  if (requestDisarm) {
+    requestDisarm = false;
+    requestArm = false;
+    balanceDisarm(REASON_USER);
+    balance.fallen = false;
+  }
+  if (requestArm) {
+    requestArm = false;
+    balanceArm(angle.pitch, test.running);
+    armAttempts = armAttempts + 1;             // core 0 reports armed / refused when this changes
+  }
   if (requestMotorTest) {
     requestMotorTest = false;
-    if (!test.running) motorTestStart();
+    if (!test.running && !balance.armed) motorTestStart();   // never a motor test while balancing
   }
   if (requestCalibrate) {
     if (test.running) motorTestStop();         // never calibrate with the wheels spinning
+    if (balance.armed) balanceDisarm(REASON_CALIBRATE);
     calibrateNow();                            // takes 2 s; no records during it
     requestCalibrate = false;
     nextTick = micros() + LOOP_US;
@@ -143,11 +159,11 @@ void loop1() {
   LogRecord r;
   r.tick  = tick++;
   r.t_us  = now;
-  r.mode  = test.running ? MODE_MOTOR_TEST : MODE_RUNNING;
   r.flags = overranLastTick ? FLAG_OVERRUN : 0;
   if (!everCalibrated) r.flags |= FLAG_NO_BIAS;
 
-  if (imuRead(s)) {
+  bool imuOk = imuRead(s);
+  if (imuOk) {
     angleUpdate(angle, s, dt);
   } else {
     r.flags |= FLAG_IMU_ERROR;
@@ -165,9 +181,21 @@ void loop1() {
   r.speed_l = (int16_t)constrain(speedL.update(r.enc_l), -32000.0f, 32000.0f);
   r.speed_r = (int16_t)constrain(speedR.update(r.enc_r), -32000.0f, 32000.0f);
   if (test.running && millis() - test.startMs >= test.durationMs) motorTestStop();   // time's up
-  if (test.running) motorsDrive(test.left, test.right);
-  r.pwm_l = test.running ? test.left : 0;
-  r.pwm_r = test.running ? test.right : 0;
+
+  // Balance loop (does nothing unless armed). Same PWM to both wheels: no steering yet.
+  int pwm = balanceTick(angle, imuOk, overranLastTick, dt, r);
+
+  if (test.running) {
+    motorsDrive(test.left, test.right);
+    r.pwm_l = test.left;
+    r.pwm_r = test.right;
+  } else if (balance.armed) {
+    motorsDrive(pwm, pwm);
+    r.pwm_l = r.pwm_r = pwm;
+  } else {
+    r.pwm_l = r.pwm_r = 0;
+  }
+  r.mode = test.running ? MODE_MOTOR_TEST : balanceMode();
   // ------------------------------
 
   unsigned long work = micros() - now;
@@ -187,7 +215,7 @@ bool quiet = false;        // "quiet": pause the 10 Hz readout
 
 void printHelp() {
   Serial.println();
-  Serial.println("BB1 step 5 commands:");
+  Serial.println("BB1 step 6 commands:");
   Serial.println("  cal       measure the gyro bias again (lay the robot still first)");
   Serial.println("  alpha N   set the filter weight, 0.90 to 0.999 (now " + String(requestedAlpha, 3) + ")");
   Serial.println("  csv       switch the readout to comma-separated lines (again to switch back)");
@@ -201,6 +229,11 @@ void printHelp() {
   Serial.println("            e.g. m 100 100 = both forward 2 s;  m 0 -80 1000 = right backward 1 s");
   Serial.println("  stop      stop the motors now (so does pressing Enter during a test)");
   Serial.println("  enc       print both encoder counts (turn a wheel one turn by hand to check 520)");
+  Serial.println("  arm       start balancing (hold it near upright first). disarm, or Enter, stops it");
+  Serial.println("  kp N / ki N / kd N   set a gain (now " + String(gainKp, 2) + " / " + String(gainKi, 2) + " / " + String(gainKd, 2) + ")");
+  Serial.println("  trim N    balance point in deg (now " + String(balanceTrim, 2) + ");  trim here = use the current pitch");
+  Serial.println("  cap N     PWM limit while armed (now " + String(pwmCap, 0) + ");  deadband N  (now " + String(motorDeadband, 0) + ")");
+  Serial.println("  gains     print the balance settings");
   Serial.println("  help      this list");
 }
 
@@ -240,6 +273,34 @@ void dumpLog(float seconds) {
   }
   Serial.println("# end, " + String(total - first - skipped) + " records" +
                  (skipped ? ", " + String(skipped) + " overwritten before they could be printed" : ""));
+}
+
+void printGains() {
+  Serial.println("gains v" + String(gainsVersion) + ": kp " + String(gainKp, 2) + "  ki " + String(gainKi, 2) +
+                 "  kd " + String(gainKd, 2) + "  trim " + String(balanceTrim, 2) + " deg  cap " + String(pwmCap, 0) +
+                 "  deadband " + String(motorDeadband, 0));
+}
+
+// The newest pitch, read from the log like everything else on core 0.
+float latestPitch() {
+  LogRecord r;
+  return (totalWritten && logGet(totalWritten - 1, r)) ? r.pitch : 0;
+}
+
+// "kp 15", "trim here", ... Each change bumps gainsVersion so logs show it.
+bool handleGainCommand(const String &cmd) {
+  float v = cmd.substring(cmd.indexOf(' ') + 1).toFloat();
+  if      (cmd.startsWith("kp "))       gainKp = constrain(v, 0.0f, 100.0f);
+  else if (cmd.startsWith("ki "))       gainKi = constrain(v, 0.0f, 100.0f);
+  else if (cmd.startsWith("kd "))       gainKd = constrain(v, 0.0f, 20.0f);
+  else if (cmd == "trim here")          balanceTrim = latestPitch();
+  else if (cmd.startsWith("trim "))     balanceTrim = constrain(v, -20.0f, 20.0f);
+  else if (cmd.startsWith("cap "))      pwmCap = constrain(v, 0.0f, (float)PWM_MAX);
+  else if (cmd.startsWith("deadband ")) motorDeadband = constrain(v, 0.0f, 100.0f);
+  else return false;
+  gainsVersion = gainsVersion + 1;
+  printGains();
+  return true;
 }
 
 // "m L R [ms]": read up to three numbers and ask core 1 to run the test.
@@ -288,6 +349,16 @@ void handleCommand(String cmd) {
     quiet = !quiet;
   } else if (cmd == "stop") {
     requestMotorStop = true;
+    requestDisarm = true;
+  } else if (cmd == "arm") {
+    armedFromWeb = false;                      // armed from serial: Enter is your stop button
+    requestArm = true;
+  } else if (cmd == "disarm") {
+    requestDisarm = true;
+  } else if (cmd == "gains") {
+    printGains();
+  } else if (handleGainCommand(cmd)) {
+    // done
   } else if (cmd.startsWith("m ")) {
     startMotorTest(cmd.substring(2));
   } else if (cmd == "enc") {
@@ -311,6 +382,7 @@ void readSerial() {
     prev = c;
     if (c == '\n' || c == '\r') {
       if (line.length() == 0 && motorTestRunning) requestMotorStop = true;   // Enter = stop
+      if (line.length() == 0 && robotArmed) requestDisarm = true;           // Enter = disarm
       handleCommand(line);
       line = "";
     } else {
@@ -370,7 +442,7 @@ void setup() {
   while (!Serial && millis() - t0 < 5000) {}   // wait up to 5 s for a serial monitor
 
   Serial.println();
-  Serial.println("BB1 step 5: motors + encoders. Motors only run during a timed test (m L R ms).");
+  Serial.println("BB1 step 6: arm / disarm + angle loop. Motors run only when armed or in a timed test.");
   wifiStart();             // up to 15 s if a home network is saved; core 1 is already running
   webBegin();
   wifiPrintStatus();
@@ -409,6 +481,18 @@ void loop() {
                    " counts (" + String(lastTestMovedL * 1000L / ms) + "/s), right " + String(lastTestMovedR) +
                    " counts (" + String(lastTestMovedR * 1000L / ms) + "/s)");
   }
+
+  // Report arming and disarming (core 1 sets robotArmed, disarmReason, armAttempts).
+  static bool armedSeen = false;
+  static uint32_t attemptsSeen = 0;
+  if (armAttempts != attemptsSeen) {           // an arm request was handled
+    attemptsSeen = armAttempts;
+    Serial.println(robotArmed ? "ARMED: balancing. Enter or 'disarm' to stop."
+                              : String("not armed: ") + reasonText(disarmReason));
+  } else if (armedSeen && !robotArmed) {       // it was balancing and stopped
+    Serial.println(String("DISARMED: ") + reasonText(disarmReason));
+  }
+  armedSeen = robotArmed;
 
   readSerial();
   wifiLoop();

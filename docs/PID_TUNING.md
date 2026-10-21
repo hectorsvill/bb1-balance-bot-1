@@ -9,12 +9,14 @@ A balancing robot is an upside-down pendulum. If it leans forward, the wheels mu
 ## 2. The three terms
 
 ```text
-error  = setpoint - pitch          (setpoint is the balance angle, about 0 deg)
-P term = Kp * error                 how far am I leaning?   -> push back harder the more I lean
+error  = pitch - setpoint          (setpoint = the balance trim; forward lean past it = positive)
+P term = Kp * error                 how far am I leaning?   -> drive harder the more I lean
 I term = Ki * sum(error * dt)       have I been leaning for a while? -> fix a steady offset
-D term = -Kd * pitchRate            how fast am I falling?  -> damp the motion, stop overshoot
-pwm    = P + I + D                  (clamped to the PWM cap)
+D term = Kd * pitchRate             how fast am I falling?  -> react to the fall early, damp overshoot
+pwm    = P + I + D                  (plus the deadband, clamped to the PWM cap), same for both wheels
 ```
+
+Signs on BB1 (as built in step 6, `control.h`): pitch and pitch rate are positive leaning forward, and positive PWM rolls both wheels forward. Leaning forward, the wheels must roll forward to get back under the robot, so the error is `pitch - setpoint` and all three gains are positive. (Many textbooks write `setpoint - pitch` with a minus sign elsewhere; it's the same controller.)
 
 - **P** does most of the work. Too little: it falls slowly in one direction. Too much: it shakes back and forth fast.
 - **D** is the brake on P. It reacts to speed, not position, so it calms the oscillation. We use the gyro rate directly (it *is* the derivative of the angle), which is much less noisy than subtracting two angles.
@@ -28,6 +30,8 @@ Later the **speed loop** sits outside this one: if the wheels keep rolling forwa
 - Find the balance point: hold the robot where it feels balanced, read the pitch, and set it as the trim.
 - Find the motor deadband: the PWM at which the wheels just start to move. The controller adds it so small commands aren't lost.
 - PWM cap low (150/255) to start. Something soft to fall on.
+
+On BB1 (step 6) these are all on the page's **Balance** panel or serial: `trim here` / **Use current pitch as trim**, `deadband N`, `cap N`, `kp N`, `ki N`, `kd N`. They reset to `config.h` defaults at power-up until step 7 adds saving. Each change bumps `gains_ver`, which is in every log row.
 
 ## 4. Tuning steps on BB1
 

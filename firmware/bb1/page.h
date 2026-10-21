@@ -76,6 +76,9 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   .bar i { display:block; height:100%; background:var(--pitch); }
   button.stop { background:var(--bad); font-weight:700; }
   .num { width:90px; flex:none !important; min-width:0 !important; }
+  .state { font-size:22px; font-weight:700; }
+  .state.on { color:var(--ok); }
+  .gains label { display:inline-flex; gap:6px; align-items:center; font-size:13px; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -112,6 +115,7 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
       <tr><td>Encoders left / right (counts, forward +)</td><td id="enc">--</td></tr>
       <tr><td>Wheel speed left / right (counts/s)</td><td id="speed">--</td></tr>
       <tr><td>Motor PWM left / right</td><td id="pwm">--</td></tr>
+      <tr><td>PID terms P / I / D (PWM)</td><td id="pid">--</td></tr>
     </table>
   </div>
 
@@ -139,6 +143,34 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
     </div>
     <pre id="liveLog">Press Start to watch the log records arrive (the same columns as a downloaded CSV).</pre>
     <div class="msg" id="liveMsg"></div>
+  </div>
+
+  <div class="panel" id="p-balance">
+    <div class="head"><h2>Balance</h2></div>
+    <div class="row">
+      <span class="state" id="armState">--</span>
+      <span class="msg" id="armReason"></span>
+    </div>
+    <div class="row">
+      <button onclick="arm()">ARM</button>
+      <button class="stop" onclick="disarm()">DISARM (space)</button>
+    </div>
+    <div class="msg">Hold it near upright to arm. It disarms by itself if it leans past 45 deg, or if this page stops for 1 s.</div>
+    <div class="row gains" style="margin-top:10px">
+      <label>Kp <input class="num" id="gKp" type="number" step="0.5"></label>
+      <label>Ki <input class="num" id="gKi" type="number" step="0.1"></label>
+      <label>Kd <input class="num" id="gKd" type="number" step="0.05"></label>
+    </div>
+    <div class="row gains">
+      <label>trim <input class="num" id="gTrim" type="number" step="0.1"></label>
+      <label>cap <input class="num" id="gCap" type="number" step="5"></label>
+      <label>deadband <input class="num" id="gDb" type="number" step="1"></label>
+    </div>
+    <div class="row">
+      <button class="secondary" onclick="applyGains()">Apply</button>
+      <button class="secondary" onclick="post('/gains', {trim: 'here'}, 'gainsMsg')">Use current pitch as trim</button>
+    </div>
+    <div class="msg" id="gainsMsg">Changes apply on the next tick. Not saved: power-up goes back to the defaults in config.h.</div>
   </div>
 
   <div class="panel" id="p-motors">
@@ -274,7 +306,27 @@ function motorStop() {
   post('/motor/stop', null, 'motorMsg');
 }
 
-// Space bar = stop, anywhere on the page (except while typing in a box).
+// ---------- balance ----------
+
+function arm() { post('/arm', null, 'armReason'); }
+function disarm() { post('/disarm', null, 'armReason'); }
+
+function applyGains() {
+  post('/gains', { kp: el('gKp').value, ki: el('gKi').value, kd: el('gKd').value,
+                   trim: el('gTrim').value, cap: el('gCap').value, deadband: el('gDb').value }, 'gainsMsg');
+}
+
+// Fill the boxes from the robot when the page opens and after every change,
+// but never while you're typing in one.
+let gainsVerShown = -1;
+function showGains(g) {
+  if (g.ver === gainsVerShown || document.activeElement.closest && document.activeElement.closest('.gains')) return;
+  gainsVerShown = g.ver;
+  el('gKp').value = g.kp; el('gKi').value = g.ki; el('gKd').value = g.kd;
+  el('gTrim').value = g.trim; el('gCap').value = g.cap; el('gDb').value = g.deadband;
+}
+
+// Space bar = stop motors and disarm, anywhere on the page (except while typing in a box).
 document.addEventListener('keydown', e => {
   if (e.code === 'Space' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
     e.preventDefault();
@@ -535,6 +587,11 @@ async function poll() {
     el('enc').textContent = s.enc_l + ' / ' + s.enc_r;
     el('speed').textContent = s.speed_l + ' / ' + s.speed_r;
     el('pwm').textContent = s.pwm_l + ' / ' + s.pwm_r + (s.test_running ? '  (test running)' : '');
+    el('pid').textContent = s.p.toFixed(1) + ' / ' + s.i.toFixed(1) + ' / ' + s.d.toFixed(1);
+    el('armState').textContent = s.armed ? 'ARMED' : (s.mode === 5 ? 'FALLEN' : 'disarmed');
+    el('armState').className = s.armed ? 'state on' : 'state';
+    el('armReason').textContent = s.armed ? 'balancing' : s.reason;
+    showGains(s.gains);
     if (testsDoneSeen >= 0 && s.tests_done !== testsDoneSeen) {        // a test just finished
       const sec = Math.max(s.test_ms, 1) / 1000;
       el('motorMsg').textContent = 'done after ' + s.test_ms + ' ms: left moved ' + s.test_moved[0] +

@@ -62,6 +62,20 @@ const long COUNTS_PER_REV = 520;
 // at 1750 counts/s a single tick only sees about 9 counts, too coarse on its own.
 const int SPEED_WINDOW = 10;
 
+// ---------- balancing (step 6) ----------
+// Starting values. Change them live with serial (kp, ki, kd, trim, cap, deadband)
+// or the page's Balance panel. They reset to these at power-up until step 7
+// adds saving. Units: PWM per deg (Kp), PWM per deg*s (Ki), PWM per deg/s (Kd).
+const float DEFAULT_KP = 15.0;     // a guess to start from; tune per docs/PID_TUNING.md
+const float DEFAULT_KI = 0.0;
+const float DEFAULT_KD = 0.5;
+const float DEFAULT_TRIM = 0.0;    // deg: the pitch where BB1 really balances. Measure it (page: "Use current pitch").
+const float DEFAULT_PWM_CAP = 150; // PWM limit while armed (of 255). Raise once it balances.
+const float DEFAULT_DEADBAND = 0;  // PWM added so small corrections still turn the wheels. Measure it.
+const float ARM_ANGLE   = 10.0;    // deg: can only arm within this of the trim
+const float FALL_ANGLE  = 45.0;    // deg: past this while armed = fallen, motors off
+const unsigned long HEARTBEAT_MS = 1000;   // armed from the page: disarm if it goes quiet this long
+
 // ---------- angle filter ----------
 // Complementary filter weight: how much we trust the gyro each tick.
 // 0.98 at 200 Hz means the accelerometer pulls the angle back with a time

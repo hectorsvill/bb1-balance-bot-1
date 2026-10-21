@@ -187,8 +187,8 @@ Since step 4 the top lines come from `log_meta.h`:
 | `tick` | count | tick number since boot; goes up by exactly 1. A jump means records were lost. |
 | `t_us` | microseconds | when the tick started (since boot). Consecutive ticks are 5000 apart. |
 | `work_us` | microseconds | how long the tick's work took (budget 5000) |
-| `mode` | code | 0 boot, 1 calibrating, 2 running (motors off), 3 motor test running. Arm / disarm modes come in step 6. |
-| `flag_bits` | bits | 1 = IMU read failed this tick, 2 = the previous tick overran 5 ms, 4 = no successful gyro calibration yet (the robot was moving at startup; `pitch_rate` still includes the bias, and BB1 retries every 3 s). Usually 0. |
+| `mode` | code | 0 boot, 1 calibrating, 2 disarmed (motors off), 3 motor test running, 4 armed (balancing), 5 fallen (motors off until you arm or disarm again) |
+| `flag_bits` | bits | 1 = IMU read failed this tick, 2 = the previous tick overran 5 ms, 4 = no successful gyro calibration yet (the robot was moving at startup; `pitch_rate` still includes the bias, and BB1 retries every 3 s), 8 = armed and the PID output hit the PWM cap (saturated). Usually 0. |
 | `ax_raw` `ay_raw` `az_raw` | counts | accelerometer exactly as the chip sent it. g = raw / 16384 |
 | `temp_raw` | counts | chip temperature. deg C = raw / 340 + 36.53 |
 | `gx_raw` `gy_raw` `gz_raw` | counts | gyro exactly as sent, **bias not removed**. deg/s = raw / 65.5 - bias |
@@ -198,8 +198,11 @@ Since step 4 the top lines come from `log_meta.h`:
 | `enc_l` `enc_r` | counts | encoder counts since boot, forward +. 520 per wheel turn (assumed) |
 | `speed_l` `speed_r` | counts/s | wheel speed over the last 10 ticks (50 ms), forward + |
 | `pwm_l` `pwm_r` | -255..255 | what was sent to each motor this tick, forward +. 0 = motor off. This is the robot's "action" for training. |
+| `setpoint` | deg | the balance trim in use (step 6) |
+| `p_term` `i_term` `d_term` | PWM | the PID's three parts this tick (0 when disarmed). pwm = p + i + d (+ deadband), clamped to the cap |
+| `gains_ver` | count | which gains were in use; the `# gains_ver,...,kp,...` line at the top gives the values at the time of saving. Goes up on every change. |
 
-Raw values are kept on purpose: a better filter, or a model, can be re-run on them later. Step 5 added the six wheel columns (log format 2); steps 6 to 9 add PID and command columns at the end.
+Raw values are kept on purpose: a better filter, or a model, can be re-run on them later. Step 5 added the six wheel columns (log format 2), step 6 the five controller columns (log format 3); later steps add the speed loop and drive commands at the end.
 
 In your own Python, `load_dump()` from `tools/check_dump.py` gives you a pandas table:
 

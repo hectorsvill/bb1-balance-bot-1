@@ -37,7 +37,7 @@ LOG_MAX_PER_REQUEST = 1000
 ACCEL_PER_G = 16384.0
 GYRO_PER_DPS = 65.5
 CSV_HEADER = ("tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r")
+              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver")
 MOTOR_TEST_MAX_PWM = 150
 MOTOR_TEST_MAX_MS = 3000
 COUNTS_PER_S_PER_PWM = 17.5      # measured: about 1750 counts/s at PWM 100, wheels in the air
@@ -46,6 +46,10 @@ START = time.time()
 alpha = 0.98
 bias = [-0.50, 2.07, -2.20]      # deg/s, like a real calibration
 tests = []                        # motor tests: [first_tick, end_tick, left_pwm, right_pwm]
+gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": 0.0, "cap": 150.0, "deadband": 0.0}
+armed_from = None                 # tick it was armed at, or None
+reason = ""                       # why it last disarmed / refused, like disarmReason in control.h
+arm_attempts = 0
 
 
 def test_at(tick):
@@ -91,30 +95,42 @@ def record(tick):
     test = test_at(tick)
     enc_l, enc_r = encoders(tick)
     old_l, old_r = encoders(max(0, tick - 10))       # speed over the last 10 ticks, like motors.h
-    return {
+    r = {
         "tick": tick, "t_us": 2_000_000 + tick * 5000, "work_us": 450 + rng.randint(0, 40),
         "mode": 3 if test else 2, "flag_bits": 0,
         "enc": [enc_l, enc_r], "speed": [(enc_l - old_l) * 20, (enc_r - old_r) * 20],
-        "pwm": [test[2], test[3]] if test else [0, 0],
+        "pwm": [test[2], test[3]] if test else [0, 0], "ctl": [gains["trim"], 0, 0, 0],
         "raw": [int(ax), int(ay), int(az), -1200 + rng.randint(-5, 5), int(gx), int(gy), int(gz)],
         "pitch": pitch, "pitch_rate": rate, "accel_pitch": accel_pitch,
     }
+    if armed_from is not None and tick >= armed_from and not test:
+        # Pretend PD loop, same formula as control.h. (The mock robot keeps rocking
+        # whatever the PWM says: it shows the numbers, it doesn't simulate physics.)
+        g = gains
+        p, d = g["kp"] * (pitch - g["trim"]), g["kd"] * rate
+        out = max(-g["cap"], min(g["cap"], p + d))
+        r.update(mode=4, flag_bits=8 if abs(p + d) >= g["cap"] else 0,
+                 pwm=[int(round(out))] * 2, ctl=[g["trim"], p, 0.0, d])
+    return r
 
 
 def csv_line(r):
     raw = ",".join(str(v) for v in r["raw"])
     return (f'{r["tick"]},{r["t_us"]},{r["work_us"]},{r["mode"]},{r["flag_bits"]},{raw},'
             f'{r["pitch"]:.3f},{r["pitch_rate"]:.3f},{r["accel_pitch"]:.3f},'
-            f'{r["enc"][0]},{r["enc"][1]},{r["speed"][0]},{r["speed"][1]},{r["pwm"][0]},{r["pwm"][1]}\n')
+            f'{r["enc"][0]},{r["enc"][1]},{r["speed"][0]},{r["speed"][1]},{r["pwm"][0]},{r["pwm"][1]},'
+            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]}\n')
 
 
 def meta_lines():
     return ("# firmware,bb1 MOCK (tools/mock_bb1.py)\n"
-            "# log_format,2\n"
+            "# log_format,3\n"
             f"# gyro_bias_dps,{bias[0]:.3f},{bias[1]:.3f},{bias[2]:.3f}\n"
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
             "# accel_pitch_sign,1,gyro_pitch_sign,1\n"
-            "# counts_per_rev,520,speed_window_ticks,10,pwm_max,255,pwm_freq_hz,20000\n")
+            "# counts_per_rev,520,speed_window_ticks,10,pwm_max,255,pwm_freq_hz,20000\n"
+            "# gains_ver,{ver},kp,{kp:.3f},ki,{ki:.3f},kd,{kd:.3f},trim,{trim:.2f},pwm_cap,{cap:.0f},deadband,{deadband:.0f}\n"
+            .format(**gains))
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -146,6 +162,8 @@ class Handler(BaseHTTPRequestHandler):
                 "enc_l": r["enc"][0], "enc_r": r["enc"][1], "speed_l": r["speed"][0], "speed_r": r["speed"][1],
                 "pwm_l": r["pwm"][0], "pwm_r": r["pwm"][1], "test_running": r["mode"] == 3,
                 "tests_done": len(done), "test_moved": moved, "test_ms": (last[1] - last[0]) * 5,
+                "armed": r["mode"] == 4, "reason": reason, "arm_attempts": arm_attempts,
+                "p": round(r["ctl"][1], 1), "i": 0.0, "d": round(r["ctl"][3], 1), "gains": gains,
             }
             self.reply(json.dumps(state), "application/json")
         elif url.path == "/log/meta":
@@ -176,7 +194,7 @@ class Handler(BaseHTTPRequestHandler):
         return "".join(out)
 
     def do_POST(self):
-        global alpha
+        global alpha, armed_from, reason, arm_attempts
         length = int(self.headers.get("Content-Length") or 0)
         form = {k: v[0] for k, v in parse_qs(self.rfile.read(length).decode()).items()}
         if self.path == "/cal":
@@ -190,6 +208,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(f"alpha = {a:.3f}")
         elif self.path == "/motor":
             now = total_written()
+            if armed_from is not None:
+                return self.reply("disarm first: no motor test while balancing", status=409)
             if test_at(now):
                 return self.reply("a motor test is already running", status=409)
             clamp = lambda v, lim: max(-lim, min(lim, int(v or 0)))
@@ -197,7 +217,31 @@ class Handler(BaseHTTPRequestHandler):
             ms = max(0, min(MOTOR_TEST_MAX_MS, int(form.get("ms") or 2000)))
             tests.append([now, now + ms // 5, l, r])
             self.reply(f"running: left {l}, right {r} for {ms} ms (mock: nothing moves)")
+        elif self.path == "/arm":
+            r = record(total_written() - 1)
+            arm_attempts += 1
+            if abs(r["pitch"] - gains["trim"]) > 10:          # same rule as balanceArm() in control.h
+                reason = "not upright: hold it near the balance point to arm"
+            else:
+                armed_from, reason = total_written(), ""
+            self.reply("arming...")
+        elif self.path == "/disarm":
+            if armed_from is not None:
+                armed_from, reason = None, "disarmed by you"
+            self.reply("disarmed")
+        elif self.path == "/gains":
+            limits = {"kp": (0, 100), "ki": (0, 100), "kd": (0, 20), "cap": (0, 255), "deadband": (0, 100), "trim": (-20, 20)}
+            for k, (lo, hi) in limits.items():
+                v = form.get(k)
+                if k == "trim" and v == "here":
+                    gains["trim"] = round(record(total_written() - 1)["pitch"], 2)
+                elif v:
+                    gains[k] = max(lo, min(hi, float(v)))
+            gains["ver"] += 1
+            self.reply("gains v{ver}: kp {kp}, ki {ki}, kd {kd}, trim {trim}, cap {cap}, deadband {deadband}".format(**gains))
         elif self.path == "/motor/stop":
+            if armed_from is not None:
+                armed_from, reason = None, "disarmed by you"
             now = total_written()
             for t in tests:
                 if t[0] <= now < t[1]:

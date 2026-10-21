@@ -13,7 +13,10 @@
 //   GET  /log?since=N log records from tick N on, as CSV (see handleLog)
 //   GET  /sys         RAM and flash use as JSON (the page's System panel)
 //   POST /motor       args left, right, ms: timed motor test (same as serial "m L R ms")
-//   POST /motor/stop  stop the motors now
+//   POST /motor/stop  stop the motors now (and disarm)
+//   POST /arm         start balancing (refused unless upright; see control.h)
+//   POST /disarm      stop balancing
+//   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband
 //
 // Each handler is short and never touches the IMU or motors directly: it reads
 // the log buffer or sets a request in shared.h, exactly like the serial commands.
@@ -24,6 +27,7 @@
 #include "shared.h"
 #include "wifi_setup.h"
 #include "log_meta.h"
+#include "control.h"
 #include "page.h"
 
 WebServer server(80);
@@ -36,18 +40,21 @@ void handlePage() {
 }
 
 void handleState() {
+  lastWebHeartbeatMs = millis();               // the page is still there (see HEARTBEAT_MS)
   LogRecord r;
   uint32_t total = totalWritten;
   bool have = total > 0 && logGet(total - 1, r);
 
-  char json[768];
+  char json[1024];
   snprintf(json, sizeof(json),
            "{\"have\":%s,\"tick\":%lu,\"t_us\":%lu,\"mode\":%u,\"flag_bits\":%u,"
            "\"pitch\":%.2f,\"accel_pitch\":%.2f,\"pitch_rate\":%.2f,\"work_us\":%u,"
            "\"alpha\":%.3f,\"bias\":[%.2f,%.2f,%.2f],\"calibrations\":%lu,\"cal_ok\":%s,\"ever_cal\":%s,\"imu\":%s,"
            "\"wifi_mode\":\"%s\",\"wifi_ssid\":\"%s\",\"ip\":\"%s\",\"uptime_s\":%lu,"
            "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
-           "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu}",
+           "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
+           "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
+           "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f}}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
            have ? r.mode : 0, have ? r.flags : 0,
@@ -61,7 +68,10 @@ void handleState() {
            have ? (long)r.enc_l : 0L, have ? (long)r.enc_r : 0L, have ? r.speed_l : 0, have ? r.speed_r : 0,
            have ? r.pwm_l : 0, have ? r.pwm_r : 0,
            motorTestRunning ? "true" : "false", (unsigned long)motorTestsDone,
-           (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs);
+           (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
+           robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts,
+           have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
+           (unsigned long)gainsVersion, gainKp, gainKi, gainKd, balanceTrim, pwmCap, motorDeadband);
   server.send(200, "application/json", json);
 }
 
@@ -148,7 +158,7 @@ void handleLog() {
   LogRecord r;
   for (uint32_t n = first; n < last; n++) {
     if (!logGet(n, r)) continue;                // overwritten while we were sending: skip
-    if (len > (int)sizeof(chunk) - 200) {       // nearly full: send what we have (a line is < 200)
+    if (len > (int)sizeof(chunk) - 240) {       // nearly full: send what we have (a line is < 240)
       server.sendContent(chunk, len);
       len = 0;
     }
@@ -162,6 +172,10 @@ void handleLog() {
 // Out-of-range numbers are clamped to the limits in config.h, never refused
 // silently: the answer says what will actually run.
 void handleMotor() {
+  if (robotArmed) {
+    server.send(409, "text/plain", "disarm first: no motor test while balancing");
+    return;
+  }
   if (motorTestRunning) {
     server.send(409, "text/plain", "a motor test is already running");
     return;
@@ -178,7 +192,45 @@ void handleMotor() {
 
 void handleMotorStop() {
   requestMotorStop = true;
+  requestDisarm = true;                        // the page's STOP / space bar stops everything
   server.send(200, "text/plain", "stopped");
+}
+
+// POST /arm: core 1 decides whether it's safe (control.h) and the page shows
+// the answer from /state ("armed" and "reason") a moment later.
+void handleArm() {
+  armedFromWeb = true;                         // armed from here: the page must keep polling /state
+  lastWebHeartbeatMs = millis();
+  requestArm = true;
+  server.send(200, "text/plain", "arming...");
+}
+
+void handleDisarm() {
+  requestDisarm = true;
+  server.send(200, "text/plain", "disarmed");
+}
+
+// POST /gains kp=15&kd=0.5 ... Only the fields sent are changed. Same limits as
+// the serial commands. "trim=here" uses the current pitch.
+void handleGains() {
+  auto num = [](const char *name, float lo, float hi, volatile float &target) {
+    if (server.hasArg(name) && server.arg(name).length()) target = constrain(server.arg(name).toFloat(), lo, hi);
+  };
+  num("kp", 0, 100, gainKp);
+  num("ki", 0, 100, gainKi);
+  num("kd", 0, 20, gainKd);
+  num("cap", 0, PWM_MAX, pwmCap);
+  num("deadband", 0, 100, motorDeadband);
+  if (server.arg("trim") == "here") {
+    LogRecord r;
+    if (totalWritten && logGet(totalWritten - 1, r)) balanceTrim = r.pitch;
+  } else {
+    num("trim", -20, 20, balanceTrim);
+  }
+  gainsVersion = gainsVersion + 1;
+  server.send(200, "text/plain", "gains v" + String(gainsVersion) + ": kp " + String(gainKp, 2) + ", ki " +
+              String(gainKi, 2) + ", kd " + String(gainKd, 2) + ", trim " + String(balanceTrim, 2) +
+              ", cap " + String(pwmCap, 0) + ", deadband " + String(motorDeadband, 0));
 }
 
 // GET /sys -> how much of the Pico's memory the firmware uses.
@@ -222,6 +274,9 @@ void webBegin() {
   server.on("/sys", HTTP_GET, handleSys);
   server.on("/motor", HTTP_POST, handleMotor);
   server.on("/motor/stop", HTTP_POST, handleMotorStop);
+  server.on("/arm", HTTP_POST, handleArm);
+  server.on("/disarm", HTTP_POST, handleDisarm);
+  server.on("/gains", HTTP_POST, handleGains);
   server.onNotFound([]() { server.send(404, "text/plain", "not found"); });
   server.begin();
 }

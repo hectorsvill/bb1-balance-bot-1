@@ -8,16 +8,25 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- Run the bb1 step 5 motor test on the robot (wheels in the air)
+- Hand-held arm test of bb1 step 6, measure the trim and the motor deadband
 
-## 2026-10-21 - bb1 step 5: motors + encoders (motor test not run yet)
+## 2026-10-21 - bb1 step 6: arm / disarm + angle loop (not armed on the robot yet)
+
+- pid.h (derivative on the gyro rate, clamped integral, no windup while saturated), control.h (disarmed / armed / fallen, arm only within 10 deg of trim and calibrated; disarm on > 45 deg, 5 IMU errors or overruns in a row, or 1 s without the page while armed from it)
+- Live gains: serial `arm`, `disarm`, `kp/ki/kd N`, `trim N` / `trim here`, `cap N`, `deadband N`, `gains`; page Balance panel; `POST /arm`, `/disarm`, `/gains`. STOP / space bar / Enter also disarm. Defaults in config.h (Kp 15, Ki 0, Kd 0.5, cap 150), not saved yet
+- Sign convention: error = pitch - trim, all gains positive (docs/PID_TUNING.md updated)
+- Log format 3: setpoint, p_term, i_term, d_term (stored x10 as int16), gains_ver; mode 4 armed, 5 fallen; flag 8 saturated; `# gains_ver,...` meta line. Record 68 bytes, buffer 136 KB; heap 40 KB free on the robot
+- Mock arms, refuses when not upright, and shows the PD numbers
+- Uploaded. Self-check disarmed, logger 15 s with /state polled at 20 Hz: 2947 records, 0 lost, 0 missing ticks, spacing 4997 to 5003 us, work 516 avg / 743 max
+
+## 2026-10-21 - bb1 step 5: motors + encoders
 
 - motors.h: TB6612 driver (forward +, STBY low unless a test runs), encoder interrupts on core 1, wheel speed over 10 ticks
 - Timed motor test from serial (`m L R ms`, `stop`, Enter), the page (Motor test panel, STOP / space bar) and `POST /motor`, `/motor/stop`; capped at PWM 150 and 3 s; mode 3 while running
 - LogRecord 40 -> 56 bytes (enc_l, enc_r, speed_l, speed_r, pwm_l, pwm_r); log format 2; `# counts_per_rev...` meta line; buffer 112 KB
 - check_dump.py: wheel summary and a speed / PWM plot; mock_bb1.py fakes the motors (17.5 counts/s per PWM)
 - Compiles: 20% flash, 70% RAM static, heap 64 KB free on the robot
-- Uploaded (the Pico came back after Hector replugged it). Self-check with no motors, logger.py 21 s over Wi-Fi while /state was polled at 20 Hz: 4254 records, 0 lost, 0 missing ticks, spacing 4997 to 5002 us, work 500 us avg / 716 max, 0 errors. That also covers step 4's logging path.
+- Motor test passed on the robot (Hector, 2026-10-21). Uploaded (the Pico came back after Hector replugged it). Self-check with no motors, logger.py 21 s over Wi-Fi while /state was polled at 20 Hz: 4254 records, 0 lost, 0 missing ticks, spacing 4997 to 5002 us, work 500 us avg / 716 max, 0 errors. That also covers step 4's logging path.
 
 ## 2026-10-21 - bb1 step 4: saving logs, live log view
 

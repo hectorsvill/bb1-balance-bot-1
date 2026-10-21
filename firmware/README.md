@@ -6,6 +6,21 @@
 | `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
+## bb1, step 6: arm / disarm + the angle loop
+
+The first balance controller (`pid.h`, `control.h`). Boots **disarmed**. **ARM** (page, or `arm` on serial) only works within 10 deg of the trim with the gyro calibrated; then the PID drives both wheels from the lean. It disarms by itself if it leans past 45 deg (FALLEN), the IMU fails 5 ticks running, the loop overruns 5 ticks running, or (armed from the page) the page stops asking for `/state` for 1 s. **DISARM**, STOP, the space bar, serial `disarm` or Enter stop it.
+
+Gains, trim, PWM cap and deadband change live (page **Balance** panel or serial `kp 15`, `kd 0.5`, `trim here`, `cap 80`, `gains`). Defaults are in `config.h` (Kp 15, Ki 0, Kd 0.5, cap 150), a guess to start from. Not saved yet (step 7).
+
+Every log row now also has `setpoint, p_term, i_term, d_term, gains_ver` (log format 3), and `mode` 4 = armed, 5 = fallen; flag 8 = output hit the cap.
+
+What to check, **hand-held first** (hold the frame, wheels free, fingers clear of the wheels):
+1. Hold it at the balance point, **Use current pitch as trim** (or `trim here`). Write the number down.
+2. Set the cap low (`cap 80`), **ARM**. Tilt it a little forward: both wheels roll **forward** (toward the lean), harder the more you tilt. Tilt back: they roll backward. If it's the other way round, disarm and tell me (a sign is wrong).
+3. Tilt it past 45 deg: it disarms by itself (FALLEN). Close the page while armed: disarms within 1 s.
+4. **Record** a run of steps 2 and 3 and check it with `check_dump.py --plot`.
+5. Only then on the floor, over something soft, following docs/PID_TUNING.md.
+
 ## bb1, step 5: motors + encoders (timed motor test)
 
 Everything from step 4, plus the motors and encoders on core 1 (`motors.h`). Encoders count all the time; the motors only run during a **timed motor test**, which always stops by itself (max 3 s, max PWM 150 of 255; both in `config.h`). STBY stays low the rest of the time. Every log record now also has `enc_l, enc_r, speed_l, speed_r, pwm_l, pwm_r` (log format 2).

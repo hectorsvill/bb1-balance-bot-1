@@ -34,9 +34,10 @@ The panels sit in one column, on a phone or a Mac. Each panel's **▲ ▼** arro
 | Panel | Shows / does |
 |---|---|
 | Pitch | big pitch number and a 10 s chart: blue = filtered pitch, orange = accelerometer only |
-| Live values | pitch rate, accel pitch, loop work time, tick, gyro bias, filter alpha, IMU status, uptime, encoders, wheel speeds, motor PWM |
+| Live values | pitch rate, accel pitch, loop work time, tick, gyro bias, filter alpha, IMU status, uptime, encoders, wheel speeds, motor PWM, PID terms |
 | Record a log | **Record** / **Stop** / **Download** a run, **Save last 10 s** (see below) |
 | Live log | the log records as they arrive, same columns as a downloaded file. Show every record (200/s), every 10th or every 40th. Pause, Clear. |
+| Balance | **ARM** / **DISARM** (space bar also disarms), state (ARMED / disarmed / FALLEN and why), Kp Ki Kd, trim, PWM cap, deadband with **Apply**, **Use current pitch as trim** |
 | Motor test | left / right PWM (-150..150, forward +) and a time (0.5 to 3 s), **Run** (asks "wheels off the table?"), **STOP**. The space bar also stops, anywhere on the page. Shows how far each wheel moved. |
 | Actions | **Calibrate gyro** (lay it still first), **Set alpha** |
 | Pico memory | RAM used (fixed globals incl. the 80 KB log buffer, plus heap), heap free, flash used, page size, CPU clock. Updates every 2 s. |
@@ -44,7 +45,9 @@ The panels sit in one column, on a phone or a Mac. Each panel's **▲ ▼** arro
 
 The top right says **connected** (green), **connection lost** (red) if BB1 stops answering, or **MOCK robot** (orange) when it's the offline mock.
 
-Coming next: Arm / Disarm and PID gains (steps 6 and 7), drive pad (milestone 2).
+Coming next: saving gains and a step test (step 7), drive pad (milestone 2).
+
+Armed from the page, BB1 disarms if the page stops polling `/state` for 1 s (closed tab, phone screen off, Wi-Fi drop). That's on purpose.
 
 ### Saving logs
 
@@ -85,7 +88,10 @@ You can call these yourself with `curl` (on the same network as BB1):
 | `GET /log?since=N` | log records from tick N on, as CSV (up to 1000 per request; see below) |
 | `GET /sys` | RAM and flash use as JSON |
 | `POST /motor` with `left=100&right=100&ms=2000` | timed motor test (clamped to the limits in `config.h`) |
-| `POST /motor/stop` | stop the motors now |
+| `POST /motor/stop` | stop the motors now and disarm |
+| `POST /arm` | start balancing (refused unless near upright and calibrated; `/state` says why) |
+| `POST /disarm` | stop balancing |
+| `POST /gains` with any of `kp ki kd trim cap deadband` | change them live; `trim=here` uses the current pitch |
 
 `/log` starts with one line saying what came back, then the header and rows:
 

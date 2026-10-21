@@ -24,6 +24,19 @@ volatile uint16_t testMs       = 0;        // how long, at most MOTOR_TEST_MAX_M
 volatile bool     requestMotorTest = false;
 volatile bool     requestMotorStop = false; // stop now (page Stop button, space bar, serial "stop")
 
+// Balancing (step 6). Core 0 sets these; core 1 reads them every tick.
+// Each is 32 bits, so a tick never sees half a number. gainsVersion counts
+// every change, and goes in each log record so a run shows which gains it used.
+volatile float    gainKp = DEFAULT_KP, gainKi = DEFAULT_KI, gainKd = DEFAULT_KD;
+volatile float    balanceTrim   = DEFAULT_TRIM;
+volatile float    pwmCap        = DEFAULT_PWM_CAP;
+volatile float    motorDeadband = DEFAULT_DEADBAND;
+volatile uint32_t gainsVersion  = 1;
+volatile bool     requestArm    = false;
+volatile bool     requestDisarm = false;
+volatile bool     armedFromWeb  = false;     // armed from the page: the heartbeat check applies
+volatile uint32_t lastWebHeartbeatMs = 0;    // millis() of the page's latest /state request
+
 // Status from core 1 to core 0
 volatile bool     imuFound       = false;
 volatile uint32_t calibrationsDone = 0;    // counts up after each calibration attempt
@@ -34,3 +47,6 @@ volatile uint32_t motorTestsDone = 0;      // counts up when a test ends
 volatile int32_t  lastTestMovedL = 0;      // encoder counts each wheel moved in the last test
 volatile int32_t  lastTestMovedR = 0;
 volatile uint32_t lastTestRanMs  = 0;
+volatile bool     robotArmed     = false;   // the balance loop is driving the motors
+volatile uint8_t  disarmReason   = 0;       // Reason in control.h: why it last disarmed / refused to arm
+volatile uint32_t armAttempts    = 0;       // counts up after each arm request is handled
