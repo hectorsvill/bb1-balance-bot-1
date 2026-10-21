@@ -1,0 +1,26 @@
+// log_meta.h - the "# setting,value" lines at the top of every log file.
+//
+// A log file should explain itself months later (and to a model trained on it):
+// which firmware made it, the gyro bias that was subtracted, the filter weight,
+// and how to turn raw counts into units. Every way of saving a log uses this
+// same block: the serial "dump", the web page's Download, and tools/logger.py.
+
+#pragma once
+#include "config.h"
+#include "imu.h"
+#include "shared.h"
+
+// Bump this when the log columns change, so old and new files can be told apart.
+const char *FIRMWARE_NAME = "bb1 step 4";
+const int   LOG_FORMAT    = 1;
+
+String logMetaLines() {
+  String m;
+  m += "# firmware," + String(FIRMWARE_NAME) + "\n";
+  m += "# log_format," + String(LOG_FORMAT) + "\n";
+  m += "# gyro_bias_dps," + String(gyroBias[0], 3) + "," + String(gyroBias[1], 3) + "," + String(gyroBias[2], 3) + "\n";
+  m += "# alpha," + String(requestedAlpha, 3) + ",loop_hz," + String(LOOP_HZ) +
+       ",accel_lsb_per_g," + String(ACCEL_PER_G, 1) + ",gyro_lsb_per_dps," + String(GYRO_PER_DPS, 1) + "\n";
+  m += "# accel_pitch_sign," + String((int)ACCEL_PITCH_SIGN) + ",gyro_pitch_sign," + String((int)GYRO_PITCH_SIGN) + "\n";
+  return m;
+}

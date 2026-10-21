@@ -5,13 +5,20 @@
 // R"PAGE( ... )PAGE" is a C++ "raw string": everything between the markers is
 // taken exactly as written, so the HTML needs no escaping.
 //
+// Memory: the string is "const", so it stays in flash (about 20 KB of 2 MB)
+// and costs no RAM. The browser does all the layout work, not the Pico.
+//
 // How it works: every 50 ms the page asks GET /state, adds the pitch to a
 // 10-second history, and redraws the chart and the numbers. Buttons send POSTs
-// (see web.h for the list).
+// (see web.h for the list). While Record or the Live log is on, one loop pulls
+// every 5 ms record with GET /log?since=N and hands it to both.
 //
-// To change the page: edit it here, recompile, upload. (Tip: copy the part
-// between the markers into a .html file to try layout changes in a browser;
-// the numbers just won't update.)
+// Layout: the panels sit in one column. Each panel's arrows move it up or
+// down; the order is remembered by this browser (localStorage). Anything wider
+// than a panel (tables, the live log) scrolls sideways inside the panel.
+//
+// To change the page without the robot: run tools/mock_bb1.py, which serves
+// this exact page with made-up data (docs/WEB_INTERFACE.md, "Offline mock").
 
 #pragma once
 
@@ -27,29 +34,46 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   * { box-sizing: border-box; }
   body { margin:0; padding:16px; background:var(--bg); color:var(--text);
          font:15px/1.4 -apple-system, system-ui, sans-serif; }
-  h1 { font-size:20px; margin:0 0 4px; }
-  h2 { font-size:15px; margin:0 0 10px; color:var(--muted); font-weight:600; }
-  .top { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  h1 { font-size:20px; margin:0; }
+  h2 { font-size:15px; margin:0; color:var(--muted); font-weight:600; }
+  .top { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px;
+         max-width:960px; margin:0 auto 12px; }
   .conn { font-size:13px; color:var(--muted); }
   .conn b { color:var(--ok); }
   .conn.lost b { color:var(--bad); }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .conn.mock b { color:var(--accel); }
+  /* One column of panels. min-width:0 lets a panel shrink to the screen, and
+     overflow-x:auto makes wide content scroll inside it instead of stretching the page. */
+  .stack { display:flex; flex-direction:column; gap:12px; max-width:960px; margin:0 auto; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px;
+           min-width:0; overflow-x:auto; }
+  .head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .move button { background:none; color:var(--muted); padding:2px 8px; font-size:13px; }
+  .move button:hover { color:var(--text); }
   .big { font-size:44px; font-weight:700; font-variant-numeric:tabular-nums; }
   .big small { font-size:16px; color:var(--muted); font-weight:400; }
-  canvas { width:100%; height:220px; display:block; }
-  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
-  td { padding:4px 0; border-bottom:1px solid var(--line); }
-  td:last-child { text-align:right; }
+  canvas { width:100%; min-width:300px; height:220px; display:block; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  td { padding:4px 12px 4px 0; border-bottom:1px solid var(--line); }
+  td:last-child { text-align:right; padding-right:0; }
   .legend span { margin-right:14px; font-size:13px; }
   .legend i { display:inline-block; width:10px; height:3px; vertical-align:middle; margin-right:5px; }
-  button, input { font:inherit; border-radius:8px; border:1px solid var(--line); padding:8px 12px; }
+  button, input, select { font:inherit; border-radius:8px; border:1px solid var(--line); padding:8px 12px; }
   button { background:#2a6df4; color:white; border:none; cursor:pointer; }
   button.secondary { background:#39414d; }
-  input { background:#0d1014; color:var(--text); width:100%; }
-  .row { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
-  .row input { flex:1; }
+  button:disabled { opacity:0.4; cursor:default; }
+  input, select { background:#0d1014; color:var(--text); }
+  input { width:100%; }
+  .row { display:flex; gap:8px; margin-bottom:8px; align-items:center; flex-wrap:wrap; }
+  .row input { flex:1; min-width:160px; }
   .msg { font-size:13px; color:var(--muted); min-height:1.4em; }
+  /* The live log: fixed height, scrolls both ways, lines never wrap. */
+  pre { margin:0; height:260px; overflow:auto; white-space:pre; background:#0d1014;
+        border:1px solid var(--line); border-radius:8px; padding:8px;
+        font:12px/1.5 ui-monospace, Menlo, monospace; }
+  .bar { width:140px; height:8px; background:#0d1014; border-radius:4px; display:inline-block;
+         vertical-align:middle; margin-left:8px; overflow:hidden; }
+  .bar i { display:block; height:100%; background:var(--pitch); }
 </style>
 </head>
 <body>
@@ -59,10 +83,10 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   <div class="conn" id="conn">connecting...</div>
 </div>
 
-<div class="grid">
+<div class="stack" id="stack">
 
-  <div class="panel">
-    <h2>Pitch (forward +)</h2>
+  <div class="panel" id="p-pitch">
+    <div class="head"><h2>Pitch (forward +)</h2></div>
     <div class="big"><span id="pitch">--</span><small> deg</small></div>
     <canvas id="chart"></canvas>
     <div class="legend">
@@ -72,8 +96,8 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
     </div>
   </div>
 
-  <div class="panel">
-    <h2>Live values</h2>
+  <div class="panel" id="p-values">
+    <div class="head"><h2>Live values</h2></div>
     <table>
       <tr><td>Pitch rate</td><td id="rate">--</td></tr>
       <tr><td>Accel-only pitch</td><td id="accel">--</td></tr>
@@ -86,8 +110,34 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
     </table>
   </div>
 
-  <div class="panel">
-    <h2>Actions</h2>
+  <div class="panel" id="p-log">
+    <div class="head"><h2>Record a log</h2></div>
+    <div class="row"><input id="note" placeholder="note for this run, e.g. tilt test" autocomplete="off"></div>
+    <div class="row">
+      <button id="recBtn" onclick="toggleRecord()">Record</button>
+      <button class="secondary" id="dlBtn" onclick="downloadRecording()" disabled>Download</button>
+      <button class="secondary" onclick="saveLast()">Save last 10 s</button>
+    </div>
+    <div class="msg" id="logMsg">Record keeps every 5 ms tick until you press Stop. Save last 10 s grabs what just happened.</div>
+  </div>
+
+  <div class="panel" id="p-live">
+    <div class="head"><h2>Live log</h2></div>
+    <div class="row">
+      <button id="liveBtn" onclick="toggleLive()">Start</button>
+      <select id="liveEvery" title="how many records to show">
+        <option value="1">every record (200/s)</option>
+        <option value="10" selected>every 10th (20/s)</option>
+        <option value="40">every 40th (5/s)</option>
+      </select>
+      <button class="secondary" onclick="clearLive()">Clear</button>
+    </div>
+    <pre id="liveLog">Press Start to watch the log records arrive (the same columns as a downloaded CSV).</pre>
+    <div class="msg" id="liveMsg"></div>
+  </div>
+
+  <div class="panel" id="p-actions">
+    <div class="head"><h2>Actions</h2></div>
     <div class="row">
       <button onclick="post('/cal', null, 'calMsg')">Calibrate gyro</button>
       <span class="msg">lay the robot still first</span>
@@ -100,8 +150,21 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
     <div class="msg" id="alphaMsg"></div>
   </div>
 
-  <div class="panel">
-    <h2>Network</h2>
+  <div class="panel" id="p-sys">
+    <div class="head"><h2>Pico memory</h2></div>
+    <table>
+      <tr><td>RAM used (of 256 KB)</td><td id="ramUsed">--</td></tr>
+      <tr><td>&nbsp;&nbsp;fixed: globals, incl. the log buffer</td><td id="ramStatic">--</td></tr>
+      <tr><td>&nbsp;&nbsp;heap in use (Wi-Fi, web requests)</td><td id="heapUsed">--</td></tr>
+      <tr><td>Heap free</td><td id="heapFree">--</td></tr>
+      <tr><td>Flash used by the program (of 2 MB)</td><td id="flashUsed">--</td></tr>
+      <tr><td>&nbsp;&nbsp;this page</td><td id="pageSize">--</td></tr>
+      <tr><td>CPU clock</td><td id="cpu">--</td></tr>
+    </table>
+  </div>
+
+  <div class="panel" id="p-net">
+    <div class="head"><h2>Network</h2></div>
     <div class="msg" id="netNow"></div>
     <div class="row"><input id="ssid" placeholder="home Wi-Fi name" autocomplete="off"></div>
     <div class="row"><input id="pass" type="password" placeholder="home Wi-Fi password"></div>
@@ -116,6 +179,40 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
 
 <script>
 const el = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ---------- moving panels ----------
+//
+// Each panel gets an up and a down arrow. Moving one just moves its <div> in
+// the page; the new order is saved in this browser so it stays after a reload.
+
+const stack = el('stack');
+
+function saveOrder() {
+  const ids = [...stack.children].map(p => p.id);
+  try { localStorage.setItem('bb1.panelOrder', JSON.stringify(ids)); } catch (e) {}
+}
+
+function movePanel(panel, dir) {
+  if (dir < 0 && panel.previousElementSibling) stack.insertBefore(panel, panel.previousElementSibling);
+  if (dir > 0 && panel.nextElementSibling) stack.insertBefore(panel.nextElementSibling, panel);
+  saveOrder();
+  panel.scrollIntoView({ block: 'nearest' });
+}
+
+for (const panel of stack.children) {
+  const box = document.createElement('span');
+  box.className = 'move';
+  box.innerHTML = '<button title="move up">&#9650;</button><button title="move down">&#9660;</button>';
+  box.children[0].onclick = () => movePanel(panel, -1);
+  box.children[1].onclick = () => movePanel(panel, +1);
+  panel.querySelector('.head').appendChild(box);
+}
+
+try {                                          // put the panels back in the saved order
+  const saved = JSON.parse(localStorage.getItem('bb1.panelOrder') || '[]');
+  for (const id of saved) if (el(id)) stack.appendChild(el(id));
+} catch (e) {}
 
 // ---------- talking to the robot ----------
 
@@ -139,6 +236,185 @@ function saveWifi() {
 function forgetWifi() {
   if (!confirm('Forget the home network and restart on BB1\'s own network?')) return;
   post('/wifi/forget', null, 'netMsg');
+}
+
+// ---------- pulling log records ----------
+//
+// The robot keeps the last 10 s of records. While Record or Live log is on,
+// pumpLoop() asks for everything newer than what we have (/log?since=next)
+// about four times a second and hands the new lines to whoever is listening.
+// One loop for both, so watching and recording never ask twice.
+
+// Ask for records from tick "since" on. The first line of the answer says
+// which ticks came back and how many were lost (see handleLog in web.h).
+async function fetchLog(since) {
+  const text = await (await fetch('/log?since=' + since, { cache: 'no-store' })).text();
+  const lines = text.split('\n').filter(l => l.length);
+  const info = lines[0].slice(2).split(',');        // "# from,1200,to,1450,lost,0"
+  const get = k => Number(info[info.indexOf(k) + 1]);
+  return { from: get('from'), to: get('to'), lost: get('lost'), header: lines[1], rows: lines.slice(2) };
+}
+
+let pumpRunning = false, pumpNext = 0, logHeader = '';
+
+function startPump() {
+  if (pumpRunning) return;                          // already running: it will see the new listener
+  pumpRunning = true;
+  pumpNext = lastTick >= 0 ? lastTick + 1 : 0;      // start from "now"
+  pumpLoop();
+}
+
+async function pumpLoop() {
+  while (rec.on || live.on) {
+    try {
+      const r = await fetchLog(pumpNext);
+      logHeader = r.header;
+      pumpNext = r.to;
+      if (rec.on) recordAdd(r.rows, r.lost);
+      if (live.on) liveAdd(r.rows, r.lost);
+      if (r.to - r.from < 1000) await sleep(250);   // caught up: wait a bit before asking again
+    } catch (e) {
+      el('logMsg').textContent = el('liveMsg').textContent = 'no answer from the robot, retrying...';
+      await sleep(500);
+    }
+  }
+  pumpRunning = false;
+}
+
+// ---------- recording ----------
+
+const rec = { on: false, rows: [], lost: 0, meta: '', header: '', note: '', started: null };
+
+function recStatus(word) {
+  return word + ': ' + rec.rows.length + ' records (' + (rec.rows.length / 200).toFixed(1) + ' s)' +
+         (rec.lost ? ', ' + rec.lost + ' lost' : '');
+}
+
+function recordAdd(rows, lost) {
+  rec.rows.push(...rows);
+  rec.lost += lost;
+  rec.header = logHeader;
+  el('logMsg').textContent = recStatus('recording');
+}
+
+async function toggleRecord() {
+  if (rec.on) {                                     // Stop
+    rec.on = false;
+    el('recBtn').textContent = 'Record';
+    el('dlBtn').disabled = rec.rows.length === 0;
+    el('logMsg').textContent = recStatus('stopped') + '. Press Download to save.';
+    return;
+  }
+  try {
+    rec.meta = await (await fetch('/log/meta')).text();
+  } catch (e) {
+    el('logMsg').textContent = 'no answer from the robot';
+    return;
+  }
+  rec.rows = []; rec.lost = 0; rec.note = el('note').value; rec.started = new Date();
+  rec.on = true;
+  el('recBtn').textContent = 'Stop';
+  el('dlBtn').disabled = true;
+  el('logMsg').textContent = recStatus('recording');
+  startPump();
+}
+
+// Build the file: settings lines, note, header, records. Same layout as the
+// serial "dump" and tools/logger.py, so tools/check_dump.py reads all of them.
+function saveFile(meta, note, started, header, rows, lost) {
+  const pad = n => String(n).padStart(2, '0');
+  const d = started;
+  const stamp = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' +
+                pad(d.getHours()) + '-' + pad(d.getMinutes()) + '-' + pad(d.getSeconds());
+  const slug = note.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+  const text = meta +
+    '# note,' + note.replace(/[,\n]/g, ';') + '\n' +
+    '# recorded_at,' + d.toISOString() + '\n' +
+    '# records,' + rows.length + ',lost,' + lost + '\n' +
+    header + '\n' + rows.join('\n') + '\n';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = 'bb1_' + stamp + (slug ? '_' + slug : '') + '.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function downloadRecording() {
+  saveFile(rec.meta, rec.note, rec.started, rec.header, rec.rows, rec.lost);
+}
+
+// Everything the robot still has (about 10 s), fetched in pieces of up to 1000.
+async function saveLast() {
+  try {
+    const meta = await (await fetch('/log/meta')).text();
+    let r = await fetchLog(0), rows = r.rows, header = r.header;
+    while (r.to - r.from >= 1000) { r = await fetchLog(r.to); rows = rows.concat(r.rows); }
+    const note = el('note').value || 'last 10 s';
+    saveFile(meta, note, new Date(), header, rows, 0);
+    el('logMsg').textContent = 'saved the last ' + (rows.length / 200).toFixed(1) + ' s (' + rows.length + ' records)';
+  } catch (e) {
+    el('logMsg').textContent = 'no answer from the robot';
+  }
+}
+
+// ---------- live log ----------
+//
+// Shows the newest records as text. Only the last LIVE_LINES are kept, so the
+// page doesn't slow down after a long run. "every 10th" keeps it readable;
+// Record still saves every record either way.
+
+const LIVE_LINES = 200;
+const live = { on: false, lines: [], total: 0, lost: 0 };
+
+function liveAdd(rows, lost) {
+  const every = Number(el('liveEvery').value);
+  for (const line of rows) {
+    const tick = parseInt(line, 10);               // the first column is the tick number
+    if (tick % every === 0) live.lines.push(line);
+  }
+  live.total += rows.length;
+  live.lost += lost;
+  if (live.lines.length > LIVE_LINES) live.lines.splice(0, live.lines.length - LIVE_LINES);
+
+  const pre = el('liveLog');
+  const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+  pre.textContent = logHeader + '\n' + live.lines.join('\n');
+  if (atBottom) pre.scrollTop = pre.scrollHeight;  // follow new lines, unless you scrolled up to read
+  el('liveMsg').textContent = live.total + ' records received' + (live.lost ? ', ' + live.lost + ' lost' : '') +
+                              '. Scroll sideways for more columns.';
+}
+
+function toggleLive() {
+  live.on = !live.on;
+  el('liveBtn').textContent = live.on ? 'Pause' : 'Start';
+  if (live.on) startPump();
+}
+
+function clearLive() {
+  live.lines = []; live.total = 0; live.lost = 0;
+  el('liveLog').textContent = logHeader;
+  el('liveMsg').textContent = '';
+}
+
+// ---------- Pico memory ----------
+
+const kb = b => (b / 1024).toFixed(1) + ' KB';
+const bar = (part, whole) => '<span class="bar"><i style="width:' + (100 * part / whole).toFixed(0) + '%"></i></span>';
+
+async function pollSys() {
+  try {
+    const m = await (await fetch('/sys', { cache: 'no-store' })).json();
+    const used = m.ram_static + m.heap_used;
+    el('ramUsed').innerHTML = kb(used) + ' (' + (100 * used / m.ram_total).toFixed(0) + '%)' + bar(used, m.ram_total);
+    el('ramStatic').textContent = kb(m.ram_static) + ' (log buffer ' + kb(m.log_buffer) + ')';
+    el('heapUsed').textContent = kb(m.heap_used);
+    el('heapFree').textContent = kb(m.heap_total - m.heap_used);
+    el('flashUsed').innerHTML = kb(m.flash_used) + ' (' + (100 * m.flash_used / m.flash_total).toFixed(0) + '%)' +
+                                bar(m.flash_used, m.flash_total);
+    el('pageSize').textContent = kb(m.page);
+    el('cpu').textContent = m.cpu_mhz + ' MHz';
+  } catch (e) {}
+  setTimeout(pollSys, 2000);                           // memory changes slowly
 }
 
 // ---------- the chart ----------
@@ -189,9 +465,9 @@ async function poll() {
     const res = await fetch('/state', { cache: 'no-store' });
     const s = await res.json();
     failures = 0;
-    el('conn').className = 'conn';
-    el('conn').innerHTML = '<b>connected</b> &middot; ' + (s.wifi_mode === 'home' ? 'home network ' : 'own network ') +
-                           s.wifi_ssid + ' &middot; ' + s.ip;
+    el('conn').className = s.mock ? 'conn mock' : 'conn';
+    el('conn').innerHTML = (s.mock ? '<b>MOCK robot (made-up data)</b>' : '<b>connected</b>') + ' &middot; ' +
+                           (s.wifi_mode === 'home' ? 'home network ' : 'own network ') + s.wifi_ssid + ' &middot; ' + s.ip;
     el('netNow').textContent = s.wifi_mode === 'home'
       ? 'On the home network "' + s.wifi_ssid + '". Own network is off.'
       : 'On BB1\'s own network "' + s.wifi_ssid + '". Save a home network below to join it instead.';
@@ -207,7 +483,8 @@ async function poll() {
         lastTick = s.tick;
       }
     }
-    el('bias').textContent = s.bias.map(b => b.toFixed(2)).join(' / ');
+    el('bias').innerHTML = s.ever_cal ? s.bias.map(b => b.toFixed(2)).join(' / ')
+      : '<span style="color:var(--bad)">not calibrated: set the robot down still</span>';
     el('alphaNow').textContent = s.alpha.toFixed(3);
     el('imu').textContent = s.imu ? 'ok' : 'NOT FOUND';
     el('uptime').textContent = s.uptime_s + ' s';
@@ -224,6 +501,7 @@ async function poll() {
 }
 
 poll();
+pollSys();
 </script>
 </body>
 </html>

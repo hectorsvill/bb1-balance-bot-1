@@ -52,10 +52,11 @@ firmware/bb1/
   web.h            web server routes
   secrets.h        own-network password (not in git; copy secrets.example.h)
   page.h           the HTML/JS page as one string
+  log_meta.h       the "# setting" lines at the top of every log file
 tools/             Python helpers, own virtual environment in tools/venv
   requirements.txt
-  logger.py        pulls log records from the Pico over Wi-Fi, writes CSV + metadata
-  plot_run.py      plots one run
+  logger.py        pulls log records from the Pico over Wi-Fi, writes one CSV with settings lines
+  mock_bb1.py      pretend BB1 on the Mac for working on the page (check_dump.py --plot plots runs)
 ```
 
 ### Two cores, two jobs
@@ -160,7 +161,7 @@ Each record is one control tick:
 | Controller | error, P, I, D terms, PWM L/R actually sent |
 | Context | mode, gains version number, flags (saturated, fallen) |
 
-The `.json` / `meta.json` holds the gains, firmware version and git commit, sign settings, and a note you type before recording.
+As built in step 4, the settings go in `# setting` lines at the top of the same CSV instead of a separate `.json` (one file per run, and the serial `dump` already worked that way): firmware, log format, bias, alpha, scales, signs, the note you type, the time and record count. Gains are added when the PID arrives.
 
 Why this works for training later: each row has what the robot sensed (observation), what was asked of it (operator command), and what it did (PWM). That's the standard shape for imitation learning (learn the driving from your remote-control runs in milestone 2) or for fitting a model of the robot's physics. Raw sensor values are kept, not just filtered ones, so a future model isn't stuck with today's filter. Tick numbers make any missing rows show up as gaps instead of silent errors.
 
@@ -171,7 +172,7 @@ Why this works for training later: each row has what the robot sensed (observati
 | 1 | `bb1` skeleton: config, IMU, bias calibration, complementary filter, print pitch over serial | tilt it, pitch follows and doesn't drift | no |
 | 2 | Two cores: control loop on core 1 at 200 Hz, loop-time stats, log record + ring buffer | loop time steady | no |
 | 3 | Wi-Fi (own network + home network setting) + page with live pitch chart | open the page on phone/Mac | no |
-| 4 | Log Record / Download on the page, `logger.py`, `plot_run.py` | log a tilt run, plot it | no |
+| 4 | Log Record / Download on the page, live log view, `logger.py` (plotting: `check_dump.py --plot`), offline mock | log a tilt run, plot it | no |
 | 5 | Motors + encoders in `bb1`, timed motor test from the page | wheels in the air | yes, timed |
 | 6 | Arm/disarm, safety checks, angle PD loop | hand-held, then on the floor | yes |
 | 7 | Live gain tuning, step test, save gains | tune per PID_TUNING.md | yes |

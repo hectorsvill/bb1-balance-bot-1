@@ -155,6 +155,31 @@ tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_
 
 Lines starting with `#` are settings and notes, so the file explains itself later (and a model trained on it knows the bias and scales).
 
+### Other ways to save a log (step 4 on)
+
+Every way of saving writes the same layout, so `check_dump.py` and `load_dump()` read all of them:
+
+| Way | Good for |
+|---|---|
+| serial `dump` | the robot is on USB anyway |
+| web page **Record / Download**, **Save last 10 s** | everyday runs, from a phone or the Mac (WEB_INTERFACE.md) |
+| `tools/logger.py` | long runs, building a training set (TOOLS.md) |
+
+Since step 4 the top lines come from `log_meta.h`:
+
+```text
+# firmware,bb1 step 4
+# log_format,1
+# gyro_bias_dps,-0.418,2.099,-2.149
+# alpha,0.980,loop_hz,200,accel_lsb_per_g,16384.0,gyro_lsb_per_dps,65.5
+# accel_pitch_sign,1,gyro_pitch_sign,1
+# note,tilt test
+# recorded_at,2026-10-22T10:15:00-04:00
+# records,2400,lost,0
+```
+
+`log_format` goes up whenever the columns change. Files whose firmware says `MOCK` came from the offline mock: made-up data, keep them out of any analysis or training set.
+
 ### Columns
 
 | Column | Unit | Meaning |
@@ -163,7 +188,7 @@ Lines starting with `#` are settings and notes, so the file explains itself late
 | `t_us` | microseconds | when the tick started (since boot). Consecutive ticks are 5000 apart. |
 | `work_us` | microseconds | how long the tick's work took (budget 5000) |
 | `mode` | code | 0 boot, 1 calibrating, 2 running (motors off). More modes come with the motors. |
-| `flag_bits` | bits | 1 = IMU read failed this tick, 2 = the previous tick overran 5 ms. Usually 0. |
+| `flag_bits` | bits | 1 = IMU read failed this tick, 2 = the previous tick overran 5 ms, 4 = no successful gyro calibration yet (the robot was moving at startup; `pitch_rate` still includes the bias, and BB1 retries every 3 s). Usually 0. |
 | `ax_raw` `ay_raw` `az_raw` | counts | accelerometer exactly as the chip sent it. g = raw / 16384 |
 | `temp_raw` | counts | chip temperature. deg C = raw / 340 + 36.53 |
 | `gx_raw` `gy_raw` `gz_raw` | counts | gyro exactly as sent, **bias not removed**. deg/s = raw / 65.5 - bias |

@@ -20,3 +20,4 @@ volatile float requestedAlpha   = FILTER_ALPHA;
 volatile bool     imuFound       = false;
 volatile uint32_t calibrationsDone = 0;    // counts up after each calibration attempt
 volatile bool     lastCalibrationOk = false;
+volatile bool     everCalibrated = false;  // true once any calibration has succeeded since boot

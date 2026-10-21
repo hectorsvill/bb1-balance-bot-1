@@ -10,6 +10,17 @@ How to get a sketch onto BB1, and how to see it running.
 
 USB alone pushes 5 V backwards into the D153C's regulator. The diode will fix this later.
 
+### Battery care (2S 1300 mAh LiPo, no voltage sensing yet)
+
+Leaving BB1 powered on the battery while you work is fine: with the motors off (STBY low) it draws roughly 50 to 100 mA (Pico W with Wi-Fi, IMU, the D153C's regulator), so the pack lasts many hours. But nothing on the robot watches the voltage yet, so:
+
+- Keep each cell above about 3.5 V (7.0 V for the pack) and never let it go below 3.0 V per cell (6.0 V): that damages a LiPo for good.
+- Check it with a LiPo checker or multimeter on the balance plug every couple of hours of use.
+- Unplug the battery when you walk away or overnight (USB out first).
+- For storage longer than a few days, charge or discharge to about 3.8 V per cell.
+
+The battery voltage divider (docs/FUTURE_INTEGRATIONS.md) will let the page show and log the voltage.
+
 ## 1. Compile
 
 From the repo folder:
@@ -89,4 +100,5 @@ Only one program can hold the port at a time. Close the monitor before uploading
 | Upload says the port is busy | Close the serial monitor / screen first. |
 | Nothing prints after flashing | The sketch waits up to 5 s for a monitor, then runs anyway; open the monitor and type `help`, or press Enter. |
 | Output is garbage | Baud rate isn't 115200. |
+| Upload says `No drive to deploy` and the port disappears | The Pico rebooted into its bootloader but macOS didn't mount RPI-RP2. Look for an "Allow accessory to connect?" pop-up and allow it; otherwise unplug and replug USB (it boots the old firmware) and retry, or use the BOOTSEL way. |
 | `Operation not permitted` on `/Volumes/RPI-RP2` (uploading from Claude Code) | macOS hasn't given that app access to removable drives. The Pico is already in bootloader mode at this point, so drag the `.uf2` onto RPI-RP2 in Finder yourself. Or allow it in System Settings > Privacy & Security > Files and Folders > Removable Volumes. |

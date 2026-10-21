@@ -8,7 +8,17 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- bb1 step 4 (Record / Download logs from the page, tools/logger.py)
+- Test bb1 step 4 on the robot (upload stalled 2026-10-21: the Mac lost the Pico in bootloader mode)
+
+## 2026-10-21 - bb1 step 4: saving logs, live log view (not tested on the robot yet)
+
+- web.h: `/log?since=N` (CSV, up to 1000 records per request, sent in chunks, reports lost records), `/log/meta`, `/sys` (RAM and flash use)
+- log_meta.h: one block of `# setting` lines (firmware, log_format, bias, alpha, scales, signs) shared by the serial dump, the page and logger.py
+- page.h: Record / Stop / Download, Save last 10 s, Live log panel (every record, 10th or 40th; scrolls sideways), Pico memory panel; panels in one column, reorderable with arrows (saved per browser)
+- Startup calibration retries every 3 s if the robot was moving; new flag bit 4 (no bias yet); `ever_cal` in /state
+- tools/logger.py (record over Wi-Fi), tools/mock_bb1.py (offline mock serving the real page); check_dump.py reads all three file sources and keeps text settings
+- docs: WEB_INTERFACE.md (saving logs, endpoints, offline mock), TOOLS.md, CALIBRATION_AND_LOGS.md, FLASHING.md (battery care, upload troubleshooting), new FUTURE_INTEGRATIONS.md (battery divider, OLED, Pi Zero W + camera, HC-SR04)
+- Compiles: 20% flash (421 KB), 58% RAM static, 109 KB free. Tested against the mock: logger 782 records 0 missing; page Record 415 records 0 gaps; layout fits a 375 px phone with the log scrolling inside its panel.
 
 ## 2026-10-21 - bb1 step 3: Wi-Fi + web page
 

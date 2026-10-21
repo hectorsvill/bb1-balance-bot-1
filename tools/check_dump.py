@@ -5,8 +5,9 @@ Usage:
     tools/venv/bin/python tools/check_dump.py logs/my_dump.txt
     tools/venv/bin/python tools/check_dump.py logs/my_dump.txt --plot
 
-A dump is what the "dump" command prints: a few "# setting" lines, a CSV
-header starting with "tick", then one line per 5 ms control tick.
+Also reads the CSV files from the web page's Download / Save last 10 s and
+from tools/logger.py: all of them are a few "# setting" lines, a CSV header
+starting with "tick", then one line per 5 ms control tick.
 Column meanings: docs/CALIBRATION_AND_LOGS.md.
 """
 
@@ -41,7 +42,7 @@ def load_dump(path):
                     try:
                         settings[k] = float(v)
                     except ValueError:
-                        pass          # a plain note like "# end, 1800 records", not a setting
+                        settings[k] = v.strip()   # text, like the firmware name or a note
         elif line.startswith("tick") or line[:1].isdigit():
             rows.append(line)
     df = pd.read_csv(io.StringIO("".join(rows)))

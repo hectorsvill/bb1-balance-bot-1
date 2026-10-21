@@ -2,7 +2,7 @@
 
 Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6050) is built and every part has passed its bring-up test.
 
-**Next step:** `firmware/bb1` step 4: Record / Download logs from the page and `tools/logger.py`. Steps 1 to 3 passed on the robot 2026-10-21. BB1 is on Hector's home network (saved in Pico flash) at http://bb1.local; own network "BB1" / `bb1robot` at http://192.168.42.1 is the fallback. Claude's sandbox blocks the local network: reach the robot with `dangerouslyDisableSandbox` and its IP (type `wifi` on serial), since curl to bb1.local can time out. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
+**Next step:** test `firmware/bb1` step 4 on the robot (Record / Download / Save last 10 s, live log, Pico memory panel, `tools/logger.py`; checklist in `firmware/README.md`). Code is done and tested against the offline mock; the upload stalled 2026-10-21 when the Mac lost the Pico in bootloader mode. Steps 1 to 3 passed on the robot 2026-10-21. BB1 is on Hector's home network (saved in Pico flash) at http://bb1.local; own network "BB1" / `bb1robot` at http://192.168.42.1 is the fallback. Claude's sandbox blocks the local network: reach the robot with `dangerouslyDisableSandbox` and its IP (type `wifi` on serial), since curl to bb1.local can time out. After that: step 5 motors + encoders, then the balance loop (PID), then driving. Parts not fitted yet (battery divider, OLED, Pi Zero W + camera, HC-SR04): `docs/FUTURE_INTEGRATIONS.md`. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
 
 ## How to work with me
 
@@ -17,7 +17,9 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 ## Firmware structure (bb1)
 
 - Core 1 (`setup1`/`loop1`) owns the IMU (and later the motors) and runs the 200 Hz loop; it never prints. Core 0 (`setup`/`loop`) does serial, later Wi-Fi. Core 0 asks core 1 for things through `shared.h` flags; core 1 acts between ticks.
-- Core 0 also runs Wi-Fi and the web server (`wifi_setup.h`, `web.h`, `page.h`); the page only reads log records and sets the same `shared.h` requests as serial commands. Home Wi-Fi settings live in Pico flash (EEPROM library); the own-network password is in `secrets.h` (gitignored; template `secrets.example.h`). See `docs/WEB_INTERFACE.md`.
+- Core 0 also runs Wi-Fi and the web server (`wifi_setup.h`, `web.h`, `page.h`); the page only reads log records and sets the same `shared.h` requests as serial commands. Home Wi-Fi settings live in Pico flash (EEPROM library); the own-network password is in `secrets.h` (gitignored; template `secrets.example.h`). See `docs/WEB_INTERFACE.md`. Page panels sit in one column (reorderable, wide content scrolls inside its panel); the page lives in flash, not RAM.
+- `tools/mock_bb1.py` serves the real `page.h` with fake data at http://localhost:8080 for page work without the robot. Any new endpoint in `web.h` needs a fake answer there too. Mock logs say `firmware,bb1 MOCK`: never mix them into real data.
+- Every log file (serial `dump`, page Download, `logger.py`) is the same layout: `# setting` lines from `log_meta.h`, then the CSV. Bump `LOG_FORMAT` when columns change.
 - Every tick fills one `LogRecord` (`telemetry.h`) into a mutex-guarded ring buffer. New fields go at the end of the struct, in `csvHeader()`/`printCsv()`, and in the column table in `docs/CALIBRATION_AND_LOGS.md`.
 
 ## Directions and signs (measured 2026-10-20)
@@ -38,7 +40,7 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 - Raspberry Pi Pico W (RP2040) on a sideways carrier, 4x M2 screws
 - D153C dual motor driver (TB6612) on the other face of the spine, 4x M2.5 screws; Dupont sockets on its header pins
 - GY-521 (MPU-6050) in the base pocket on the Pico side
-- 2S LiPo strapped to the bottom plate
+- 2S 1300 mAh LiPo strapped to the bottom plate (no voltage sensing yet: check it by hand, never below 3.0 V per cell; see `docs/FLASHING.md`, Battery care)
 - 3D-printed reverse-T top frame (short layout, 84 tall, wire windows); sources in `cad/`
 - Not yet fitted: HC-SR04 (holder goes on the front end), SSD1306 OLED, Pi Zero W (next milestone), 1N5819 diode, battery voltage divider
 
@@ -85,7 +87,7 @@ D153C 5V goes straight to VSYS. Switch the D153C on (battery connected) **before
 - `firmware/bb1/` the main firmware (grown step by step), `firmware/motor_test` and `imu_test` bring-up sketches, `firmware/uf2/` prebuilt files
 - `tools/` Python helpers with their own venv (`tools/venv`, rebuilt from `tools/requirements.txt`, not committed); run them with `tools/venv/bin/python`
 - `cad/` OpenSCAD sources and `cad/stl/` the exact STLs printed
-- `docs/` BUILD_RECORD.md (as built + test results), WIRING.md, CHANGELOG.md, FIRMWARE_PLAN.md (plan and choices), PID_TUNING.md, FLASHING.md (power order, upload, BOOTSEL, monitor), WEB_INTERFACE.md (connecting, endpoints, editing the page), TOOLS.md (every tool, venv, how to run, common errors; keep it current when a tool is added), CALIBRATION_AND_LOGS.md (gyro bias cal, readout fields, capturing and summarizing runs; add new log columns here)
+- `docs/` BUILD_RECORD.md (as built + test results), WIRING.md, CHANGELOG.md, FIRMWARE_PLAN.md (plan and choices), PID_TUNING.md, FLASHING.md (power order, upload, BOOTSEL, monitor), WEB_INTERFACE.md (connecting, endpoints, editing the page), TOOLS.md (every tool, venv, how to run, common errors; keep it current when a tool is added), CALIBRATION_AND_LOGS.md (gyro bias cal, readout fields, capturing and summarizing runs; add new log columns here), FUTURE_INTEGRATIONS.md (parts not fitted yet: wiring, power, which to buy)
 
 ## Docs
 

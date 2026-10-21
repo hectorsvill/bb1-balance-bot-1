@@ -118,9 +118,33 @@ tools/venv/bin/python tools/check_dump.py logs/my_dump.txt --plot
 
 Reads what the firmware's `dump` command printed (captured with `serial_log.py -s dump`). Reports lost ticks, timing, errors; `--plot` shows pitch, rate and loop time.
 
-### Coming later
+It also reads the CSV files from the web page (Download, Save last 10 s) and from `logger.py`: same layout. So `check_dump.py --plot` is also how you plot a run (the planned `plot_run.py` wasn't needed).
 
-`logger.py` (save runs over Wi-Fi) and `plot_run.py` (plot a full log), in step 4.
+### logger.py: record a run over Wi-Fi
+
+```bash
+tools/venv/bin/python tools/logger.py -t 60 -n "tilt test"
+```
+
+Pulls every 5 ms record from BB1 over Wi-Fi (the same `/log?since=` the page uses) and writes `logs/bb1_<date>_<time>_<note>.csv`. Good for long runs: no browser tab to keep open.
+
+| Option | Meaning |
+|---|---|
+| `-t 60` | stop after 60 s (leave it out to stop with Ctrl-C) |
+| `-n "tilt test"` | a note saved in the file and its name |
+| `--host 192.168.42.1` | robot address (default `bb1.local`); use the IP on BB1's own network, or if `.local` is slow |
+| `--host localhost:8080` | the offline mock instead of the robot |
+| `-o logs/x.csv` | choose the file name |
+
+Then check it with `check_dump.py`, which it prints for you at the end.
+
+### mock_bb1.py: a pretend robot for working on the page
+
+```bash
+tools/venv/bin/python tools/mock_bb1.py
+```
+
+Open http://localhost:8080. Serves the real page from `firmware/bb1/page.h` with made-up data; edit `page.h`, reload the browser. Details: [WEB_INTERFACE.md](WEB_INTERFACE.md#offline-mock-work-on-the-page-without-the-robot). Uses only the Python standard library.
 
 ## Typical test session
 
@@ -158,3 +182,5 @@ means "there's no such file **from the folder I'm in**". Check `pwd` and `ls`. (
 | `ModuleNotFoundError: No module named 'serial'` | venv not active: `source tools/venv/bin/activate` |
 | `Resource busy` on `/dev/cu.usbmodem...` | another program (Serial Monitor, screen) has the port |
 | `No Pico found` | USB not plugged in, or the Pico is in BOOTSEL mode |
+| `Can't find bb1.local` (logger.py) | Mac not on the same network as BB1, or `.local` lookups failing: use `--host <ip>` (type `wifi` on serial) |
+| `Address already in use` (mock_bb1.py) | a mock is already running (another terminal), or pick `--port 9000` |

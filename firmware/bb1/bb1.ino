@@ -1,6 +1,6 @@
 // bb1.ino - BB1 balance bot main firmware.
 //
-// Step 3 of docs/FIRMWARE_PLAN.md: Wi-Fi and the web page.
+// Step 4 of docs/FIRMWARE_PLAN.md: saving logs from the web page (on top of step 3's Wi-Fi page).
 //
 //   core 1 (setup1 / loop1): the 200 Hz control loop and nothing else.
 //       read IMU -> complementary filter -> fill a LogRecord -> push it into the ring buffer
@@ -24,6 +24,7 @@
 //   shared.h     requests from core 0 to core 1, status back
 //   wifi_setup.h own network / home network, saved settings
 //   web.h        web server routes;  page.h  the page itself
+//   log_meta.h   the "# setting" lines at the top of every log file
 //   secrets.h    own-network password (not in git; copy secrets.example.h)
 
 #include "config.h"
@@ -32,6 +33,7 @@
 #include "telemetry.h"
 #include "shared.h"
 #include "wifi_setup.h"
+#include "log_meta.h"
 #include "web.h"
 
 // Give core 1 its own 8 KB stack instead of splitting one 8 KB stack between the
@@ -46,6 +48,7 @@ Angle angle;               // only core 1 touches this; core 0 sees it through t
 
 void calibrateNow() {
   lastCalibrationOk = imuCalibrate();
+  if (lastCalibrationOk) everCalibrated = true;
   angle.started = false;   // restart the filter from the accelerometer angle
   calibrationsDone = calibrationsDone + 1;
 }
@@ -80,12 +83,21 @@ void loop1() {
   }
   angle.alpha = requestedAlpha;
 
+  // If the startup calibration failed (someone was holding the robot), try
+  // again every 3 s until it's set down still. Without a bias the angle drifts.
+  static unsigned long lastCalAttemptMs = 0;
+  if (imuFound && !everCalibrated && millis() - lastCalAttemptMs > 3000) {
+    lastCalAttemptMs = millis();
+    requestCalibrate = true;                   // handled at the top of the next tick
+  }
+
   // ---- the work of one tick ----
   LogRecord r;
   r.tick  = tick++;
   r.t_us  = now;
   r.mode  = MODE_RUNNING;
   r.flags = overranLastTick ? FLAG_OVERRUN : 0;
+  if (!everCalibrated) r.flags |= FLAG_NO_BIAS;
 
   if (imuRead(s)) {
     angleUpdate(angle, s, dt);
@@ -116,7 +128,7 @@ bool quiet = false;        // "quiet": pause the 10 Hz readout
 
 void printHelp() {
   Serial.println();
-  Serial.println("BB1 step 3 commands:");
+  Serial.println("BB1 step 4 commands:");
   Serial.println("  cal       measure the gyro bias again (lay the robot still first)");
   Serial.println("  alpha N   set the filter weight, 0.90 to 0.999 (now " + String(requestedAlpha, 3) + ")");
   Serial.println("  csv       switch the readout to comma-separated lines (again to switch back)");
@@ -152,15 +164,8 @@ void dumpLog(float seconds) {
     return;
   }
 
-  // Lines starting with # are notes, not data. They record the settings, so a
-  // log file can be understood on its own later (and fed to a model).
-  Serial.println("# bb1 log dump, step 3 firmware");
-  Serial.print("# gyro_bias_dps,");
-  Serial.print(gyroBias[0], 3); Serial.print(',');
-  Serial.print(gyroBias[1], 3); Serial.print(',');
-  Serial.println(gyroBias[2], 3);
-  Serial.println("# alpha," + String(requestedAlpha, 3) + ",loop_hz," + String(LOOP_HZ) +
-                 ",accel_lsb_per_g," + String(ACCEL_PER_G, 1) + ",gyro_lsb_per_dps," + String(GYRO_PER_DPS, 1));
+  // Lines starting with # are settings and notes, not data (see log_meta.h).
+  Serial.print(logMetaLines());
   csvHeader(Serial);
 
   uint32_t skipped = 0;
@@ -272,7 +277,7 @@ void setup() {
   while (!Serial && millis() - t0 < 5000) {}   // wait up to 5 s for a serial monitor
 
   Serial.println();
-  Serial.println("BB1 step 3: Wi-Fi + web page. Motors are off.");
+  Serial.println("BB1 step 4: Wi-Fi page + log download. Motors are off.");
   wifiStart();             // up to 15 s if a home network is saved; core 1 is already running
   webBegin();
   wifiPrintStatus();
@@ -296,7 +301,9 @@ void loop() {
       Serial.println("Gyro calibrated.");
       printBias();
     } else {
-      Serial.println("! robot moved (or the IMU didn't answer): bias not changed. Type cal to retry.");
+      Serial.println(everCalibrated
+                     ? "! robot moved (or the IMU didn't answer): bias not changed. Type cal to retry."
+                     : "! robot moved during calibration. Set it down still; retrying every 3 s.");
     }
   }
 

@@ -6,6 +6,31 @@
 | `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
+## bb1, step 4: saving logs + live log view (no motors)
+
+Everything from step 3, plus: **Record / Stop / Download** and **Save last 10 s** on the page, a **Live log** panel, a **Pico memory** panel, panels in one column you can reorder with ▲ ▼, and `tools/logger.py` to record from the Mac. New endpoints `/log?since=N`, `/log/meta`, `/sys` (docs/WEB_INTERFACE.md). If the robot is moving at startup, calibration now retries every 3 s until it's still (flag bit 4 in the log until then).
+
+Working on the page without the robot: `tools/venv/bin/python tools/mock_bb1.py`, then http://localhost:8080.
+
+What to check:
+1. Page opens at http://bb1.local; Pico memory shows about 150 KB RAM and 420 KB flash used.
+2. Live log: press Start, tilt the robot, the `pitch` column (13th) follows. Scroll sideways inside the box.
+3. Type a note, **Record** about 20 s of tilting, **Stop**, **Download**. Then:
+
+```bash
+tools/venv/bin/python tools/check_dump.py ~/Downloads/<the file>.csv --plot
+```
+
+   Missing ticks 0, the plot shows your tilts.
+4. **Save last 10 s** right after a tilt: the file has about 2000 records.
+5. From the Mac (robot on the home network):
+
+```bash
+tools/venv/bin/python tools/logger.py -t 30 -n "logger test"
+```
+
+   0 lost, 0 missing ticks, spacing about 5000 us (the web traffic mustn't disturb core 1).
+
 ## bb1, step 3: Wi-Fi + web page (no motors)
 
 Everything from step 2, plus the web page. How to connect and what's on it: [docs/WEB_INTERFACE.md](../docs/WEB_INTERFACE.md). New serial commands: `wifi` (network and address), `wifi reset` (forget the home network), `quiet` (pause the readout).

@@ -25,6 +25,7 @@ enum Mode : uint8_t {
 // Bits in LogRecord::flags
 const uint8_t FLAG_IMU_ERROR = 1 << 0;   // the IMU read failed this tick (sensor fields repeat the last good values)
 const uint8_t FLAG_OVERRUN   = 1 << 1;   // the previous tick's work took longer than 5 ms
+const uint8_t FLAG_NO_BIAS   = 1 << 2;   // no successful gyro calibration yet: pitch_rate includes the bias
 
 // One control tick. 40 bytes; 2000 of them (10 s) use 80 KB of the 264 KB RAM.
 struct LogRecord {
@@ -88,15 +89,23 @@ uint32_t logOldest() {
 // One header line and one line per record. The same columns will be used by
 // the web page download and tools/logger.py.
 
+const char *CSV_HEADER =
+  "tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch";
+
 void csvHeader(Print &p) {
-  p.println("tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch");
+  p.println(CSV_HEADER);
+}
+
+// Write one record as a CSV line (with "\n") into buf. Returns the length.
+int formatCsv(char *buf, size_t size, const LogRecord &r) {
+  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f\n",
+                  (unsigned long)r.tick, (unsigned long)r.t_us, r.work_us, r.mode, r.flags,
+                  r.raw[0], r.raw[1], r.raw[2], r.raw[3], r.raw[4], r.raw[5], r.raw[6],
+                  r.pitch, r.pitch_rate, r.accel_pitch);
 }
 
 void printCsv(Print &p, const LogRecord &r) {
   char buf[160];
-  snprintf(buf, sizeof(buf), "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f",
-           (unsigned long)r.tick, (unsigned long)r.t_us, r.work_us, r.mode, r.flags,
-           r.raw[0], r.raw[1], r.raw[2], r.raw[3], r.raw[4], r.raw[5], r.raw[6],
-           r.pitch, r.pitch_rate, r.accel_pitch);
-  p.println(buf);
+  formatCsv(buf, sizeof(buf), r);
+  p.print(buf);
 }
