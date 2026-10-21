@@ -80,3 +80,7 @@ D153C 5V goes straight to VSYS. Switch the D153C on (battery connected) **before
 ## Docs
 
 The same docs also live in my Google Drive folder "Self-Balancing Robot" (BOM, Connections sheet, Build Record, Change Log, Wiring Map, Platform Concept). Keep the repo copies in `docs/` current as we go, and tell me when something should be copied to Drive.
+
+## Obsidian vault
+
+Project notes live in `/Users/hectorstevenvillasano/Documents/GitHub/hectorsvill_brain/Projects/bb1 - balance bot 1/` (Dashboard, Roadmap, Architecture, Decisions, Dev Log, Ideas, and `Logs/` for raw test-run records). Follow the vault's `Projects/CLAUDE.md` rules: append Dev Log entries newest first, add new ADRs instead of editing old ones, keep the Dashboard's Now / Next / Later in sync with the Roadmap. The repo stays the source of truth for pins, signs and test numbers; vault notes link to it. Obsidian Git auto-commits and pushes the vault, so don't commit there by hand.

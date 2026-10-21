@@ -54,3 +54,5 @@ Find the port with `ls /dev/cu.usbmodem*`. Serial is 115200 baud. Setup steps an
 - [ ] Pi Zero W (next milestone)
 
 History: [docs/CHANGELOG.md](docs/CHANGELOG.md).
+
+Project notes (roadmap, decisions, dev log, test logs) live in my Obsidian vault under `Projects/bb1 - balance bot 1/`.
