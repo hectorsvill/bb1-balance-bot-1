@@ -124,7 +124,8 @@ void loop1() {
   if (requestDisarm) {
     requestDisarm = false;
     requestArm = false;
-    balanceDisarm(REASON_USER);
+    balanceDisarm(requestDisarmReason);
+    requestDisarmReason = REASON_USER;
     balance.fallen = false;
   }
   if (requestArm) {

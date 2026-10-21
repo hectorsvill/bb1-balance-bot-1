@@ -309,6 +309,13 @@ function motorStop() {
 // ---------- balance ----------
 
 function arm() { post('/arm', null, 'armReason'); }
+
+// Browsers slow a hidden tab down to about one update a second, which would
+// trip the 1 s heartbeat anyway. Say so clearly instead: disarm when hidden.
+let armedNow = false;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && armedNow) navigator.sendBeacon('/disarm?why=hidden');
+});
 function disarm() { post('/disarm', null, 'armReason'); }
 
 function applyGains() {
@@ -588,6 +595,7 @@ async function poll() {
     el('speed').textContent = s.speed_l + ' / ' + s.speed_r;
     el('pwm').textContent = s.pwm_l + ' / ' + s.pwm_r + (s.test_running ? '  (test running)' : '');
     el('pid').textContent = s.p.toFixed(1) + ' / ' + s.i.toFixed(1) + ' / ' + s.d.toFixed(1);
+    armedNow = s.armed;
     el('armState').textContent = s.armed ? 'ARMED' : (s.mode === 5 ? 'FALLEN' : 'disarmed');
     el('armState').className = s.armed ? 'state on' : 'state';
     el('armReason').textContent = s.armed ? 'balancing' : s.reason;

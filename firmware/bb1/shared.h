@@ -34,6 +34,7 @@ volatile float    motorDeadband = DEFAULT_DEADBAND;
 volatile uint32_t gainsVersion  = 1;
 volatile bool     requestArm    = false;
 volatile bool     requestDisarm = false;
+volatile uint8_t  requestDisarmReason = 1;   // REASON_USER unless the page says it was hidden
 volatile bool     armedFromWeb  = false;     // armed from the page: the heartbeat check applies
 volatile uint32_t lastWebHeartbeatMs = 0;    // millis() of the page's latest /state request
 

@@ -206,6 +206,7 @@ void handleArm() {
 }
 
 void handleDisarm() {
+  if (server.arg("why") == "hidden") requestDisarmReason = REASON_PAGE_HIDDEN;
   requestDisarm = true;
   server.send(200, "text/plain", "disarmed");
 }

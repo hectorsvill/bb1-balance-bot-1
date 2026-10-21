@@ -33,6 +33,7 @@ enum Reason : uint8_t {
   REASON_NOT_CALIBRATED, // arm refused: no gyro bias yet
   REASON_MOTOR_TEST,     // arm refused: a motor test is running
   REASON_CALIBRATE,      // disarmed to recalibrate the gyro
+  REASON_PAGE_HIDDEN,    // the page was hidden (tab switched, phone locked) while armed
 };
 
 const char *reasonText(uint8_t r) {
@@ -46,6 +47,7 @@ const char *reasonText(uint8_t r) {
     case REASON_NOT_CALIBRATED: return "gyro not calibrated yet";
     case REASON_MOTOR_TEST:     return "a motor test is running";
     case REASON_CALIBRATE:      return "disarmed to calibrate";
+    case REASON_PAGE_HIDDEN:    return "the page was hidden (tab switched or screen locked)";
     default:                    return "";
   }
 }
@@ -89,6 +91,7 @@ void balanceArm(float pitch, bool motorTestOn) {
 int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r) {
   r.setpoint_cdeg = (int16_t)(balanceTrim * 100);
   r.gains_ver = (uint16_t)gainsVersion;
+  r.reason = disarmReason;                      // the value before this tick's checks; next tick shows any new one
 
   if (balance.armed) {
     // ---- safety checks first, every tick ----

@@ -201,6 +201,7 @@ Since step 4 the top lines come from `log_meta.h`:
 | `setpoint` | deg | the balance trim in use (step 6) |
 | `p_term` `i_term` `d_term` | PWM | the PID's three parts this tick (0 when disarmed). pwm = p + i + d (+ deadband), clamped to the cap |
 | `gains_ver` | count | which gains were in use; the `# gains_ver,...,kp,...` line at the top gives the values at the time of saving. Goes up on every change. |
+| `reason` | code | why it last disarmed or refused to arm: 0 none, 1 you, 2 fell, 3 IMU, 4 lost the page (heartbeat), 5 loop late, 6 not upright, 7 not calibrated, 8 motor test running, 9 calibrating, 10 page hidden (log format 4) |
 
 Raw values are kept on purpose: a better filter, or a model, can be re-run on them later. Step 5 added the six wheel columns (log format 2), step 6 the five controller columns (log format 3); later steps add the speed loop and drive commands at the end.
 
