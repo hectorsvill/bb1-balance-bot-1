@@ -25,3 +25,10 @@ credentials*
 
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
+
+# Python virtual environment for tools/ (rebuilt from tools/requirements.txt)
+venv/
+__pycache__/
+
+# Recorded runs (can get big; copy the ones worth keeping into the vault Logs/ or a dataset folder)
+logs/
