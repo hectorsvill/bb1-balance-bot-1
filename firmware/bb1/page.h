@@ -110,6 +110,14 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   .tile .val small { font-size:12px; color:var(--muted); font-weight:400; }
   .swatch { display:inline-block; width:10px; height:3px; border-radius:2px; vertical-align:middle; margin-right:6px; }
 
+  /* Live values as a list (the original look): name on the left, value on the right. */
+  table.list { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  table.list td { padding:5px 12px 5px 0; border-bottom:1px solid var(--line); }
+  table.list td:last-child { text-align:right; padding-right:0; }
+  .viewtoggle { display:inline-flex; background:var(--panel2); border-radius:8px; padding:2px; margin-bottom:10px; }
+  .viewtoggle button { padding:5px 12px; font-size:13px; background:none; color:var(--muted); }
+  .viewtoggle button.on { background:var(--line); color:var(--text); }
+
   /* Charts */
   canvas { width:100%; min-width:280px; height:200px; display:block; margin-top:10px; }
   .legend { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; color:var(--muted); margin-top:6px; }
@@ -273,15 +281,34 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   <div class="panel" id="p-values">
     <div class="head"><span class="fold">&#9660;</span><h2>Live values</h2></div>
     <div class="body">
-      <div class="tiles">
-        <div class="tile"><div class="name" id="h-pwm">Motor PWM L / R</div><div class="val" id="pwm">--</div></div>
-        <div class="tile"><div class="name" id="h-speed">Wheel speed L / R</div><div class="val" id="speed">--</div></div>
-        <div class="tile"><div class="name" id="h-enc">Encoders L / R</div><div class="val" id="enc">--</div></div>
-        <div class="tile"><div class="name" id="h-work">Loop work</div><div class="val"><span id="work">--</span> <small>of 5000 us</small></div></div>
-        <div class="tile"><div class="name" id="h-web">Page delay</div><div class="val"><span id="webAge">--</span> <small>ms</small></div></div>
-        <div class="tile"><div class="name" id="h-tick">Tick</div><div class="val" id="tick">--</div></div>
-        <div class="tile"><div class="name">IMU</div><div class="val" id="imu">--</div></div>
-        <div class="tile"><div class="name">Uptime</div><div class="val" id="uptime">--</div></div>
+      <div class="viewtoggle"><button id="viewList" onclick="setValuesView('list')">List</button><button id="viewTiles" onclick="setValuesView('tiles')">Tiles</button></div>
+      <!-- List view: every value, one row each. Value cells are filled by name (data-v) -->
+      <table class="list" id="valuesList">
+        <tr><td id="h-rate2">Pitch rate</td><td data-v="rate">--</td></tr>
+        <tr><td id="h-accel2">Accel-only pitch</td><td data-v="accel">--</td></tr>
+        <tr><td id="h-work">Loop work (budget 5000 us)</td><td data-v="work">--</td></tr>
+        <tr><td id="h-tick">Tick</td><td data-v="tick">--</td></tr>
+        <tr><td id="h-bias2">Gyro bias x / y / z (deg/s)</td><td data-v="bias">--</td></tr>
+        <tr><td id="h-alpha2">Filter alpha</td><td data-v="alpha">--</td></tr>
+        <tr><td>IMU</td><td data-v="imu">--</td></tr>
+        <tr><td>Uptime</td><td data-v="uptime">--</td></tr>
+        <tr><td id="h-enc">Encoders left / right (counts, forward +)</td><td data-v="enc">--</td></tr>
+        <tr><td id="h-speed">Wheel speed left / right (counts/s)</td><td data-v="speed">--</td></tr>
+        <tr><td id="h-pwm">Motor PWM left / right</td><td data-v="pwm">--</td></tr>
+        <tr><td id="h-pid">PID terms P / I / D (PWM)</td><td data-v="pid">--</td></tr>
+        <tr><td id="h-web">Page delay (ms)</td><td data-v="webAge">--</td></tr>
+      </table>
+      <!-- Tiles view: the same values as cards -->
+      <div class="tiles" id="valuesTiles">
+        <div class="tile"><div class="name">Motor PWM L / R</div><div class="val" data-v="pwm">--</div></div>
+        <div class="tile"><div class="name">Wheel speed L / R</div><div class="val" data-v="speed">--</div></div>
+        <div class="tile"><div class="name">Encoders L / R</div><div class="val" data-v="enc">--</div></div>
+        <div class="tile"><div class="name">PID P / I / D</div><div class="val" data-v="pid">--</div></div>
+        <div class="tile"><div class="name">Loop work (of 5000 us)</div><div class="val" data-v="work">--</div></div>
+        <div class="tile"><div class="name">Page delay (ms)</div><div class="val" data-v="webAge">--</div></div>
+        <div class="tile"><div class="name">Tick</div><div class="val" data-v="tick">--</div></div>
+        <div class="tile"><div class="name">IMU</div><div class="val" data-v="imu">--</div></div>
+        <div class="tile"><div class="name">Uptime</div><div class="val" data-v="uptime">--</div></div>
       </div>
     </div>
   </div>
@@ -416,6 +443,11 @@ const HINTS = {
   'h-work': 'How long one 5 ms tick took. Must stay well under 5000 us or the loop runs late.',
   'h-web': 'How long since this page last heard from BB1. Over 1000 ms while armed from the page = it disarms.',
   'h-tick': 'Counts up 200 times a second. Every log row has one; a gap means lost records.',
+  'h-rate2': 'How fast it is tipping, deg/s, from the gyro. Forward +.',
+  'h-accel2': 'Pitch from the accelerometer alone: right on average, but jumpy when the robot moves or is bumped.',
+  'h-bias2': 'What the gyro reads while still (deg/s), subtracted from every reading. Measured at startup and by Calibrate gyro.',
+  'h-alpha2': 'The complementary filter weight in use (see Set alpha in Sensors).',
+  'h-pid': 'The three parts of the balance output: P from the lean, I from lasting lean, D from tipping speed. PWM = P + I + D, clipped to the cap.',
   // Motor test
   mL: 'Left wheel PWM, -150..150. Positive = roll forward. 100 is about 40% power.',
   mR: 'Right wheel PWM, -150..150. Positive = roll forward.',
@@ -799,6 +831,24 @@ function clearLive() {
 
 el('allCols').addEventListener('change', drawLogTable);
 
+// ---------- live values: list or tiles ----------
+//
+// The same values show in two layouts; the buttons flip between them and the
+// choice is remembered. setValue() fills every element marked data-v="name".
+
+function setValue(name, html) {
+  for (const e of document.querySelectorAll('[data-v="' + name + '"]')) e.innerHTML = html;
+}
+
+function setValuesView(view) {
+  el('valuesList').style.display = view === 'list' ? '' : 'none';
+  el('valuesTiles').style.display = view === 'tiles' ? '' : 'none';
+  el('viewList').classList.toggle('on', view === 'list');
+  el('viewTiles').classList.toggle('on', view === 'tiles');
+  store.set('bb1.valuesView', view);
+}
+setValuesView(store.get('bb1.valuesView', 'list'));
+
 // ---------- Pico memory ----------
 
 const kb = b => (b / 1024).toFixed(1) + ' KB';
@@ -908,8 +958,10 @@ async function poll() {
       el('pitch').textContent = s.pitch.toFixed(1);
       el('rate').textContent = s.pitch_rate.toFixed(1);
       el('accel').textContent = s.accel_pitch.toFixed(1);
-      el('work').textContent = s.work_us;
-      el('tick').textContent = s.tick;
+      setValue('rate', s.pitch_rate.toFixed(1) + ' deg/s');
+      setValue('accel', s.accel_pitch.toFixed(1) + ' deg');
+      setValue('work', s.work_us + ' us');
+      setValue('tick', s.tick);
       if (s.tick !== lastTick) {                       // only add new samples to the charts
         history.push({ t: performance.now(), pitch: s.pitch, accel: s.accel_pitch, trim: s.gains.trim,
                        p: s.p, i: s.i, d: s.d, out: s.armed ? s.pwm_l : 0, cap: s.gains.cap, ncap: -s.gains.cap });
@@ -921,14 +973,17 @@ async function poll() {
     el('pidI').textContent = s.i.toFixed(1);
     el('pidD').textContent = s.d.toFixed(1);
     el('pidOut').innerHTML = (s.armed ? s.pwm_l : 0) + ((s.flag_bits & 8) ? ' <small class="warn">at cap</small>' : '');
-    el('bias').innerHTML = s.ever_cal ? s.bias.map(b => b.toFixed(2)).join(' / ')
-      : '<span style="color:var(--red)">not calibrated</span>';
+    const bias = s.ever_cal ? s.bias.map(b => b.toFixed(2)).join(' / ') : '<span style="color:var(--red)">not calibrated</span>';
+    el('bias').innerHTML = bias;
+    setValue('bias', bias);
     el('alphaNow').textContent = s.alpha.toFixed(3);
-    el('imu').textContent = s.imu ? 'ok' : 'NOT FOUND';
-    el('uptime').textContent = s.uptime_s + ' s';
-    el('enc').textContent = s.enc_l + ' / ' + s.enc_r;
-    el('speed').textContent = s.speed_l + ' / ' + s.speed_r;
-    el('pwm').textContent = s.pwm_l + ' / ' + s.pwm_r;
+    setValue('alpha', s.alpha.toFixed(3));
+    setValue('imu', s.imu ? 'ok' : 'NOT FOUND');
+    setValue('uptime', s.uptime_s + ' s');
+    setValue('enc', s.enc_l + ' / ' + s.enc_r);
+    setValue('speed', s.speed_l + ' / ' + s.speed_r);
+    setValue('pwm', s.pwm_l + ' / ' + s.pwm_r + (s.test_running ? ' (test)' : ''));
+    setValue('pid', s.p.toFixed(1) + ' / ' + s.i.toFixed(1) + ' / ' + s.d.toFixed(1));
     if (testsDoneSeen >= 0 && s.tests_done !== testsDoneSeen) {        // a test just finished
       const sec = Math.max(s.test_ms, 1) / 1000;
       el('motorMsg').textContent = 'Done after ' + s.test_ms + ' ms: left moved ' + s.test_moved[0] +
@@ -953,7 +1008,7 @@ async function poll() {
 
 // "Page delay" counts up between answers, so a stall is visible as it happens.
 let lastAnswer = performance.now();
-setInterval(() => { el('webAge').textContent = Math.round(performance.now() - lastAnswer); }, 100);
+setInterval(() => setValue('webAge', Math.round(performance.now() - lastAnswer)), 100);
 
 poll();
 pollSys();

@@ -41,7 +41,7 @@ The panels sit in one column, on a phone or a Mac. Click a panel's title to fold
 | PID | view only: error (pitch − trim), P, I, D and the output in tiles, and a 10 s chart of P, I, D and the output with the ±cap lines. All zero while disarmed |
 | Pitch | pitch, pitch rate, accel-only pitch, and a 10 s chart: blue = filtered pitch, orange = accelerometer only, green dashes = trim |
 | Log | note, **Record** / **Stop**, **Download**, **Save last 10 s**. While recording, a table shows the records as they arrive (armed rows tinted green); **Watch** shows it without recording, **Pause** freezes it. Every record / 10th / 40th; **all columns** shows every column, otherwise the useful ones |
-| Live values | motor PWM, wheel speeds, encoders, loop work, page delay (counts up live when BB1 stops answering), tick, IMU, uptime |
+| Live values | **List** (the original one-row-per-value look, default) or **Tiles**, remembered per browser: pitch rate, accel pitch, loop work, tick, gyro bias, alpha, IMU, uptime, encoders, wheel speeds, motor PWM, PID terms, page delay (counts up live when BB1 stops answering) |
 | Motor test | left / right PWM (-150..150, forward +) and a time (0.5 to 3 s), **Run** (asks "wheels off the table?"), **STOP**. Shows how far each wheel moved |
 | Sensors | gyro bias, filter alpha, **Calibrate gyro** (lay it still first), **Set alpha** |
 | Pico memory | RAM used with a bar, heap free, flash used with a bar, log buffer, page size, CPU clock. Updates every 2 s |
