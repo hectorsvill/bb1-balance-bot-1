@@ -8,6 +8,7 @@ Python helpers that run on the Mac, with their own virtual environment in `tools
 |---|---|
 | `serial_log.py` | Reads the Pico's USB serial for N seconds, prints it, optionally saves it (`-o logs/run.txt`) |
 | `summarize_serial.py` | Summarizes a captured `csv`-mode run, one line per second; `--plot` draws it |
+| `check_dump.py` | Loads a `dump` from the log buffer, checks nothing is missing, `--plot` draws it; `load_dump()` for your own scripts |
 | `logger.py` | (step 4) Pulls log records from the Pico over Wi-Fi, writes `logs/<date>_<time>/run.csv` + `meta.json` |
 | `plot_run.py` | (step 4) Plots one saved run |
 

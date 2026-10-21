@@ -2,7 +2,7 @@
 
 Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6050) is built and every part has passed its bring-up test.
 
-**Next step:** `firmware/bb1` step 2 of the plan (two cores, 200 Hz loop on core 1, log record + ring buffer). Step 1 (pitch angle) passed on the robot 2026-10-21. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
+**Next step:** Hector tests `firmware/bb1` step 2 (two cores, log record + 10 s ring buffer, `dump`; flashed 2026-10-21, self-check passed: 0 missing ticks, exactly 5000 us spacing). Then step 3: Wi-Fi + web page. Step 1 (pitch angle) passed 2026-10-21. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
 
 ## How to work with me
 
@@ -13,6 +13,11 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 - Code must stay readable enough that I can jump in and change it myself: small files, clear names, comments that explain why. If unsure about a choice, ask me.
 - Milestones: 1 = balance + Pico W web page for testing and live PID tuning; 2 = remote control from the web page. More will come.
 - Before running anything that can move the motors, confirm with me that the wheels are off the table. Every motor test must stop by itself.
+
+## Firmware structure (bb1)
+
+- Core 1 (`setup1`/`loop1`) owns the IMU (and later the motors) and runs the 200 Hz loop; it never prints. Core 0 (`setup`/`loop`) does serial, later Wi-Fi. Core 0 asks core 1 for things through `shared.h` flags; core 1 acts between ticks.
+- Every tick fills one `LogRecord` (`telemetry.h`) into a mutex-guarded ring buffer. New fields go at the end of the struct, in `csvHeader()`/`printCsv()`, and in the column table in `docs/CALIBRATION_AND_LOGS.md`.
 
 ## Directions and signs (measured 2026-10-20)
 

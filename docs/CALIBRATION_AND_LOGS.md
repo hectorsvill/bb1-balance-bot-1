@@ -1,6 +1,6 @@
 # Calibration and Reading the Logs
 
-What the gyro calibration does, how we ran it on BB1, and how to read what the firmware prints and saves.
+What the gyro calibration does, how we ran it on BB1, and how to read what the firmware prints and saves. Section 4 covers the full log records (step 2 on).
 
 ## 1. What calibration does
 
@@ -126,6 +126,58 @@ Add `--plot` to see pitch, accel-only and rate over time in a chart.
 
 The vault note `Logs/2026-10-21 bb1 step1 - tilt test` has the write-up.
 
-### Later logs
+## 4. The log buffer and dumps (step 2 on)
 
-From step 2 on, every 200 Hz tick goes into a richer log record (raw sensors, motor commands, PID terms; see [FIRMWARE_PLAN.md](FIRMWARE_PLAN.md) section 6), saved from the web page or `tools/logger.py`. This doc will get a section on those columns when they exist.
+Since step 2, core 1 writes one **log record** every 5 ms tick into a ring buffer that always holds the newest 10 s (`LOG_SECONDS` in `config.h`). The readout above is computed from those same records, so what you see is what gets logged.
+
+`dump` prints the buffer as CSV (about the last 9 s: it skips the oldest second so core 1 can't overwrite records mid-print). `dump 3` prints only the last 3 s. Save and check one:
+
+```bash
+tools/venv/bin/python tools/serial_log.py -t 5 -s dump -o logs/my_dump.txt
+```
+
+```bash
+tools/venv/bin/python tools/check_dump.py logs/my_dump.txt --plot
+```
+
+`check_dump.py` reports missing ticks (should be 0), tick spacing (should be exactly 5000 us), work time, errors and the pitch range.
+
+A dump file looks like this:
+
+```text
+# bb1 log dump, step 2 firmware
+# gyro_bias_dps,-0.418,2.099,-2.149
+# alpha,0.980,loop_hz,200,accel_lsb_per_g,16384.0,gyro_lsb_per_dps,65.5
+tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch
+2225,13612345,451,2,0,16380,-210,402,-1520,-27,137,-141,88.452,0.021,88.531
+# end, 1800 records
+```
+
+Lines starting with `#` are settings and notes, so the file explains itself later (and a model trained on it knows the bias and scales).
+
+### Columns
+
+| Column | Unit | Meaning |
+|---|---|---|
+| `tick` | count | tick number since boot; goes up by exactly 1. A jump means records were lost. |
+| `t_us` | microseconds | when the tick started (since boot). Consecutive ticks are 5000 apart. |
+| `work_us` | microseconds | how long the tick's work took (budget 5000) |
+| `mode` | code | 0 boot, 1 calibrating, 2 running (motors off). More modes come with the motors. |
+| `flag_bits` | bits | 1 = IMU read failed this tick, 2 = the previous tick overran 5 ms. Usually 0. |
+| `ax_raw` `ay_raw` `az_raw` | counts | accelerometer exactly as the chip sent it. g = raw / 16384 |
+| `temp_raw` | counts | chip temperature. deg C = raw / 340 + 36.53 |
+| `gx_raw` `gy_raw` `gz_raw` | counts | gyro exactly as sent, **bias not removed**. deg/s = raw / 65.5 - bias |
+| `pitch` | deg | filtered pitch, forward + |
+| `pitch_rate` | deg/s | gyro X, bias removed, forward + |
+| `accel_pitch` | deg | accelerometer-only pitch |
+
+Raw values are kept on purpose: a better filter, or a model, can be re-run on them later. Steps 5 to 9 add motor, encoder, PID and command columns at the end.
+
+In your own Python, `load_dump()` from `tools/check_dump.py` gives you a pandas table:
+
+```python
+import sys; sys.path.insert(0, "tools")
+from check_dump import load_dump
+df, settings = load_dump("logs/my_dump.txt")
+df.pitch.describe()
+```

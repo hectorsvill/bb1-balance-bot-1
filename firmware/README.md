@@ -6,6 +6,30 @@
 | `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
+## bb1, step 2: two cores + log buffer (no motors)
+
+The control loop (IMU, filter, logging) runs on core 1 at exactly 200 Hz; serial and the readout run on core 0. Every tick is stored in a 10 s ring buffer. Same readout as step 1, plus a `tick` counter and two new commands:
+
+| Command | Does |
+|---|---|
+| `dump` | print the buffer (about the last 9 s) as CSV |
+| `dump N` | print the last N seconds |
+
+What to check:
+1. The readout looks like step 1; `tick` goes up by about 20 per line (200 per second).
+2. `cal` still works (core 0 asks, core 1 does it, core 0 reports).
+3. Tilt it around for a few seconds, then save a dump and check it:
+
+```bash
+tools/venv/bin/python tools/serial_log.py -t 5 -s dump -o logs/step2_dump.txt
+```
+
+```bash
+tools/venv/bin/python tools/check_dump.py logs/step2_dump.txt --plot
+```
+
+Missing ticks 0, spacing exactly 5000 us, and the plot shows your tilts.
+
 ## bb1, step 1: pitch angle (no motors)
 
 Motors stay off (STBY held low). Flash it, keep the robot still on the table for the first 2 s (gyro calibration), then watch the serial readout.

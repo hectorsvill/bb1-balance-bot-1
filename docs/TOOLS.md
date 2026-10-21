@@ -110,6 +110,14 @@ tools/venv/bin/python tools/summarize_serial.py logs/2026-10-21_step1_tilt2.txt
 
 One line per second, then totals. Add `--plot` for a chart window (close the window to get the prompt back). What the numbers mean: [CALIBRATION_AND_LOGS.md](CALIBRATION_AND_LOGS.md).
 
+### check_dump.py: check and plot a log dump
+
+```bash
+tools/venv/bin/python tools/check_dump.py logs/my_dump.txt --plot
+```
+
+Reads what the firmware's `dump` command printed (captured with `serial_log.py -s dump`). Reports lost ticks, timing, errors; `--plot` shows pitch, rate and loop time.
+
 ### Coming later
 
 `logger.py` (save runs over Wi-Fi) and `plot_run.py` (plot a full log), in step 4.

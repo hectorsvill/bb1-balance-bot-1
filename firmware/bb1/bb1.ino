@@ -1,9 +1,15 @@
 // bb1.ino - BB1 balance bot main firmware.
 //
-// Step 1 of docs/FIRMWARE_PLAN.md: a steady pitch angle.
-//   - measures the gyro bias at startup (keep the robot still for 2 s)
-//   - runs a fixed 200 Hz loop: read IMU -> complementary filter -> pitch
-//   - prints pitch, accel-only pitch, pitch rate and loop time 10 times a second
+// Step 2 of docs/FIRMWARE_PLAN.md: two cores and the log buffer.
+//
+//   core 1 (setup1 / loop1): the 200 Hz control loop and nothing else.
+//       read IMU -> complementary filter -> fill a LogRecord -> push it into the ring buffer
+//   core 0 (setup / loop):   everything slow.
+//       serial commands, the 10 Hz readout, dumping the log buffer (later: Wi-Fi + web page)
+//
+// Why split them: printing, and later Wi-Fi, can take milliseconds at random
+// moments. On its own core the control loop keeps its 5 ms beat no matter what.
+//
 // Motors are held OFF (STBY low) the whole time. Nothing moves in this step.
 //
 // Board: Raspberry Pi Pico W, arduino-pico core by Earle Philhower (6.3.0).
@@ -11,46 +17,151 @@
 // Power rule (no 1N5819 yet): D153C on before USB; USB out before D153C off.
 //
 // Files:
-//   config.h  pins, signs, rates      imu.h    MPU-6050 driver + bias calibration
-//   angle.h   complementary filter
+//   config.h     pins, signs, rates, buffer size
+//   imu.h        MPU-6050 driver + gyro bias calibration
+//   angle.h      complementary filter
+//   telemetry.h  LogRecord, the ring buffer, CSV output
+//   shared.h     requests from core 0 to core 1, status back
 
 #include "config.h"
 #include "imu.h"
 #include "angle.h"
+#include "telemetry.h"
+#include "shared.h"
 
-Angle angle;
+// Give core 1 its own 8 KB stack instead of splitting one 8 KB stack between the
+// cores (see the arduino-pico "Multicore" docs). Wi-Fi on core 0 will want room.
+bool core1_separate_stack = true;
 
-// Loop timing stats, reset every printout.
-unsigned long loopWorkMaxUs = 0;   // longest time spent doing work in one tick
-unsigned long loopWorkSumUs = 0;
-unsigned long loopTicks = 0;
-unsigned long imuErrors = 0;
-unsigned long overruns = 0;        // ticks where the work took longer than 5 ms
+// =====================================================================
+// Core 1: the control loop
+// =====================================================================
 
-bool csvMode = false;              // "csv": print comma-separated lines for a spreadsheet
+Angle angle;               // only core 1 touches this; core 0 sees it through the log records
+
+void calibrateNow() {
+  lastCalibrationOk = imuCalibrate();
+  angle.started = false;   // restart the filter from the accelerometer angle
+  calibrationsDone = calibrationsDone + 1;
+}
+
+void setup1() {
+  imuFound = imuBegin();
+  delay(500);              // let the chip settle and hands leave the robot
+  if (imuFound) calibrateNow();
+}
+
+void loop1() {
+  // Same fixed-rate loop as step 1: each tick starts exactly 5 ms after the last.
+  static unsigned long nextTick = micros();
+  static unsigned long lastTick = micros();
+  static uint32_t tick = 0;
+  static bool overranLastTick = false;
+  static ImuSample s;      // static: if a read fails we keep the last good values
+
+  while ((long)(micros() - nextTick) < 0) {}   // wait for the tick
+  unsigned long now = micros();
+  float dt = (now - lastTick) / 1e6;
+  lastTick = now;
+  nextTick += LOOP_US;
+
+  // Requests from core 0 are handled here, between ticks, never in the middle of one.
+  if (requestCalibrate) {
+    calibrateNow();                            // takes 2 s; no records during it
+    requestCalibrate = false;
+    nextTick = micros() + LOOP_US;
+    lastTick = micros();
+    return;
+  }
+  angle.alpha = requestedAlpha;
+
+  // ---- the work of one tick ----
+  LogRecord r;
+  r.tick  = tick++;
+  r.t_us  = now;
+  r.mode  = MODE_RUNNING;
+  r.flags = overranLastTick ? FLAG_OVERRUN : 0;
+
+  if (imuRead(s)) {
+    angleUpdate(angle, s, dt);
+  } else {
+    r.flags |= FLAG_IMU_ERROR;
+  }
+
+  for (int i = 0; i < 7; i++) r.raw[i] = s.raw[i];
+  r.pitch       = angle.pitch;
+  r.pitch_rate  = angle.pitchRate;
+  r.accel_pitch = angle.accelPitch;
+  // ------------------------------
+
+  unsigned long work = micros() - now;
+  r.work_us = (uint16_t)min(work, 65535UL);
+  logPush(r);              // counted in the next tick's work, a few microseconds
+
+  overranLastTick = work > LOOP_US;
+  if (overranLastTick) nextTick = micros() + LOOP_US;   // fell behind: don't catch up in a burst
+}
+
+// =====================================================================
+// Core 0: serial commands and the readout
+// =====================================================================
+
+bool csvMode = false;      // "csv": the old step-1 comma-separated readout (for summarize_serial.py)
 
 void printHelp() {
   Serial.println();
-  Serial.println("BB1 step 1 commands:");
-  Serial.println("  cal       measure the gyro bias again (hold the robot still)");
-  Serial.println("  alpha N   set the filter weight, 0.90 to 0.999 (now " + String(angle.alpha, 3) + ")");
-  Serial.println("  csv       switch to comma-separated output (again to switch back)");
+  Serial.println("BB1 step 2 commands:");
+  Serial.println("  cal       measure the gyro bias again (lay the robot still first)");
+  Serial.println("  alpha N   set the filter weight, 0.90 to 0.999 (now " + String(requestedAlpha, 3) + ")");
+  Serial.println("  csv       switch the readout to comma-separated lines (again to switch back)");
+  Serial.println("  dump      print the whole log buffer (about the last " + String(LOG_SECONDS - 1) + " s) as CSV");
+  Serial.println("  dump N    print only the last N seconds");
   Serial.println("  help      this list");
 }
 
-void runCalibration() {
-  Serial.println("Calibrating gyro: keep the robot still for 2 s...");
-  if (imuCalibrate()) {
-    Serial.print("  bias deg/s  x ");
-    Serial.print(gyroBias[0], 2);
-    Serial.print("  y ");
-    Serial.print(gyroBias[1], 2);
-    Serial.print("  z ");
-    Serial.println(gyroBias[2], 2);
-  } else {
-    Serial.println("  ! robot moved (or the IMU didn't answer): bias not changed. Type cal to retry.");
+void printBias() {
+  Serial.print("  bias deg/s  x ");
+  Serial.print(gyroBias[0], 2);
+  Serial.print("  y ");
+  Serial.print(gyroBias[1], 2);
+  Serial.print("  z ");
+  Serial.println(gyroBias[2], 2);
+}
+
+// Print records from the buffer as CSV, oldest first.
+// Core 1 keeps writing while we print, so we start 1 s after the oldest record:
+// that gives us a second of head start before the oldest ones get overwritten.
+void dumpLog(float seconds) {
+  uint32_t total = totalWritten;
+  uint32_t first = logOldest() + LOOP_HZ;
+  if (seconds > 0) {
+    uint32_t wanted = (uint32_t)(seconds * LOOP_HZ);
+    if (total > wanted && total - wanted > first) first = total - wanted;
   }
-  angle.started = false;   // restart the filter from the accelerometer angle
+  if (first >= total) {
+    Serial.println("# nothing in the log yet");
+    return;
+  }
+
+  // Lines starting with # are notes, not data. They record the settings, so a
+  // log file can be understood on its own later (and fed to a model).
+  Serial.println("# bb1 log dump, step 2 firmware");
+  Serial.print("# gyro_bias_dps,");
+  Serial.print(gyroBias[0], 3); Serial.print(',');
+  Serial.print(gyroBias[1], 3); Serial.print(',');
+  Serial.println(gyroBias[2], 3);
+  Serial.println("# alpha," + String(requestedAlpha, 3) + ",loop_hz," + String(LOOP_HZ) +
+                 ",accel_lsb_per_g," + String(ACCEL_PER_G, 1) + ",gyro_lsb_per_dps," + String(GYRO_PER_DPS, 1));
+  csvHeader(Serial);
+
+  uint32_t skipped = 0;
+  LogRecord r;
+  for (uint32_t n = first; n < total; n++) {
+    if (logGet(n, r)) printCsv(Serial, r);
+    else skipped++;
+  }
+  Serial.println("# end, " + String(total - first - skipped) + " records" +
+                 (skipped ? ", " + String(skipped) + " overwritten before they could be printed" : ""));
 }
 
 void handleCommand(String cmd) {
@@ -59,11 +170,12 @@ void handleCommand(String cmd) {
   if (cmd.length() == 0) return;
   Serial.println("> " + cmd);
   if (cmd == "cal") {
-    runCalibration();
+    Serial.println("Calibrating gyro: keep the robot still for 2 s...");
+    requestCalibrate = true;                   // core 1 does it; we report when it's done
   } else if (cmd.startsWith("alpha")) {
     float a = cmd.substring(5).toFloat();
     if (a >= 0.90 && a <= 0.999) {
-      angle.alpha = a;
+      requestedAlpha = a;
       Serial.println("alpha = " + String(a, 3));
     } else {
       Serial.println("alpha must be between 0.90 and 0.999");
@@ -71,12 +183,13 @@ void handleCommand(String cmd) {
   } else if (cmd == "csv") {
     csvMode = !csvMode;
     if (csvMode) Serial.println("ms,pitch,accel_pitch,pitch_rate,loop_avg_us,loop_max_us");
+  } else if (cmd.startsWith("dump")) {
+    dumpLog(cmd.substring(4).toFloat());       // "dump" alone gives 0 = everything
   } else {
     printHelp();
   }
 }
 
-// Collect typed characters until Enter.
 String line;
 void readSerial() {
   while (Serial.available()) {
@@ -90,23 +203,45 @@ void readSerial() {
   }
 }
 
+// The 10 Hz readout. It reads the records written since the last printout
+// straight out of the log buffer, so what you see is exactly what gets logged.
 void printStatus() {
-  unsigned long avg = loopTicks ? loopWorkSumUs / loopTicks : 0;
+  static uint32_t nextToRead = 0;
+  uint32_t total = totalWritten;
+  if (nextToRead < logOldest()) nextToRead = logOldest();
+
+  LogRecord r, newest;
+  bool any = false;
+  unsigned long workSum = 0, workMax = 0, count = 0;
+  static unsigned long overruns = 0, imuErrors = 0;   // totals since boot
+  for (; nextToRead < total; nextToRead++) {
+    if (!logGet(nextToRead, r)) continue;
+    workSum += r.work_us;
+    workMax = max(workMax, (unsigned long)r.work_us);
+    count++;
+    if (r.flags & FLAG_OVERRUN) overruns++;
+    if (r.flags & FLAG_IMU_ERROR) imuErrors++;
+    newest = r;
+    any = true;
+  }
+  if (!any) return;                            // nothing new (for example during calibration)
+  unsigned long avg = workSum / count;
+
   if (csvMode) {
-    Serial.print(millis());              Serial.print(',');
-    Serial.print(angle.pitch, 2);        Serial.print(',');
-    Serial.print(angle.accelPitch, 2);   Serial.print(',');
-    Serial.print(angle.pitchRate, 2);    Serial.print(',');
-    Serial.print(avg);                   Serial.print(',');
-    Serial.println(loopWorkMaxUs);
+    Serial.print(newest.t_us / 1000);          Serial.print(',');
+    Serial.print(newest.pitch, 2);             Serial.print(',');
+    Serial.print(newest.accel_pitch, 2);       Serial.print(',');
+    Serial.print(newest.pitch_rate, 2);        Serial.print(',');
+    Serial.print(avg);                         Serial.print(',');
+    Serial.println(workMax);
   } else {
-    char buf[140];
+    char buf[160];
     snprintf(buf, sizeof(buf),
-             "pitch %+6.1f | accel only %+6.1f | rate %+7.1f deg/s | loop avg %4lu us max %4lu us | overruns %lu imu errors %lu",
-             angle.pitch, angle.accelPitch, angle.pitchRate, avg, loopWorkMaxUs, overruns, imuErrors);
+             "pitch %+6.1f | accel only %+6.1f | rate %+7.1f deg/s | loop avg %4lu us max %4lu us | overruns %lu imu errors %lu | tick %lu",
+             newest.pitch, newest.accel_pitch, newest.pitch_rate, avg, workMax, overruns, imuErrors,
+             (unsigned long)newest.tick);
     Serial.println(buf);
   }
-  loopWorkMaxUs = loopWorkSumUs = loopTicks = 0;
 }
 
 void setup() {
@@ -119,51 +254,34 @@ void setup() {
   while (!Serial && millis() - t0 < 5000) {}   // wait up to 5 s for a serial monitor
 
   Serial.println();
-  Serial.println("BB1 step 1: pitch angle. Motors are off.");
-  if (!imuBegin()) {
-    Serial.println("! MPU-6050 not found at 0x68: check VCC (pin 36), GND (pin 8), SDA GP4, SCL GP5.");
-  } else {
-    Serial.println("MPU-6050 found.");
-  }
-  delay(500);              // let the chip settle and your hands leave the robot
-  runCalibration();
+  Serial.println("BB1 step 2: two cores + log buffer. Motors are off.");
   printHelp();
 }
 
 void loop() {
-  // A fixed-rate loop: each tick starts exactly 5 ms after the previous one.
-  // We remember when the next tick is due and wait for it, instead of using
-  // delay(5), which would add the time our own work took on top.
-  static unsigned long nextTick = micros();
-  static unsigned long lastTick = micros();
-  static unsigned long lastPrint = 0;
-
-  while ((long)(micros() - nextTick) < 0) {}   // wait for the tick (cast handles wrap-around)
-  unsigned long now = micros();
-  float dt = (now - lastTick) / 1e6;           // seconds since the last tick, about 0.005
-  lastTick = now;
-  nextTick += LOOP_US;
-
-  // ---- the work of one tick ----
-  ImuSample s;
-  if (imuRead(s)) {
-    angleUpdate(angle, s, dt);
-  } else {
-    imuErrors++;
-  }
-  // ------------------------------
-
-  unsigned long work = micros() - now;
-  loopWorkSumUs += work;
-  loopWorkMaxUs = max(loopWorkMaxUs, work);
-  loopTicks++;
-  if (work > LOOP_US) {
-    overruns++;
-    nextTick = micros() + LOOP_US;             // fell behind: don't try to catch up in a burst
+  // setup1() on core 1 runs at the same time as setup() here, so we can't know
+  // in setup() whether the IMU answered yet. Check once, 3 s after boot.
+  static bool imuChecked = false;
+  if (!imuChecked && millis() > 3000) {
+    imuChecked = true;
+    if (!imuFound) Serial.println("! MPU-6050 not found at 0x68: check VCC (pin 36), GND (pin 8), SDA GP4, SCL GP5.");
   }
 
-  // Slow jobs, outside the timed work. In step 2 these move to the other core.
+  // Report each finished calibration (core 1 counts them up).
+  static uint32_t calibrationsSeen = 0;
+  if (calibrationsDone != calibrationsSeen) {
+    calibrationsSeen = calibrationsDone;
+    if (lastCalibrationOk) {
+      Serial.println("Gyro calibrated.");
+      printBias();
+    } else {
+      Serial.println("! robot moved (or the IMU didn't answer): bias not changed. Type cal to retry.");
+    }
+  }
+
   readSerial();
+
+  static unsigned long lastPrint = 0;
   if (millis() - lastPrint >= 1000 / PRINT_HZ) {
     lastPrint = millis();
     printStatus();

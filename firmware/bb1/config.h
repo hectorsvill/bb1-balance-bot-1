@@ -42,6 +42,12 @@ const int LOOP_HZ = 200;                          // control loop rate
 const unsigned long LOOP_US = 1000000UL / LOOP_HZ; // 5000 us = 5 ms per tick
 const int PRINT_HZ = 10;                          // how often the serial readout updates
 
+// ---------- logging ----------
+// The ring buffer keeps the newest LOG_SECONDS of ticks in RAM (see telemetry.h).
+// 10 s x 200 Hz x 40 bytes = 80 KB. If Wi-Fi later needs the RAM, lower this.
+const int LOG_SECONDS = 10;
+const int LOG_BUFFER_RECORDS = LOG_SECONDS * LOOP_HZ;
+
 // ---------- angle filter ----------
 // Complementary filter weight: how much we trust the gyro each tick.
 // 0.98 at 200 Hz means the accelerometer pulls the angle back with a time
