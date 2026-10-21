@@ -8,7 +8,7 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- Hector to test bb1 step 2; then step 3 (Wi-Fi + web page)
+- bb1 step 3 (Wi-Fi + web page)
 
 ## 2026-10-21 - bb1 step 2: two cores + log buffer
 
@@ -16,6 +16,7 @@ Newest first.
 - telemetry.h: 40-byte LogRecord per tick (tick, time, work, mode, flag_bits, raw IMU, pitch, rate, accel pitch), 10 s ring buffer (80 KB) guarded by a mutex; `dump` / `dump N` print it as CSV with settings lines
 - tools/check_dump.py; log columns documented in docs/CALIBRATION_AND_LOGS.md
 - Self-check on the robot: 1800 records, 0 missing ticks, spacing exactly 5000 us, work 451 us avg / 484 max, 0 errors
+- Hector's test (tilting, pitch -15.9 to +88.3): 1800 records, 0 missing ticks, exactly 5000 us, 451 / 474 us, 0 errors. Step 2 passed.
 
 ## 2026-10-21 - bb1 step 1: pitch angle
 

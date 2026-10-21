@@ -2,7 +2,7 @@
 
 Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6050) is built and every part has passed its bring-up test.
 
-**Next step:** Hector tests `firmware/bb1` step 2 (two cores, log record + 10 s ring buffer, `dump`; flashed 2026-10-21, self-check passed: 0 missing ticks, exactly 5000 us spacing). Then step 3: Wi-Fi + web page. Step 1 (pitch angle) passed 2026-10-21. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
+**Next step:** `firmware/bb1` step 3: Wi-Fi (own network + saved home network) and the web page with a live pitch chart. Steps 1 (pitch angle) and 2 (two cores, log record + 10 s ring buffer, `dump`) passed on the robot 2026-10-21. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
 
 ## How to work with me
 
