@@ -17,6 +17,8 @@ While a Mac is on BB1 it has no internet. That's normal: BB1 isn't connected to 
 2. BB1 saves them and restarts. Its own network turns off.
 3. Back on your home Wi-Fi, open **http://bb1.local** (or the IP address BB1 prints on serial; type `wifi` to see it).
 
+If `bb1.local` doesn't open (some tools and older Android phones don't resolve `.local` names), use the IP address instead: type `wifi` on serial to see it. Your router may also let you reserve that IP for BB1 so it never changes.
+
 If BB1 can't find the home network within 15 s at startup, it falls back to its own network and the page says why. To go back to the own network on purpose: **Use own network** on the page, or `wifi reset` over serial.
 
 ### Do the settings persist?

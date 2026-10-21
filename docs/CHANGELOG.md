@@ -8,7 +8,7 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- Test bb1 step 3 on the robot; then step 4 (Record / Download logs)
+- bb1 step 4 (Record / Download logs from the page, tools/logger.py)
 
 ## 2026-10-21 - bb1 step 3: Wi-Fi + web page
 
@@ -16,6 +16,7 @@ Newest first.
 - web.h + page.h: page with live pitch / accel pitch chart (10 s), live values, Calibrate, Set alpha, Network panel; endpoints /state, /cal, /alpha, /wifi, /wifi/forget
 - secrets.h (gitignored) + secrets.example.h; `quiet` serial command; docs/WEB_INTERFACE.md
 - Compiles: 19% flash, 109 KB RAM free
+- Tested: Hector joined the page on the own network, then saved his home network; page works at bb1.local. With /state polled at 20 Hz: 0 missing ticks, spacing 4997 to 5003 us (was exactly 5000: core 0's Wi-Fi code now shares the flash cache), work 494 us avg / 659 max, request latency 41 ms median. Step 3 passed.
 
 ## 2026-10-21 - bb1 step 2: two cores + log buffer
 

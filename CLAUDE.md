@@ -2,7 +2,7 @@
 
 Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6050) is built and every part has passed its bring-up test.
 
-**Next step:** test `firmware/bb1` step 3 (Wi-Fi own network "BB1" / password `bb1robot` at http://192.168.42.1, saved home network at http://bb1.local, live pitch page; written 2026-10-21). Then step 4: Record / Download logs from the page. Steps 1 and 2 passed on the robot 2026-10-21. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
+**Next step:** `firmware/bb1` step 4: Record / Download logs from the page and `tools/logger.py`. Steps 1 to 3 passed on the robot 2026-10-21. BB1 is on Hector's home network (saved in Pico flash) at http://bb1.local; own network "BB1" / `bb1robot` at http://192.168.42.1 is the fallback. Claude's sandbox blocks the local network: reach the robot with `dangerouslyDisableSandbox` and its IP (type `wifi` on serial), since curl to bb1.local can time out. After that: the balance loop (PID), then driving. The full plan (two cores, Wi-Fi tuning page, logging for later model training) is in `docs/FIRMWARE_PLAN.md`; tuning notes in `docs/PID_TUNING.md`.
 
 ## How to work with me
 
