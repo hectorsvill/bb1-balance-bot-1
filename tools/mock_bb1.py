@@ -46,7 +46,7 @@ START = time.time()
 alpha = 0.98
 bias = [-0.50, 2.07, -2.20]      # deg/s, like a real calibration
 tests = []                        # motor tests: [first_tick, end_tick, left_pwm, right_pwm]
-gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": 0.0, "cap": 150.0, "deadband": 0.0}
+gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": -4.39, "cap": 80.0, "deadband": 0.0}
 armed_from = None                 # tick it was armed at, or None
 reason = ""                       # why it last disarmed / refused, like disarmReason in control.h
 arm_attempts = 0
@@ -170,6 +170,7 @@ class Handler(BaseHTTPRequestHandler):
                 "tests_done": len(done), "test_moved": moved, "test_ms": (last[1] - last[0]) * 5,
                 "armed": r["mode"] == 4, "reason": reason, "arm_attempts": arm_attempts,
                 "arm_ms": int((arm_until - armed_from) * 5) if arm_until and armed_from is not None else 0,
+                "step": False,
                 "arm_left_ms": max(0, (arm_until - total_written()) * 5) if arm_until and armed_from is not None else -1,
                 "p": round(r["ctl"][1], 1), "i": 0.0, "d": round(r["ctl"][3], 1), "gains": gains,
             }
@@ -251,6 +252,18 @@ class Handler(BaseHTTPRequestHandler):
                     gains[k] = max(lo, min(hi, float(v)))
             gains["ver"] += 1
             self.reply("gains v{ver}: kp {kp}, ki {ki}, kd {kd}, trim {trim}, cap {cap}, deadband {deadband}".format(**gains))
+        elif self.path == "/gains/save":
+            if armed_from is not None:
+                return self.reply("disarm first: saving pauses the control loop for a moment", status=409)
+            self.reply("saved (mock: nothing is really stored)")
+        elif self.path == "/gains/defaults":
+            gains.update(kp=15.0, ki=0.0, kd=0.5, trim=-4.39, cap=80.0, deadband=0.0)
+            gains["ver"] += 1
+            self.reply("back to the config.h defaults (press Save to keep them)")
+        elif self.path == "/step":
+            if armed_from is None:
+                return self.reply("arm first: the step test moves the setpoint while balancing", status=409)
+            self.reply("step: setpoint +2.0 deg for 1000 ms (mock: not simulated)")
         elif self.path == "/motor/stop":
             if armed_from is not None:
                 armed_from, reason = None, "disarmed by you"

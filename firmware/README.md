@@ -6,6 +6,13 @@
 | `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
+## bb1, step 7: save settings + step test
+
+- **Save to flash** (page Balance panel, or `save` on serial) stores Kp, Ki, Kd, trim, cap and deadband in the Pico's flash (`settings.h`, next to the Wi-Fi settings). They load at startup, so a restart keeps your tuning. Only while disarmed. **Defaults** (`defaults`) goes back to `config.h`, which now starts at trim −4.39 and cap 80.
+- **Step test** (page button or `step`, armed only): the setpoint jumps +2 deg for 1 s, then back. Record it: the `setpoint` column shows the step and `pitch` shows how the loop follows. Used to compare gains (docs/PID_TUNING.md).
+
+Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
+
 ## bb1, step 6: arm / disarm + the angle loop
 
 The first balance controller (`pid.h`, `control.h`). Boots **disarmed**. **ARM** (page, or `arm` on serial) only works within 10 deg of the trim with the gyro calibrated; then the PID drives both wheels from the lean. It disarms by itself if it leans past 45 deg (FALLEN), the IMU fails 5 ticks running, the loop overruns 5 ticks running, or (armed from the page) the page stops asking for `/state` for 1 s. **DISARM**, STOP, the space bar, serial `disarm` or Enter stop it.

@@ -10,6 +10,14 @@ Newest first.
 - Battery cradle (record the pack's size and capacity)
 - Hand-held arm test of bb1 step 6 (direction + cut-outs), measure the motor deadband
 
+## 2026-10-21 - bb1 step 7: save settings + step test
+
+- settings.h: balance settings saved in flash at EEPROM offset 128 (Wi-Fi uses 0..127), loaded at startup; `save`, `defaults`, page Save to flash / Defaults, `POST /gains/save`, `/gains/defaults`. Disarmed only
+- Step test: `step`, page button, `POST /step` (armed only): setpoint +2 deg for 1 s, logged in `setpoint`
+- config.h defaults now trim −4.39, cap 80
+- Page: Live values List / Tiles switch (List = the original look, default)
+- Checked on the robot: kd 0.6 saved, survived a restart; save caused 0 missing ticks, 0 overruns. Current saved: kp 15, ki 0, kd 0.5, trim −4.39, cap 80, deadband 0
+
 ## 2026-10-21 - bb1 step 6: arm / disarm + angle loop (not armed on the robot yet)
 
 - Balance trim measured by Hector: −4.39 deg (page, Use current pitch as trim); to become the default in step 7

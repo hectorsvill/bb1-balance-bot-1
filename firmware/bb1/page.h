@@ -183,6 +183,7 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
         <button class="go big" id="armBtn" onclick="arm()">ARM</button>
         <label class="row" style="gap:6px">for <input id="armSecs" type="number" value="5" min="0" max="600" step="1" style="width:80px"> s</label>
         <button class="stop big" id="disarmBtn" onclick="disarm()">DISARM</button>
+        <button id="stepBtn" onclick="post('/step', null, 'armReason')" disabled>Step test</button>
       </div>
       <div class="msg">Hold it near upright to arm. It stops by itself when the time runs out (0 = no limit), past 45 deg, or if this page stops for 1 s. Space bar = stop.</div>
 
@@ -201,8 +202,11 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
       <div class="row" style="margin-top:12px">
         <button id="applyBtn" onclick="applyGains()">Apply</button>
         <button id="trimHereBtn" onclick="post('/gains', {trim: 'here'}, 'gainsMsg')">Use current pitch as trim</button>
+        <span class="spacer"></span>
+        <button id="saveBtn" onclick="post('/gains/save', null, 'gainsMsg')">Save to flash</button>
+        <button id="defaultsBtn" onclick="if (confirm('Go back to the config.h defaults? (Save to keep them.)')) post('/gains/defaults', null, 'gainsMsg')">Defaults</button>
       </div>
-      <div class="msg" id="gainsMsg">Change a box and it turns orange: press Apply (or Enter) to send it. Not saved: a restart goes back to config.h.</div>
+      <div class="msg" id="gainsMsg">Change a box and it turns orange: press Apply (or Enter) to send it. Save to flash keeps it after a restart.</div>
     </div>
   </div>
 
@@ -420,6 +424,9 @@ const HINTS = {
   gDb: 'Deadband: PWM added to every non-zero command, because the motors do not turn at all below a few PWM. 0 until we measure it.',
   applyBtn: 'Send all six numbers to BB1 (Enter in any box does the same). Orange = something differs from what BB1 is using. Applies on the next 5 ms tick.',
   trimHereBtn: 'Hold BB1 at its balance point (where it would tip neither way), then press: the current pitch becomes the trim.',
+  saveBtn: 'Store the six numbers BB1 is using now in its flash, so they survive a restart. Only while disarmed (writing flash pauses the control loop for a moment).',
+  defaultsBtn: 'Go back to the starting values in config.h. Press Save to flash afterwards to keep them.',
+  stepBtn: 'Step test (armed only): moves the balance point 2 deg forward for 1 s, then back. Record it to see how quickly and smoothly the loop follows: the way to compare gains.',
   // PID
   'h-err': 'How far past the balance point it leans, in degrees. Forward +. This is what the PID works on.',
   'h-p': 'P = Kp x error. Pushes harder the further it leans.',
@@ -645,7 +652,8 @@ function showMode(s) {
   el('armTime').textContent = left;
   el('topBar').style.width = el('armBar').style.width = frac + '%';
   el('armProgress').style.visibility = timed ? 'visible' : 'hidden';
-  el('armReason').textContent = s.armed ? (timed ? 'left, then it stops by itself' : 'balancing, no time limit') : s.reason;
+  el('armReason').textContent = s.armed ? (s.step ? 'step test running' : timed ? 'left, then it stops by itself' : 'balancing, no time limit') : s.reason;
+  el('stepBtn').disabled = !s.armed || s.step;
 }
 
 // ---------- pulling log records ----------

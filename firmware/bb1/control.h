@@ -61,6 +61,7 @@ struct Balance {
   int  imuErrorsInRow = 0;
   int  overrunsInRow = 0;
   unsigned long armedAtMs = 0;  // millis() when it armed, for the arm timer
+  unsigned long stepUntilMs = 0; // step test: setpoint is trim + STEP_TEST_DEG until then (0 = off)
 };
 
 Balance balance;                // only core 1 touches this
@@ -69,6 +70,8 @@ void balanceDisarm(uint8_t reason) {
   if (balance.armed) motorsOff();
   balance.armed = false;
   balance.pid.reset();
+  balance.stepUntilMs = 0;
+  stepActive = false;
   disarmReason = reason;
   robotArmed = false;
 }
@@ -94,7 +97,10 @@ void balanceArm(float pitch, bool motorTestOn) {
 // One tick of the angle loop. Returns the PWM to send to both wheels (0 when
 // disarmed) and fills the controller fields of the log record.
 int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r) {
-  r.setpoint_cdeg = (int16_t)(balanceTrim * 100);
+  // The setpoint is the trim, plus STEP_TEST_DEG while a step test runs.
+  if (balance.stepUntilMs && millis() >= balance.stepUntilMs) { balance.stepUntilMs = 0; stepActive = false; }
+  float setpoint = balanceTrim + (balance.stepUntilMs ? STEP_TEST_DEG : 0);
+  r.setpoint_cdeg = (int16_t)(setpoint * 100);
   r.gains_ver = (uint16_t)gainsVersion;
   r.reason = disarmReason;                      // the value before this tick's checks; next tick shows any new one
 
@@ -126,7 +132,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   Pid &pid = balance.pid;
   pid.kp = gainKp;  pid.ki = gainKi;  pid.kd = gainKd;
   pid.limit = pwmCap;
-  float error = a.pitch - balanceTrim;          // forward lean past the balance point = positive
+  float error = a.pitch - setpoint;             // forward lean past the balance point = positive
   float out = pid.update(error, a.pitchRate, dt);
 
   // Deadband: the motors don't turn at all below some PWM. Add it on top so a
@@ -140,6 +146,13 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   r.i_x10 = (int16_t)constrain(pid.i * 10, -32000.0f, 32000.0f);
   r.d_x10 = (int16_t)constrain(pid.d * 10, -32000.0f, 32000.0f);
   return (int)lroundf(out);
+}
+
+// Called between ticks when core 0 asks for a step test. Only while armed.
+void balanceStep() {
+  if (!balance.armed) return;
+  balance.stepUntilMs = millis() + STEP_TEST_MS;
+  stepActive = true;
 }
 
 uint8_t balanceMode() {

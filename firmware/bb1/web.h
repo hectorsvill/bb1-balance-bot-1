@@ -17,6 +17,8 @@
 //   POST /arm         start balancing (refused unless upright; see control.h). seconds=N: disarm after N s (0 = no limit)
 //   POST /disarm      stop balancing
 //   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband
+//   POST /gains/save  store them in flash (disarmed only);  POST /gains/defaults  back to config.h
+//   POST /step        step test while armed: setpoint +2 deg for 1 s
 //
 // Each handler is short and never touches the IMU or motors directly: it reads
 // the log buffer or sets a request in shared.h, exactly like the serial commands.
@@ -28,6 +30,7 @@
 #include "wifi_setup.h"
 #include "log_meta.h"
 #include "control.h"
+#include "settings.h"
 #include "page.h"
 
 WebServer server(80);
@@ -56,7 +59,7 @@ void handleState() {
            "\"wifi_mode\":\"%s\",\"wifi_ssid\":\"%s\",\"ip\":\"%s\",\"uptime_s\":%lu,"
            "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
-           "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
+           "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"step\":%s,\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
            "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f}}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
@@ -72,7 +75,7 @@ void handleState() {
            have ? r.pwm_l : 0, have ? r.pwm_r : 0,
            motorTestRunning ? "true" : "false", (unsigned long)motorTestsDone,
            (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
-           robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs, armLeftMs,
+           robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs, armLeftMs, stepActive ? "true" : "false",
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
            (unsigned long)gainsVersion, gainKp, gainKi, gainKd, balanceTrim, pwmCap, motorDeadband);
   server.send(200, "application/json", json);
@@ -239,6 +242,25 @@ void handleGains() {
               ", cap " + String(pwmCap, 0) + ", deadband " + String(motorDeadband, 0));
 }
 
+void handleGainsSave() {
+  String msg = settingsSave();
+  server.send(msg.startsWith("saved") ? 200 : 409, "text/plain", msg);
+}
+
+void handleGainsDefaults() {
+  settingsDefaults();
+  server.send(200, "text/plain", "back to the config.h defaults (press Save to keep them)");
+}
+
+void handleStep() {
+  if (!robotArmed) {
+    server.send(409, "text/plain", "arm first: the step test moves the setpoint while balancing");
+    return;
+  }
+  requestStep = true;
+  server.send(200, "text/plain", "step: setpoint +" + String(STEP_TEST_DEG, 1) + " deg for " + String(STEP_TEST_MS) + " ms");
+}
+
 // GET /sys -> how much of the Pico's memory the firmware uses.
 //
 // RAM (264 KB on the RP2040, 256 KB of it for the program) is split in two:
@@ -283,6 +305,9 @@ void webBegin() {
   server.on("/arm", HTTP_POST, handleArm);
   server.on("/disarm", HTTP_POST, handleDisarm);
   server.on("/gains", HTTP_POST, handleGains);
+  server.on("/gains/save", HTTP_POST, handleGainsSave);
+  server.on("/gains/defaults", HTTP_POST, handleGainsDefaults);
+  server.on("/step", HTTP_POST, handleStep);
   server.onNotFound([]() { server.send(404, "text/plain", "not found"); });
   server.begin();
 }

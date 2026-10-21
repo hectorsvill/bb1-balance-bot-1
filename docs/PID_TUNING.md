@@ -31,7 +31,7 @@ Later the **speed loop** sits outside this one: if the wheels keep rolling forwa
 - Find the motor deadband: the PWM at which the wheels just start to move. The controller adds it so small commands aren't lost.
 - PWM cap low (150/255) to start. Something soft to fall on.
 
-On BB1 (step 6) these are all on the page's **Balance** panel or serial: `trim here` / **Use current pitch as trim**, `deadband N`, `cap N`, `kp N`, `ki N`, `kd N`. They reset to `config.h` defaults at power-up until step 7 adds saving. Each change bumps `gains_ver`, which is in every log row.
+On BB1 (step 6) these are all on the page's **Balance** panel or serial: `trim here` / **Use current pitch as trim**, `deadband N`, `cap N`, `kp N`, `ki N`, `kd N`. **Save to flash** (or `save`) keeps them after a restart (step 7); **Defaults** goes back to `config.h`. Each change bumps `gains_ver`, which is in every log row.
 
 ### The hand-held test (step 6): what it's for
 

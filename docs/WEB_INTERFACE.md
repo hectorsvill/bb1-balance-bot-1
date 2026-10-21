@@ -37,7 +37,7 @@ The panels sit in one column, on a phone or a Mac. Click a panel's title to fold
 
 | Panel | Shows / does |
 |---|---|
-| Balance | state, big countdown and progress bar while armed, **ARM** for N s (0 = until you disarm), **DISARM**; gain boxes (Kp, Ki, Kd) and limits (trim, cap, deadband) with their units, **Apply**, **Use current pitch as trim** |
+| Balance | state, big countdown and progress bar while armed, **ARM** for N s (0 = until you disarm), **DISARM**, **Step test** (armed only); gain boxes (Kp, Ki, Kd) and limits (trim, cap, deadband) with their units, **Apply**, **Use current pitch as trim**, **Save to flash**, **Defaults** |
 | PID | view only: error (pitch − trim), P, I, D and the output in tiles, and a 10 s chart of P, I, D and the output with the ±cap lines. All zero while disarmed |
 | Pitch | pitch, pitch rate, accel-only pitch, and a 10 s chart: blue = filtered pitch, orange = accelerometer only, green dashes = trim |
 | Log | note, **Record** / **Stop**, **Download**, **Save last 10 s**. While recording, a table shows the records as they arrive (armed rows tinted green); **Watch** shows it without recording, **Pause** freezes it. Every record / 10th / 40th; **all columns** shows every column, otherwise the useful ones |
@@ -114,6 +114,9 @@ You can call these yourself with `curl` (on the same network as BB1):
 | `POST /arm` with optional `seconds=5` | start balancing (refused unless near upright and calibrated; `/state` says why); disarms after that many seconds, 0 = no limit |
 | `POST /disarm` | stop balancing |
 | `POST /gains` with any of `kp ki kd trim cap deadband` | change them live; `trim=here` uses the current pitch |
+| `POST /gains/save` | store them in flash (disarmed only); they load at startup |
+| `POST /gains/defaults` | back to the `config.h` defaults (Save to keep) |
+| `POST /step` | step test while armed: setpoint +2 deg for 1 s |
 
 `/log` starts with one line saying what came back, then the header and rows:
 

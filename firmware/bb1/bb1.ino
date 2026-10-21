@@ -31,6 +31,7 @@
 //   wifi_setup.h own network / home network, saved settings
 //   web.h        web server routes;  page.h  the page itself
 //   log_meta.h   the "# setting" lines at the top of every log file
+//   settings.h   saving the balance settings in flash
 //   secrets.h    own-network password (not in git; copy secrets.example.h)
 
 #include "config.h"
@@ -42,6 +43,7 @@
 #include "shared.h"
 #include "wifi_setup.h"
 #include "log_meta.h"
+#include "settings.h"
 #include "web.h"
 
 // Give core 1 its own 8 KB stack instead of splitting one 8 KB stack between the
@@ -132,6 +134,10 @@ void loop1() {
     requestArm = false;
     balanceArm(angle.pitch, test.running);
     armAttempts = armAttempts + 1;             // core 0 reports armed / refused when this changes
+  }
+  if (requestStep) {
+    requestStep = false;
+    balanceStep();
   }
   if (requestMotorTest) {
     requestMotorTest = false;
@@ -235,6 +241,8 @@ void printHelp() {
   Serial.println("  trim N    balance point in deg (now " + String(balanceTrim, 2) + ");  trim here = use the current pitch");
   Serial.println("  cap N     PWM limit while armed (now " + String(pwmCap, 0) + ");  deadband N  (now " + String(motorDeadband, 0) + ")");
   Serial.println("  gains     print the balance settings");
+  Serial.println("  save      store the balance settings in flash (disarmed only); defaults = back to config.h");
+  Serial.println("  step      step test: setpoint +" + String(STEP_TEST_DEG, 1) + " deg for " + String(STEP_TEST_MS) + " ms (armed only)");
   Serial.println("  help      this list");
 }
 
@@ -360,6 +368,14 @@ void handleCommand(String cmd) {
     requestDisarm = true;
   } else if (cmd == "gains") {
     printGains();
+  } else if (cmd == "save") {
+    Serial.println(settingsSave());
+  } else if (cmd == "defaults") {
+    settingsDefaults();
+    printGains();
+  } else if (cmd == "step") {
+    if (robotArmed) requestStep = true;
+    else Serial.println("arm first: the step test moves the setpoint while balancing");
   } else if (handleGainCommand(cmd)) {
     // done
   } else if (cmd.startsWith("m ")) {
@@ -447,6 +463,7 @@ void setup() {
   Serial.println();
   Serial.println("BB1 step 6: arm / disarm + angle loop. Motors run only when armed or in a timed test.");
   wifiStart();             // up to 15 s if a home network is saved; core 1 is already running
+  Serial.println(settingsLoad() ? "Balance settings loaded from flash." : "No saved balance settings: using config.h defaults.");
   webBegin();
   wifiPrintStatus();
   printHelp();
