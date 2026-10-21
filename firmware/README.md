@@ -18,7 +18,7 @@ arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/bb1 firmwar
 arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn rp2040:rp2040:rpipicow firmware/bb1
 ```
 
-Or drag `uf2/bb1.ino.uf2` onto RPI-RP2. To capture 20 s of output into a file:
+Or drag `uf2/bb1.ino.uf2` onto RPI-RP2. Full flashing steps, power order and troubleshooting: [docs/FLASHING.md](../docs/FLASHING.md). To capture 20 s of output into a file:
 
 ```bash
 tools/venv/bin/python tools/serial_log.py -t 20 -o step1.txt
