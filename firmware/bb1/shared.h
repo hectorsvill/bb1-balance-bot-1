@@ -36,6 +36,7 @@ volatile bool     requestArm    = false;
 volatile bool     requestDisarm = false;
 volatile uint8_t  requestDisarmReason = 1;   // REASON_USER unless the page says it was hidden
 volatile bool     armedFromWeb  = false;     // armed from the page: the heartbeat check applies
+volatile uint32_t armTimeMs     = 0;         // disarm by itself after this long armed; 0 = no limit
 volatile uint32_t lastWebHeartbeatMs = 0;    // millis() of the page's latest /state request
 
 // Status from core 1 to core 0

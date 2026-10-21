@@ -230,7 +230,7 @@ void printHelp() {
   Serial.println("            e.g. m 100 100 = both forward 2 s;  m 0 -80 1000 = right backward 1 s");
   Serial.println("  stop      stop the motors now (so does pressing Enter during a test)");
   Serial.println("  enc       print both encoder counts (turn a wheel one turn by hand to check 520)");
-  Serial.println("  arm       start balancing (hold it near upright first). disarm, or Enter, stops it");
+  Serial.println("  arm [N]   start balancing (hold it near upright first); N = stop after N s. disarm, or Enter, stops it");
   Serial.println("  kp N / ki N / kd N   set a gain (now " + String(gainKp, 2) + " / " + String(gainKi, 2) + " / " + String(gainKd, 2) + ")");
   Serial.println("  trim N    balance point in deg (now " + String(balanceTrim, 2) + ");  trim here = use the current pitch");
   Serial.println("  cap N     PWM limit while armed (now " + String(pwmCap, 0) + ");  deadband N  (now " + String(motorDeadband, 0) + ")");
@@ -351,8 +351,10 @@ void handleCommand(String cmd) {
   } else if (cmd == "stop") {
     requestMotorStop = true;
     requestDisarm = true;
-  } else if (cmd == "arm") {
+  } else if (cmd == "arm" || cmd.startsWith("arm ")) {
     armedFromWeb = false;                      // armed from serial: Enter is your stop button
+    float seconds = cmd.length() > 4 ? cmd.substring(4).toFloat() : 0;
+    armTimeMs = (uint32_t)(constrain(seconds, 0.0f, 600.0f) * 1000);   // "arm 5" = disarm by itself after 5 s
     requestArm = true;
   } else if (cmd == "disarm") {
     requestDisarm = true;

@@ -14,7 +14,7 @@
 //   GET  /sys         RAM and flash use as JSON (the page's System panel)
 //   POST /motor       args left, right, ms: timed motor test (same as serial "m L R ms")
 //   POST /motor/stop  stop the motors now (and disarm)
-//   POST /arm         start balancing (refused unless upright; see control.h)
+//   POST /arm         start balancing (refused unless upright; see control.h). seconds=N: disarm after N s (0 = no limit)
 //   POST /disarm      stop balancing
 //   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband
 //
@@ -53,7 +53,7 @@ void handleState() {
            "\"wifi_mode\":\"%s\",\"wifi_ssid\":\"%s\",\"ip\":\"%s\",\"uptime_s\":%lu,"
            "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
-           "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
+           "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
            "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f}}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
@@ -69,7 +69,7 @@ void handleState() {
            have ? r.pwm_l : 0, have ? r.pwm_r : 0,
            motorTestRunning ? "true" : "false", (unsigned long)motorTestsDone,
            (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
-           robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts,
+           robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs,
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
            (unsigned long)gainsVersion, gainKp, gainKi, gainKd, balanceTrim, pwmCap, motorDeadband);
   server.send(200, "application/json", json);
@@ -201,6 +201,8 @@ void handleMotorStop() {
 void handleArm() {
   armedFromWeb = true;                         // armed from here: the page must keep polling /state
   lastWebHeartbeatMs = millis();
+  float seconds = server.hasArg("seconds") ? server.arg("seconds").toFloat() : 0;
+  armTimeMs = (uint32_t)(constrain(seconds, 0.0f, 600.0f) * 1000);
   requestArm = true;
   server.send(200, "text/plain", "arming...");
 }

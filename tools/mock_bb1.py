@@ -37,7 +37,7 @@ LOG_MAX_PER_REQUEST = 1000
 ACCEL_PER_G = 16384.0
 GYRO_PER_DPS = 65.5
 CSV_HEADER = ("tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason")
+              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms")
 MOTOR_TEST_MAX_PWM = 150
 MOTOR_TEST_MAX_MS = 3000
 COUNTS_PER_S_PER_PWM = 17.5      # measured: about 1750 counts/s at PWM 100, wheels in the air
@@ -50,8 +50,9 @@ gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": 0.0, "cap": 150.0, 
 armed_from = None                 # tick it was armed at, or None
 reason = ""                       # why it last disarmed / refused, like disarmReason in control.h
 arm_attempts = 0
+arm_until = None                  # tick the arm timer ends at, or None
 REASONS = {"disarmed by you": 1, "not upright: hold it near the balance point to arm": 6,
-           "the page was hidden (tab switched or screen locked)": 10}   # codes as in control.h
+           "the page was hidden (tab switched or screen locked)": 10, "arm time finished": 11}   # codes as in control.h
 
 
 def test_at(tick):
@@ -121,12 +122,12 @@ def csv_line(r):
     return (f'{r["tick"]},{r["t_us"]},{r["work_us"]},{r["mode"]},{r["flag_bits"]},{raw},'
             f'{r["pitch"]:.3f},{r["pitch_rate"]:.3f},{r["accel_pitch"]:.3f},'
             f'{r["enc"][0]},{r["enc"][1]},{r["speed"][0]},{r["speed"][1]},{r["pwm"][0]},{r["pwm"][1]},'
-            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)}\n')
+            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10}\n')
 
 
 def meta_lines():
     return ("# firmware,bb1 MOCK (tools/mock_bb1.py)\n"
-            "# log_format,4\n"
+            "# log_format,5\n"
             f"# gyro_bias_dps,{bias[0]:.3f},{bias[1]:.3f},{bias[2]:.3f}\n"
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
             "# accel_pitch_sign,1,gyro_pitch_sign,1\n"
@@ -151,6 +152,9 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/":
             self.reply(read_page(), "text/html")
         elif url.path == "/state":
+            global armed_from, reason
+            if armed_from is not None and arm_until and total_written() >= arm_until:   # the arm timer ran out
+                armed_from, reason = None, "arm time finished"
             r = record(total_written() - 1)
             done = [t for t in tests if t[1] <= total_written()]
             last = done[-1] if done else [0, 0, 0, 0]
@@ -165,6 +169,7 @@ class Handler(BaseHTTPRequestHandler):
                 "pwm_l": r["pwm"][0], "pwm_r": r["pwm"][1], "test_running": r["mode"] == 3,
                 "tests_done": len(done), "test_moved": moved, "test_ms": (last[1] - last[0]) * 5,
                 "armed": r["mode"] == 4, "reason": reason, "arm_attempts": arm_attempts,
+                "arm_ms": int((arm_until - armed_from) * 5) if arm_until and armed_from is not None else 0,
                 "p": round(r["ctl"][1], 1), "i": 0.0, "d": round(r["ctl"][3], 1), "gains": gains,
             }
             self.reply(json.dumps(state), "application/json")
@@ -196,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
         return "".join(out)
 
     def do_POST(self):
-        global alpha, armed_from, reason, arm_attempts
+        global alpha, armed_from, reason, arm_attempts, arm_until
         length = int(self.headers.get("Content-Length") or 0)
         form = {k: v[0] for k, v in parse_qs(self.rfile.read(length).decode()).items()}
         if self.path == "/cal":
@@ -226,6 +231,8 @@ class Handler(BaseHTTPRequestHandler):
                 reason = "not upright: hold it near the balance point to arm"
             else:
                 armed_from, reason = total_written(), ""
+                secs = max(0.0, min(600.0, float(form.get("seconds") or 0)))
+                arm_until = armed_from + int(secs * LOOP_HZ) if secs else None
             self.reply("arming...")
         elif self.path.startswith("/disarm"):
             if armed_from is not None:

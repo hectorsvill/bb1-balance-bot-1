@@ -37,9 +37,8 @@ The panels sit in one column, on a phone or a Mac. Each panel's **▲ ▼** arro
 |---|---|
 | Pitch | big pitch number and a 10 s chart: blue = filtered pitch, orange = accelerometer only |
 | Live values | pitch rate, accel pitch, loop work time, tick, gyro bias, filter alpha, IMU status, uptime, encoders, wheel speeds, motor PWM, PID terms |
-| Record a log | **Record** / **Stop** / **Download** a run, **Save last 10 s** (see below) |
-| Live log | the log records as they arrive, same columns as a downloaded file. Show every record (200/s), every 10th or every 40th. Pause, Clear. |
-| Balance | **ARM** / **DISARM** (space bar also disarms), state (ARMED / disarmed / FALLEN and why), Kp Ki Kd, trim, PWM cap, deadband with **Apply**, **Use current pitch as trim** |
+| Log | **Record** / **Stop** / **Download** a run, **Save last 10 s** (see below). While recording, the box below shows the records as they arrive (every record, every 10th or every 40th). **Watch** shows them without recording; **Pause view** freezes the box to read it. |
+| Balance | **ARM** for N s (0 = until you disarm) / **DISARM** (space bar also disarms), state (ARMED / disarmed / FALLEN and why), Kp Ki Kd, trim, PWM cap, deadband with **Apply**, **Use current pitch as trim** |
 | Motor test | left / right PWM (-150..150, forward +) and a time (0.5 to 3 s), **Run** (asks "wheels off the table?"), **STOP**. The space bar also stops, anywhere on the page. Shows how far each wheel moved. |
 | Actions | **Calibrate gyro** (lay it still first), **Set alpha** |
 | Pico memory | RAM used (fixed globals incl. the 80 KB log buffer, plus heap), heap free, flash used, page size, CPU clock. Updates every 2 s. |
@@ -56,7 +55,7 @@ Armed from the page, BB1 disarms if the page stops polling `/state` for 1 s (clo
 | Control | What it does | Why it's there |
 |---|---|---|
 | state line | **ARMED** (green), **disarmed** or **FALLEN**, plus the reason it last stopped or refused to arm | so you always know whether the motors can move, and why they stopped |
-| **ARM** | starts the balance loop: the PID now drives both wheels from the lean | refused unless BB1 is within 10 deg of the trim and the gyro is calibrated, so it can't start lying down |
+| **ARM** for N s | starts the balance loop: the PID now drives both wheels from the lean. It disarms by itself after N seconds (default 5; 0 = no limit) | refused unless BB1 is within 10 deg of the trim and the gyro is calibrated, so it can't start lying down |
 | **DISARM (space)** | brakes both wheels and sleeps the driver | your stop button. The space bar does the same from anywhere on the page |
 | Kp | push per degree of lean (PWM per deg) | the main "fight back" strength |
 | Ki | push for a lean that lasts | fixes a steady drift; leave at 0 at first |
@@ -64,7 +63,7 @@ Armed from the page, BB1 disarms if the page stops polling `/state` for 1 s (clo
 | trim | the pitch where BB1 really balances | the controller holds this angle, not 0. Measured −4.39 deg on 2026-10-21 |
 | cap | the most PWM the loop may send (of 255) | keeps the first tests gentle; raise it once it balances |
 | deadband | PWM added to every non-zero command | motors don't turn below a few PWM; this makes small corrections count. 0 until measured |
-| **Apply** | sends all six boxes to BB1; applies on the next 5 ms tick | the answer line shows the new gains version (`gains vN`) |
+| **Apply** | sends all six boxes to BB1 (Enter in any box does the same); applies on the next 5 ms tick | a box you changed turns **orange** and Apply says **Apply changes** until BB1 is using it. No orange = nothing left to send |
 | **Use current pitch as trim** | hold BB1 at its balance point and press: that pitch becomes the trim | the easiest way to measure the trim |
 
 The boxes fill in from BB1 when the page opens. Settings go back to the `config.h` defaults at power-up until step 7 adds saving. Every change bumps `gains_ver`, which is in every log row, so a log always shows which settings were in use.
@@ -111,7 +110,7 @@ You can call these yourself with `curl` (on the same network as BB1):
 | `GET /sys` | RAM and flash use as JSON |
 | `POST /motor` with `left=100&right=100&ms=2000` | timed motor test (clamped to the limits in `config.h`) |
 | `POST /motor/stop` | stop the motors now and disarm |
-| `POST /arm` | start balancing (refused unless near upright and calibrated; `/state` says why) |
+| `POST /arm` with optional `seconds=5` | start balancing (refused unless near upright and calibrated; `/state` says why); disarms after that many seconds, 0 = no limit |
 | `POST /disarm` | stop balancing |
 | `POST /gains` with any of `kp ki kd trim cap deadband` | change them live; `trim=here` uses the current pitch |
 

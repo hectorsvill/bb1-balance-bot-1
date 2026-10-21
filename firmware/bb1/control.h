@@ -34,6 +34,7 @@ enum Reason : uint8_t {
   REASON_MOTOR_TEST,     // arm refused: a motor test is running
   REASON_CALIBRATE,      // disarmed to recalibrate the gyro
   REASON_PAGE_HIDDEN,    // the page was hidden (tab switched, phone locked) while armed
+  REASON_TIMER,          // the arm time you set ran out
 };
 
 const char *reasonText(uint8_t r) {
@@ -48,6 +49,7 @@ const char *reasonText(uint8_t r) {
     case REASON_MOTOR_TEST:     return "a motor test is running";
     case REASON_CALIBRATE:      return "disarmed to calibrate";
     case REASON_PAGE_HIDDEN:    return "the page was hidden (tab switched or screen locked)";
+    case REASON_TIMER:          return "arm time finished";
     default:                    return "";
   }
 }
@@ -58,6 +60,7 @@ struct Balance {
   Pid  pid;
   int  imuErrorsInRow = 0;
   int  overrunsInRow = 0;
+  unsigned long armedAtMs = 0;  // millis() when it armed, for the arm timer
 };
 
 Balance balance;                // only core 1 touches this
@@ -81,6 +84,7 @@ void balanceArm(float pitch, bool motorTestOn) {
   balance.imuErrorsInRow = 0;
   balance.overrunsInRow = 0;
   balance.armed = true;
+  balance.armedAtMs = millis();
   robotArmed = true;
   disarmReason = REASON_NONE;
   motorsEnable(true);                           // wake the driver; balanceTick() sets the PWM
@@ -93,6 +97,14 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   r.gains_ver = (uint16_t)gainsVersion;
   r.reason = disarmReason;                      // the value before this tick's checks; next tick shows any new one
 
+  // How long since the page last polled /state. Read the shared time once, and
+  // compare as a signed number: core 0 may set it a moment after we read
+  // millis(), and "now - later" must come out as a small negative, not a huge
+  // unsigned number that looks like a 49-day silence.
+  uint32_t lastWeb = lastWebHeartbeatMs;
+  int32_t webAgeMs = (int32_t)(millis() - lastWeb);
+  r.web_age = (uint8_t)constrain(webAgeMs / 10, 0L, 255L);
+
   if (balance.armed) {
     // ---- safety checks first, every tick ----
     balance.imuErrorsInRow = imuOk ? 0 : balance.imuErrorsInRow + 1;
@@ -100,7 +112,8 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     if (fabs(a.pitch - balanceTrim) > FALL_ANGLE) { balance.fallen = true; balanceDisarm(REASON_FELL); }
     else if (balance.imuErrorsInRow >= 5)          balanceDisarm(REASON_IMU);
     else if (balance.overrunsInRow >= 5)           balanceDisarm(REASON_OVERRUN);
-    else if (armedFromWeb && millis() - lastWebHeartbeatMs > HEARTBEAT_MS) balanceDisarm(REASON_HEARTBEAT);
+    else if (armedFromWeb && webAgeMs > (int32_t)HEARTBEAT_MS)  balanceDisarm(REASON_HEARTBEAT);
+    else if (armTimeMs && millis() - balance.armedAtMs >= armTimeMs) balanceDisarm(REASON_TIMER);
   }
 
   if (!balance.armed) {

@@ -82,6 +82,8 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   #hintBox { position:fixed; left:16px; right:16px; bottom:16px; max-width:640px; margin:0 auto; padding:10px 14px;
              background:#2b323c; border:1px solid var(--muted); border-radius:8px; font-size:14px; display:none; z-index:9; }
   .state.on { color:var(--ok); }
+  input.dirty { border-color:var(--accel); }
+  button.attention { background:var(--accel); color:#111; font-weight:700; }
   .gains label { display:inline-flex; gap:6px; align-items:center; font-size:13px; color:var(--muted); }
 </style>
 </head>
@@ -124,28 +126,24 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   </div>
 
   <div class="panel" id="p-log">
-    <div class="head"><h2>Record a log</h2></div>
+    <div class="head"><h2>Log</h2></div>
     <div class="row"><input id="note" placeholder="note for this run, e.g. tilt test" autocomplete="off"></div>
     <div class="row">
       <button id="recBtn" onclick="toggleRecord()">Record</button>
       <button class="secondary" id="dlBtn" onclick="downloadRecording()" disabled>Download</button>
       <button class="secondary" id="saveLastBtn" onclick="saveLast()">Save last 10 s</button>
     </div>
-    <div class="msg" id="logMsg">Record keeps every 5 ms tick until you press Stop. Save last 10 s grabs what just happened.</div>
-  </div>
-
-  <div class="panel" id="p-live">
-    <div class="head"><h2>Live log</h2></div>
-    <div class="row">
-      <button id="liveBtn" onclick="toggleLive()">Start</button>
+    <div class="msg" id="logMsg">Record shows the records below as they arrive and keeps every one until you press Stop.</div>
+    <div class="row" style="margin-top:8px">
+      <button class="secondary" id="liveBtn" onclick="toggleLive()">Watch</button>
       <select id="liveEvery">
-        <option value="1">every record (200/s)</option>
-        <option value="10" selected>every 10th (20/s)</option>
-        <option value="40">every 40th (5/s)</option>
+        <option value="1">show every record (200/s)</option>
+        <option value="10" selected>show every 10th (20/s)</option>
+        <option value="40">show every 40th (5/s)</option>
       </select>
       <button class="secondary" onclick="clearLive()">Clear</button>
     </div>
-    <pre id="liveLog">Press Start to watch the log records arrive (the same columns as a downloaded CSV).</pre>
+    <pre id="liveLog">Records appear here while recording. Watch shows them without recording.</pre>
     <div class="msg" id="liveMsg"></div>
   </div>
 
@@ -157,9 +155,10 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
     </div>
     <div class="row">
       <button id="armBtn" onclick="arm()">ARM</button>
+      <label>for <input class="num" id="armSecs" type="number" value="5" min="0" max="600" step="1"> s</label>
       <button class="stop" id="disarmBtn" onclick="disarm()">DISARM (space)</button>
     </div>
-    <div class="msg">Hold it near upright to arm. It disarms by itself if it leans past 45 deg, or if this page stops for 1 s.</div>
+    <div class="msg">Hold it near upright to arm. It disarms by itself after the time you set (0 = until you disarm), if it leans past 45 deg, or if this page stops for 1 s.</div>
     <div class="row gains" style="margin-top:10px">
       <label>Kp <input class="num" id="gKp" type="number" step="0.5"></label>
       <label>Ki <input class="num" id="gKi" type="number" step="0.1"></label>
@@ -174,7 +173,7 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
       <button class="secondary" id="applyBtn" onclick="applyGains()">Apply</button>
       <button class="secondary" id="trimHereBtn" onclick="post('/gains', {trim: 'here'}, 'gainsMsg')">Use current pitch as trim</button>
     </div>
-    <div class="msg" id="gainsMsg">Changes apply on the next tick. Not saved: power-up goes back to the defaults in config.h.</div>
+    <div class="msg" id="gainsMsg">Boxes turn orange when they differ from what BB1 is using: press Apply (or Enter) to send them. Not saved: a restart goes back to config.h.</div>
   </div>
 
   <div class="panel" id="p-motors">
@@ -259,7 +258,8 @@ const HINTS = {
   gTrim: 'Trim: the pitch (deg) where BB1 really balances. The loop holds this angle, not 0. Measured -4.39 deg.',
   gCap: 'Cap: the most PWM the balance loop may send (of 255). 80 = about 30% power, gentle for first tests. Raise it once it balances.',
   gDb: 'Deadband: PWM added to every non-zero command, because the motors do not turn at all below a few PWM. 0 until we measure it.',
-  applyBtn: 'Send all six numbers to BB1. They apply on the next 5 ms tick. Not saved: a restart goes back to the defaults in config.h.',
+  applyBtn: 'Send all six numbers to BB1 (Enter in any box does the same). Orange = some box differs from what BB1 is using. They apply on the next 5 ms tick. Not saved: a restart goes back to the defaults in config.h.',
+  armSecs: 'Arm time: BB1 disarms by itself after this many seconds. 0 = stays armed until you disarm (or a safety check stops it).',
   trimHereBtn: 'Hold BB1 at its balance point (where it would tip neither way), then press: the current pitch becomes the trim.',
   // Motor test
   mL: 'Left wheel PWM, -150..150. Positive = roll forward. 100 is about 40% power.',
@@ -267,7 +267,8 @@ const HINTS = {
   mMs: 'How long the test runs. It always stops by itself.',
   // Logging
   note: 'Saved in the file and its name, so you can tell runs apart later.',
-  recBtn: 'Record keeps every 5 ms record until you press Stop. Then Download saves it as a CSV.',
+  recBtn: 'Record keeps every 5 ms record until you press Stop, and shows them in the box below as they arrive. Then Download saves a CSV.',
+  liveBtn: 'Watch the records without recording. Pause view freezes the box so you can read it.',
   saveLastBtn: 'Download the last 10 s BB1 still has in memory, even if you were not recording.',
   liveEvery: 'How many records to show in the box. Recording always keeps every record.',
   // Actions
@@ -384,7 +385,7 @@ function motorStop() {
 
 // ---------- balance ----------
 
-function arm() { post('/arm', null, 'armReason'); }
+function arm() { post('/arm', { seconds: el('armSecs').value || 0 }, 'armReason'); }
 
 // Browsers slow a hidden tab down to about one update a second, which would
 // trip the 1 s heartbeat anyway. Say so clearly instead: disarm when hidden.
@@ -393,6 +394,10 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden && armedNow) navigator.sendBeacon('/disarm?why=hidden');
 });
 function disarm() { post('/disarm', null, 'armReason'); }
+
+// Which box shows which of BB1's settings (the names in /state "gains").
+const GAIN_BOXES = { gKp: 'kp', gKi: 'ki', gKd: 'kd', gTrim: 'trim', gCap: 'cap', gDb: 'deadband' };
+let robotGains = null;     // what BB1 is using right now, from /state
 
 function applyGains() {
   post('/gains', { kp: el('gKp').value, ki: el('gKi').value, kd: el('gKd').value,
@@ -403,10 +408,31 @@ function applyGains() {
 // but never while you're typing in one.
 let gainsVerShown = -1;
 function showGains(g) {
-  if (g.ver === gainsVerShown || document.activeElement.closest && document.activeElement.closest('.gains')) return;
-  gainsVerShown = g.ver;
-  el('gKp').value = g.kp; el('gKi').value = g.ki; el('gKd').value = g.kd;
-  el('gTrim').value = g.trim; el('gCap').value = g.cap; el('gDb').value = g.deadband;
+  robotGains = g;
+  if (g.ver !== gainsVerShown && !(document.activeElement.closest && document.activeElement.closest('.gains'))) {
+    gainsVerShown = g.ver;
+    for (const [id, key] of Object.entries(GAIN_BOXES)) el(id).value = g[key];
+  }
+  markChanged();
+}
+
+// A box that differs from what BB1 is using turns orange, and so does Apply,
+// so it's always clear whether there's something left to send.
+function markChanged() {
+  if (!robotGains) return;
+  let any = false;
+  for (const [id, key] of Object.entries(GAIN_BOXES)) {
+    const changed = Math.abs(Number(el(id).value) - robotGains[key]) > 1e-6;
+    el(id).classList.toggle('dirty', changed);
+    any = any || changed;
+  }
+  el('applyBtn').classList.toggle('attention', any);
+  el('applyBtn').textContent = any ? 'Apply changes' : 'Apply';
+}
+
+for (const id of Object.keys(GAIN_BOXES)) {
+  el(id).addEventListener('input', markChanged);
+  el(id).addEventListener('keydown', e => { if (e.key === 'Enter') applyGains(); });   // Enter = Apply
 }
 
 // Space bar = stop motors and disarm, anywhere on the page (except while typing in a box).
@@ -479,6 +505,7 @@ function recordAdd(rows, lost) {
 async function toggleRecord() {
   if (rec.on) {                                     // Stop
     rec.on = false;
+    if (live.byRecord) { live.byRecord = false; setLive(false); }    // the view stops with the recording
     el('recBtn').textContent = 'Record';
     el('dlBtn').disabled = rec.rows.length === 0;
     el('logMsg').textContent = recStatus('stopped') + '. Press Download to save.';
@@ -492,6 +519,7 @@ async function toggleRecord() {
   }
   rec.rows = []; rec.lost = 0; rec.note = el('note').value; rec.started = new Date();
   rec.on = true;
+  if (!live.on) { clearLive(); live.byRecord = true; setLive(true); }   // show what's being recorded
   el('recBtn').textContent = 'Stop';
   el('dlBtn').disabled = true;
   el('logMsg').textContent = recStatus('recording');
@@ -543,7 +571,7 @@ async function saveLast() {
 // Record still saves every record either way.
 
 const LIVE_LINES = 200;
-const live = { on: false, lines: [], total: 0, lost: 0 };
+const live = { on: false, byRecord: false, lines: [], total: 0, lost: 0 };
 
 function liveAdd(rows, lost) {
   const every = Number(el('liveEvery').value);
@@ -563,10 +591,15 @@ function liveAdd(rows, lost) {
                               '. Scroll sideways for more columns.';
 }
 
+function setLive(on) {
+  live.on = on;
+  el('liveBtn').textContent = on ? 'Pause view' : 'Watch';
+  if (on) startPump();
+}
+
 function toggleLive() {
-  live.on = !live.on;
-  el('liveBtn').textContent = live.on ? 'Pause' : 'Start';
-  if (live.on) startPump();
+  live.byRecord = false;           // you took over the view: Stop won't turn it off
+  setLive(!live.on);
 }
 
 function clearLive() {
@@ -641,7 +674,9 @@ let lastTick = -1, failures = 0;
 
 async function poll() {
   try {
-    const res = await fetch('/state', { cache: 'no-store' });
+    // Give up on a request after 1 s, so one lost answer can't freeze the page
+    // (and its heartbeat) until the browser's own, much longer timeout.
+    const res = await fetch('/state', { cache: 'no-store', signal: AbortSignal.timeout ? AbortSignal.timeout(1000) : undefined });
     const s = await res.json();
     failures = 0;
     el('conn').className = s.mock ? 'conn mock' : 'conn';
@@ -674,7 +709,7 @@ async function poll() {
     armedNow = s.armed;
     el('armState').textContent = s.armed ? 'ARMED' : (s.mode === 5 ? 'FALLEN' : 'disarmed');
     el('armState').className = s.armed ? 'state on' : 'state';
-    el('armReason').textContent = s.armed ? 'balancing' : s.reason;
+    el('armReason').textContent = s.armed ? 'balancing' + (s.arm_ms ? ', stops after ' + s.arm_ms / 1000 + ' s' : '') : s.reason;
     showGains(s.gains);
     if (testsDoneSeen >= 0 && s.tests_done !== testsDoneSeen) {        // a test just finished
       const sec = Math.max(s.test_ms, 1) / 1000;

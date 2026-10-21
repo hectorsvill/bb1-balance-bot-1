@@ -97,6 +97,12 @@ void wifiStart() {
     Serial.println();
     if (WiFi.status() == WL_CONNECTED) {
       wifiMode = WIFI_HOME_NETWORK;
+      // By default the Wi-Fi chip naps between beacons from the router to save
+      // power, so a request can wait hundreds of ms (measured up to 1.2 s on
+      // 2026-10-21). That's enough to trip the 1 s heartbeat while armed.
+      // Staying awake costs some battery, which is fine for a robot that's on
+      // for a test session.
+      WiFi.noLowPowerMode();
       MDNS.begin(BB1_HOSTNAME);               // answers to "bb1.local"
       MDNS.addService("http", "tcp", 80);
       return;

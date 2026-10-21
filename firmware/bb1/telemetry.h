@@ -60,6 +60,8 @@ struct LogRecord {
   uint16_t gains_ver;     // which gains were in use (counts up on every change)
   uint8_t  reason;        // why it last disarmed or refused to arm (Reason in control.h; 0 = none).
                           // Fits in what used to be padding, so the record stays 68 bytes.
+  uint8_t  web_age;       // time since the page last asked for /state, in 10 ms steps (255 = 2.55 s or more).
+                          // Shows Wi-Fi stalls; the last padding byte.
 };
 
 // ---------- the ring buffer ----------
@@ -113,7 +115,7 @@ uint32_t logOldest() {
 
 const char *CSV_HEADER =
   "tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason";
+  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms";
 
 void csvHeader(Print &p) {
   p.println(CSV_HEADER);
@@ -121,12 +123,12 @@ void csvHeader(Print &p) {
 
 // Write one record as a CSV line (with "\n") into buf. Returns the length.
 int formatCsv(char *buf, size_t size, const LogRecord &r) {
-  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u\n",
+  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u\n",
                   (unsigned long)r.tick, (unsigned long)r.t_us, r.work_us, r.mode, r.flags,
                   r.raw[0], r.raw[1], r.raw[2], r.raw[3], r.raw[4], r.raw[5], r.raw[6],
                   r.pitch, r.pitch_rate, r.accel_pitch,
                   (long)r.enc_l, (long)r.enc_r, r.speed_l, r.speed_r, r.pwm_l, r.pwm_r,
-                  r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason);
+                  r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10);
 }
 
 void printCsv(Print &p, const LogRecord &r) {

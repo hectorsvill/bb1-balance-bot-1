@@ -15,6 +15,10 @@ Newest first.
 - Balance trim measured by Hector: −4.39 deg (page, Use current pitch as trim); to become the default in step 7
 - First hand-held arm (Hector, 23:19): armed at +8.8 deg with trim 0.16, wheels drove **forward** at the cap (80), about 420 counts/s: direction correct. It disarmed after 1.24 s at +12.5 deg with no fall, IMU or overrun flag, so the cause (button, space bar or the page heartbeat) wasn't recorded; later ARM presses were refused (not upright)
 - Added `reason` to every log row (log format 4, in the old padding byte) and a page-hidden disarm (browsers slow hidden tabs to about 1 update a second, which trips the heartbeat)
+- Second hand-held run (Hector, 23:31): 3 arms, each stopped after about 1.1 s with reason 4 (lost the page / heartbeat), never a fall. Cause not known yet: the heartbeat compare is now race-proof (signed), `/state` polls time out after 1 s instead of hanging, and every row logs `web_age_ms` (log format 5) to show whether Wi-Fi stalls while the motors run
+- Found it: with the motors off and /state polled about 20 times a second, `web_age_ms` reached 1190 ms (0.19 s of 8 s over 1 s): the Wi-Fi chip's power-save naps. `WiFi.noLowPowerMode()` on the home network: max 600 ms, never over 1 s in 10 s, 0 missing ticks
+- Arm timer: ARM for N s on the page (default 5), `arm N` on serial, `seconds=` on /arm; reason 11
+- Page: Record and Live log combined into one Log panel (recording shows the records as they arrive); gain boxes turn orange when they differ from BB1 and Apply says Apply changes; Enter applies; hover / tap hints on every non-obvious control
 - docs: Balance panel control by control (WEB_INTERFACE.md), what the hand-held test is for (PID_TUNING.md)
 
 - pid.h (derivative on the gyro rate, clamped integral, no windup while saturated), control.h (disarmed / armed / fallen, arm only within 10 deg of trim and calibrated; disarm on > 45 deg, 5 IMU errors or overruns in a row, or 1 s without the page while armed from it)
