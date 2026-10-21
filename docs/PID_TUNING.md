@@ -33,6 +33,23 @@ Later the **speed loop** sits outside this one: if the wheels keep rolling forwa
 
 On BB1 (step 6) these are all on the page's **Balance** panel or serial: `trim here` / **Use current pitch as trim**, `deadband N`, `cap N`, `kp N`, `ki N`, `kd N`. They reset to `config.h` defaults at power-up until step 7 adds saving. Each change bumps `gains_ver`, which is in every log row.
 
+### The hand-held test (step 6): what it's for
+
+Before BB1 ever balances on the floor, one thing must be true: **when it leans, the wheels drive toward the lean**, the way you move your hand under a falling broom. If a sign anywhere is wrong (IMU, motors, the controller), the wheels drive the other way and push it over faster. On the floor that looks like "it just falls", and you can't tell a sign error from bad gains. Held in the air, it's obvious and safe.
+
+What you do and what each part checks:
+
+| Do | Expect | Checks |
+|---|---|---|
+| Hold it at its balance point, **Use current pitch as trim** | the trim box shows the angle (−4.39 deg on 2026-10-21) | the setpoint is the real balance point, not 0 |
+| cap 80, Apply, hold it in the air, **ARM** | ARMED (green) | arming works and the motors stay gentle |
+| tilt a little forward ("hectorsvill" side down) | both wheels spin forward, faster with more tilt | the whole sign chain: pitch + -> error + -> PWM + -> wheels forward |
+| tilt a little back | both wheels spin backward | same, the other way |
+| tilt past 45 deg | motors stop, FALLEN | the fall cut-out works |
+| Record during all of it, Download, `check_dump.py --plot` | pitch, P/D terms and PWM move together | the log shows what you saw, for later analysis and training |
+
+Hand-held, it won't feel like balancing: nothing pushes back on the wheels, so they just spin. That's expected; this test is only about direction and the cut-outs.
+
 ## 4. Tuning steps on BB1
 
 All gains change live from the page. Change one thing at a time and write down what you saw.

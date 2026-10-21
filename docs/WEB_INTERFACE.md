@@ -49,6 +49,26 @@ Coming next: saving gains and a step test (step 7), drive pad (milestone 2).
 
 Armed from the page, BB1 disarms if the page stops polling `/state` for 1 s (closed tab, phone screen off, Wi-Fi drop). That's on purpose.
 
+### Balance panel, control by control
+
+| Control | What it does | Why it's there |
+|---|---|---|
+| state line | **ARMED** (green), **disarmed** or **FALLEN**, plus the reason it last stopped or refused to arm | so you always know whether the motors can move, and why they stopped |
+| **ARM** | starts the balance loop: the PID now drives both wheels from the lean | refused unless BB1 is within 10 deg of the trim and the gyro is calibrated, so it can't start lying down |
+| **DISARM (space)** | brakes both wheels and sleeps the driver | your stop button. The space bar does the same from anywhere on the page |
+| Kp | push per degree of lean (PWM per deg) | the main "fight back" strength |
+| Ki | push for a lean that lasts | fixes a steady drift; leave at 0 at first |
+| Kd | push per deg/s of falling speed | brakes the swinging that Kp alone causes |
+| trim | the pitch where BB1 really balances | the controller holds this angle, not 0. Measured −4.39 deg on 2026-10-21 |
+| cap | the most PWM the loop may send (of 255) | keeps the first tests gentle; raise it once it balances |
+| deadband | PWM added to every non-zero command | motors don't turn below a few PWM; this makes small corrections count. 0 until measured |
+| **Apply** | sends all six boxes to BB1; applies on the next 5 ms tick | the answer line shows the new gains version (`gains vN`) |
+| **Use current pitch as trim** | hold BB1 at its balance point and press: that pitch becomes the trim | the easiest way to measure the trim |
+
+The boxes fill in from BB1 when the page opens. Settings go back to the `config.h` defaults at power-up until step 7 adds saving. Every change bumps `gains_ver`, which is in every log row, so a log always shows which settings were in use.
+
+Safety, always on while armed: past 45 deg from the trim it stops and shows FALLEN; it also stops on 5 IMU errors or 5 late loops in a row, and, when armed from the page, if the page stops polling for 1 s (tab closed, phone screen off, Wi-Fi drop).
+
 ### Saving logs
 
 - Type a **note** (it goes in the file and its name), press **Record**, do the test, press **Stop**, then **Download**. You get `bb1_<date>_<time>_<note>.csv`.

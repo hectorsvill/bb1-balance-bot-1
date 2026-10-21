@@ -8,9 +8,12 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- Hand-held arm test of bb1 step 6, measure the trim and the motor deadband
+- Hand-held arm test of bb1 step 6 (direction + cut-outs), measure the motor deadband
 
 ## 2026-10-21 - bb1 step 6: arm / disarm + angle loop (not armed on the robot yet)
+
+- Balance trim measured by Hector: −4.39 deg (page, Use current pitch as trim); to become the default in step 7
+- docs: Balance panel control by control (WEB_INTERFACE.md), what the hand-held test is for (PID_TUNING.md)
 
 - pid.h (derivative on the gyro rate, clamped integral, no windup while saturated), control.h (disarmed / armed / fallen, arm only within 10 deg of trim and calibrated; disarm on > 45 deg, 5 IMU errors or overruns in a row, or 1 s without the page while armed from it)
 - Live gains: serial `arm`, `disarm`, `kp/ki/kd N`, `trim N` / `trim here`, `cap N`, `deadband N`, `gains`; page Balance panel; `POST /arm`, `/disarm`, `/gains`. STOP / space bar / Enter also disarm. Defaults in config.h (Kp 15, Ki 0, Kd 0.5, cap 150), not saved yet

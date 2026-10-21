@@ -15,7 +15,9 @@ Gains, trim, PWM cap and deadband change live (page **Balance** panel or serial 
 Every log row now also has `setpoint, p_term, i_term, d_term, gains_ver` (log format 3), and `mode` 4 = armed, 5 = fallen; flag 8 = output hit the cap.
 
 What to check, **hand-held first** (hold the frame, wheels free, fingers clear of the wheels):
-1. Hold it at the balance point, **Use current pitch as trim** (or `trim here`). Write the number down.
+Why: this checks the wheels drive toward the lean (all the signs) and the safety cut-outs before it ever touches the floor. Full explanation: docs/PID_TUNING.md, "The hand-held test". The Balance panel's controls: docs/WEB_INTERFACE.md.
+
+1. Hold it at the balance point, **Use current pitch as trim** (or `trim here`). Write the number down (measured −4.39 deg on 2026-10-21).
 2. Set the cap low (`cap 80`), **ARM**. Tilt it a little forward: both wheels roll **forward** (toward the lean), harder the more you tilt. Tilt back: they roll backward. If it's the other way round, disarm and tell me (a sign is wrong).
 3. Tilt it past 45 deg: it disarms by itself (FALLEN). Close the page while armed: disarms within 1 s.
 4. **Record** a run of steps 2 and 3 and check it with `check_dump.py --plot`.
