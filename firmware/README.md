@@ -1,0 +1,63 @@
+# Bring-up tests: motors and MPU-6050
+
+Two small Arduino C++ sketches that check each part works before we write the balance code.
+
+| **Sketch** | **Checks** | **Needs the battery?** |
+| :-: | :-: | :-: |
+| motor_test | Each motor spins both ways through the D153C; each encoder counts | Yes (D153C switch on) |
+| imu_test | The MPU-6050 answers on I2C and gives sensible readings | Yes for now (see the power rule) |
+
+Board: Raspberry Pi Pico W with the "Raspberry Pi Pico/RP2040" core by Earle F. Philhower (version 6.3.0 used to compile these).
+
+## Power rule (no 1N5819 diode yet)
+
+The D153C 5V is wired straight to the Pico's VSYS pin. The Pico already has its own diode on the USB side, so your Mac is protected, but USB alone would push power backwards into the D153C's 5V regulator. Until the diode goes in:
+
+1. Switch the D153C on (battery connected) **before** plugging in USB.
+2. Unplug USB **before** switching the D153C off.
+
+## Fastest way: drag and drop the ready-made UF2
+
+The `uf2` folder has both sketches already compiled.
+
+1. Prop the robot so both wheels are off the table.
+2. Hold the Pico's BOOTSEL button and switch the D153C on, then let go.
+3. Plug USB into your Mac. A drive called RPI-RP2 appears.
+4. Drag `motor_test.ino.uf2` onto it. The Pico restarts and runs the test.
+5. Open a serial monitor: `screen /dev/cu.usbmodem* 115200` (quit with Ctrl-A, then K, then y).
+
+## Learning way: build it yourself with arduino-cli and vim
+
+```
+brew install arduino-cli
+arduino-cli config init
+arduino-cli config add board_manager.additional_urls https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+arduino-cli core update-index
+arduino-cli core install rp2040:rp2040
+
+vim motor_test/motor_test.ino
+arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/motor_test motor_test
+```
+
+- First upload: put the Pico in BOOTSEL mode (steps 2 and 3 above) and copy the file: `cp build/motor_test/motor_test.ino.uf2 /Volumes/RPI-RP2/`
+- After that, while one of these sketches is running: `arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn rp2040:rp2040:rpipicow motor_test` (find the port with `ls /dev/cu.usbmodem*`)
+- Serial monitor: `arduino-cli monitor -p /dev/cu.usbmodemXXXX -c baudrate=115200`
+
+Arduino IDE 2 works too: Settings, Additional boards manager URLs, paste the URL above; Boards Manager, install "Raspberry Pi Pico/RP2040"; pick board "Raspberry Pi Pico W"; Serial Monitor at 115200 with "Newline".
+
+## Test 1: motors (motor_test)
+
+Wheels off the table. Type a command and press Enter:
+
+| **Command** | **What happens** |
+| :-: | :-: |
+| a+ / a- | Motor A forward / backward for 2 s, then the encoder 1 count |
+| b+ / b- | Motor B forward / backward for 2 s, then the encoder 2 count |
+| speed N | Set the test speed, 0 to 255 (starts at 100, about 40%) |
+| e | Print both encoder counts for 10 s while you turn the wheels by hand |
+
+Write down for each command: which wheel turned, which way it rolled (robot forward or backward), and the count (number and + or - sign). If a motor only hums, try `speed 150`.
+
+## Test 2: MPU-6050 (imu_test)
+
+Flash `imu_test.ino.uf2` the same way. Expect `device at 0x68` and `WHO_AM_I = 0x68`. Sitting still and level, one accel axis reads about 1.00 g and the gyro reads close to 0. Tilt the robot forward slowly and note which tilt angle changes and its sign: that axis becomes our pitch angle.

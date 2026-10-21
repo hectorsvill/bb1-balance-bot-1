@@ -1,0 +1,27 @@
+# Build output from arduino-cli (prebuilt .uf2 files live in firmware/uf2/ and ARE tracked)
+build/
+
+# Photos: iPhone HEIC files can carry GPS location in their metadata
+images/
+
+# Secrets: Wi-Fi credentials, keys, tokens (keep these out of git)
+.env
+.env.*
+secrets.h
+arduino_secrets.h
+*secret*
+*.key
+*.pem
+*.p12
+credentials*
+
+# OS and editor clutter
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
