@@ -29,7 +29,7 @@ Commands: `cal` (recalibrate), `alpha N` (filter weight), `csv` (spreadsheet out
 What to check:
 1. At rest: the calibration prints a bias (Y about +2.5 deg/s); pitch sits still (within about 0.2 deg over a minute).
 2. Tilt forward about 30 deg: pitch goes **positive**, and `pitch` and `accel only` agree within a degree or two once you stop.
-3. While tilting, `rate` is positive going forward. If pitch and accel-only pitch move opposite ways, flip `GYRO_PITCH_SIGN` in `config.h`.
+3. While tilting, `rate` is positive going forward. If pitch and accel-only pitch move opposite ways, flip `GYRO_PITCH_SIGN` in `config.h`. If both move together but forward reads negative, flip both signs.
 4. Tap the frame: `accel only` jumps, `pitch` barely moves. That's the filter working.
 5. `loop avg` well under 5000 us; `overruns` and `imu errors` stay 0.
 

@@ -28,13 +28,14 @@ const bool RIGHT_MOTOR_REVERSED = false;
 const bool LEFT_ENC_REVERSED    = false;
 const bool RIGHT_ENC_REVERSED   = true;
 
-// IMU: the chip's X-axis tilt reads NEGATIVE when the robot leans forward,
-// so we multiply by -1 to make "forward lean" positive.
-// The gyro X rate should need the same flip. If, while you tilt forward, the
-// filtered pitch and the accel-only pitch move in opposite directions,
-// change GYRO_PITCH_SIGN to +1.
-const float ACCEL_PITCH_SIGN = -1.0;
-const float GYRO_PITCH_SIGN  = -1.0;
+// IMU: the chip's X-axis tilt, atan2(ay, az), reads POSITIVE when the robot
+// leans forward (measured 2026-10-21: hectorsvill side down read +26 deg once
+// these were set right), so no flip is needed: +1.
+// The accel angle and the gyro rate must always share a sign. If you ever flip
+// one, flip both. Check: while you tilt forward, "rate" is positive and
+// "pitch" and "accel only" move together.
+const float ACCEL_PITCH_SIGN = +1.0;
+const float GYRO_PITCH_SIGN  = +1.0;
 
 // ---------- timing ----------
 const int LOOP_HZ = 200;                          // control loop rate

@@ -56,4 +56,4 @@ Rebuild example: `openscad -o reverse_t_frame_short.stl -D 'layout="short"' -D '
 | MPU-6050 | Live readings on I2C0 (WHO_AM_I line not captured) |
 | At rest | accel z about 0.94 g (flat, face up), total about 0.95 g |
 | Gyro bias | y about +2.5 deg/s at rest |
-| Pitch | tilt X; 30 deg forward read about -35 deg, so forward lean reads negative |
+| Pitch | tilt X; 30 deg forward read about -35 deg, so forward lean reads negative. **Corrected 2026-10-21:** bb1 step 1 shows forward lean (hectorsvill side down) reads positive, gyro X shares the sign |

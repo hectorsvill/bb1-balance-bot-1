@@ -24,7 +24,7 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
   - `LEFT_ENC_REVERSED = false` (encoder 1 counts up rolling forward)
   - `RIGHT_ENC_REVERSED = true` (encoder 2 counts down rolling forward)
 - Encoders: interrupt on both edges of channel A, direction from channel B. 520 counts per wheel turn assumed (13 pulses x 20:1 x 2 edges), not measured cleanly yet. About 1,750 counts/s per wheel at PWM 100/255 with the wheels in the air.
-- MPU-6050: mounted flat, face up (accel z about +0.94 g at rest). Pitch is the tilt about the chip's X axis, `atan2(ay, az)`. Tipping forward about 30 deg read -35 deg, so negate it to make forward lean positive. Gyro X is the pitch rate and should share that sign (verify in the angle step). Gyro bias at rest about +2.5 deg/s on Y; measure all three axes at startup.
+- MPU-6050: mounted flat, face up (accel z about +0.94 g at rest). Pitch is the tilt about the chip's X axis, `atan2(ay, az)`, and gyro X is the pitch rate. **Both read positive when leaning forward, no negation** (measured 2026-10-21 in bb1 step 1: hectorsvill side down read about +26 deg, gyro rate shares the sign; the earlier "-35 deg forward" bring-up note was wrong). `ACCEL_PITCH_SIGN` / `GYRO_PITCH_SIGN` = +1 in `firmware/bb1/config.h`. Upright hand-held read about +6 deg (balance trim to measure). Gyro bias at rest about +2.5 deg/s on Y; measured on all three axes at startup.
 
 ## Hardware
 
