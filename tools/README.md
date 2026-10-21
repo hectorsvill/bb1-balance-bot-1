@@ -27,6 +27,7 @@ source tools/venv/bin/activate
 | Script | What it does |
 |---|---|
 | `serial_log.py` | Reads the Pico's USB serial for N seconds, prints it and saves it to a text file (for test records) |
+| `summarize_serial.py` | Summarizes a captured `csv`-mode run, one line per second; `--plot` draws it (see `docs/CALIBRATION_AND_LOGS.md`) |
 | `logger.py` | (step 4) Pulls log records from the Pico over Wi-Fi, writes `logs/<date>_<time>/run.csv` + `meta.json` |
 | `plot_run.py` | (step 4) Plots one saved run |
 

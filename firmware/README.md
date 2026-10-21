@@ -24,6 +24,8 @@ Or drag `uf2/bb1.ino.uf2` onto RPI-RP2. Full flashing steps, power order and tro
 tools/venv/bin/python tools/serial_log.py -t 20 -o step1.txt
 ```
 
+What calibration does and how to read the output: [docs/CALIBRATION_AND_LOGS.md](../docs/CALIBRATION_AND_LOGS.md).
+
 Commands: `cal` (recalibrate), `alpha N` (filter weight), `csv` (spreadsheet output), `help`.
 
 What to check:
