@@ -79,7 +79,7 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   .state { font-size:22px; font-weight:700; }
   /* Things with a hint: dotted underline, "?" cursor. Hover (or tap on a phone) to read it. */
   .hinted { text-decoration:underline dotted var(--muted); text-underline-offset:3px; cursor:help; }
-  #hintBox { position:fixed; left:16px; right:16px; bottom:16px; max-width:640px; margin:0 auto; padding:10px 14px;
+  #hintBox { position:fixed; max-width:min(360px, calc(100vw - 32px)); padding:8px 12px; pointer-events:none;
              background:#2b323c; border:1px solid var(--muted); border-radius:8px; font-size:14px; display:none; z-index:9; }
   .state.on { color:var(--ok); }
   input.dirty { border-color:var(--accel); }
@@ -243,10 +243,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ---------- hints ----------
 //
-// One place for every explanation on the page. Each key is an element id;
-// the text becomes its hover tooltip (the "title" attribute). For a box inside
-// a <label>, the label word gets it too. Phones can't hover, so tapping a
-// hinted word shows the same text in a box at the bottom for a few seconds.
+// One place for every explanation on the page. Each key is an element id.
+// Hover over a hinted word (dotted underline) and the hint appears next to it;
+// move away and it disappears. Phones can't hover, so a tap shows it for 5 s.
+// For a box inside a <label>, both the word and the box show the hint.
 
 const HINTS = {
   // Balance
@@ -292,26 +292,39 @@ const HINTS = {
 };
 
 let hintTimer;
-function showHint(text) {
+function showHint(text, anchor) {
   const box = el('hintBox');
   box.textContent = text;
   box.style.display = 'block';
+  // Put it just below the hovered word, kept inside the window.
+  const r = anchor.getBoundingClientRect();
+  const left = Math.min(r.left, window.innerWidth - box.offsetWidth - 16);
+  const below = r.bottom + 6 + box.offsetHeight < window.innerHeight;
+  box.style.left = Math.max(16, left) + 'px';
+  box.style.top = (below ? r.bottom + 6 : r.top - box.offsetHeight - 6) + 'px';
   clearTimeout(hintTimer);
-  hintTimer = setTimeout(() => box.style.display = 'none', 5000);
+}
+
+function hideHint() {
+  clearTimeout(hintTimer);
+  el('hintBox').style.display = 'none';
 }
 
 for (const [id, text] of Object.entries(HINTS)) {
   const target = el(id);
   if (!target) continue;
   const label = target.closest('label');
-  for (const e of label ? [target, label] : [target]) e.title = text;
-  // The visible word that gets the dotted underline: the label, or the element itself.
-  const word = label || target;
+  const word = label || target;               // what you hover: the label (word + box), or the element
   word.classList.add('hinted');
-  if (target.tagName === 'TD' || label) word.addEventListener('click', ev => {
-    if (ev.target === word || ev.target.tagName === 'TD') showHint(text);   // a tap on the word, not in the box
-  });
+  target.setAttribute('aria-description', text);   // screen readers still get it (no "title": it would pop up twice)
+  word.addEventListener('mouseenter', () => showHint(text, word));
+  word.addEventListener('mouseleave', hideHint);
+  word.addEventListener('touchstart', () => {  // phones: tap shows it for 5 s
+    showHint(text, word);
+    hintTimer = setTimeout(hideHint, 5000);
+  }, { passive: true });
 }
+window.addEventListener('scroll', hideHint, { passive: true });
 
 // ---------- moving panels ----------
 //

@@ -29,7 +29,7 @@ The password is stored as plain text on the Pico. It never goes into git.
 
 ## The page
 
-Anything with a dotted underline has a hint: hover over it on the Mac, or tap the word on a phone (the hint shows at the bottom for 5 s). All hint texts live in one table, `HINTS` in `page.h`, keyed by element id: edit them there.
+Anything with a dotted underline has a hint: hover over it on the Mac and it appears next to it, move away and it goes; on a phone, tap the word (shows for 5 s). All hint texts live in one table, `HINTS` in `page.h`, keyed by element id: edit them there.
 
 The panels sit in one column, on a phone or a Mac. Each panel's **▲ ▼** arrows move it up or down; the order is remembered by that browser. Anything wider than a panel (the live log, long tables) scrolls sideways inside its box, never the whole page.
 
