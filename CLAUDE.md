@@ -9,6 +9,9 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 - I'm learning embedded and robotics, not just shipping code. Explain the why briefly, comment the code so it teaches, and go one small step at a time: I test each step on the hardware and report back before we move on.
 - Keep replies concise. Docs in Markdown. Use vim (never nano) in any editor instructions.
 - I hand-solder everything and don't use header pins.
+- Every firmware step keeps logging in mind: new sensor values, commands and outputs go into the telemetry record (see `docs/FIRMWARE_PLAN.md`, section 5). I want to train an AI model on these logs later to drive the bot.
+- Code must stay readable enough that I can jump in and change it myself: small files, clear names, comments that explain why. If unsure about a choice, ask me.
+- Milestones: 1 = balance + Pico W web page for testing and live PID tuning; 2 = remote control from the web page. More will come.
 - Before running anything that can move the motors, confirm with me that the wheels are off the table. Every motor test must stop by itself.
 
 ## Directions and signs (measured 2026-10-20)
