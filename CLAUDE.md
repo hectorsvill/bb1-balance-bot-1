@@ -79,7 +79,7 @@ D153C 5V goes straight to VSYS. Switch the D153C on (battery connected) **before
 - `firmware/bb1/` the main firmware (grown step by step), `firmware/motor_test` and `imu_test` bring-up sketches, `firmware/uf2/` prebuilt files
 - `tools/` Python helpers with their own venv (`tools/venv`, rebuilt from `tools/requirements.txt`, not committed); run them with `tools/venv/bin/python`
 - `cad/` OpenSCAD sources and `cad/stl/` the exact STLs printed
-- `docs/` BUILD_RECORD.md (as built + test results), WIRING.md, CHANGELOG.md, FIRMWARE_PLAN.md (plan and choices), PID_TUNING.md, FLASHING.md (power order, upload, BOOTSEL, monitor), CALIBRATION_AND_LOGS.md (gyro bias cal, readout fields, capturing and summarizing runs; add new log columns here)
+- `docs/` BUILD_RECORD.md (as built + test results), WIRING.md, CHANGELOG.md, FIRMWARE_PLAN.md (plan and choices), PID_TUNING.md, FLASHING.md (power order, upload, BOOTSEL, monitor), TOOLS.md (every tool, venv, how to run, common errors; keep it current when a tool is added), CALIBRATION_AND_LOGS.md (gyro bias cal, readout fields, capturing and summarizing runs; add new log columns here)
 
 ## Docs
 

@@ -11,10 +11,25 @@ Any other lines in the file (the "> csv" echo, calibration messages) are skipped
 
 import argparse
 import io
+from pathlib import Path
 
 import pandas as pd
 
+REPO = Path(__file__).resolve().parent.parent   # the repo folder (tools/ is one level down)
+
 COLUMNS = ["ms", "pitch", "accel_pitch", "pitch_rate", "loop_avg_us", "loop_max_us"]
+
+
+def find_file(name):
+    """A relative path is looked up from the folder you're in (your terminal's
+    current directory). If it isn't there, try from the repo folder, so
+    `logs/x.txt` works whether you're in the repo folder or in tools/."""
+    p = Path(name)
+    if p.exists():
+        return p
+    if not p.is_absolute() and (REPO / p).exists():
+        return REPO / p
+    raise SystemExit(f"Can't find {name} (looked in {Path.cwd()} and {REPO}). Try: ls {REPO / 'logs'}")
 
 
 def load(path):
@@ -31,7 +46,7 @@ def main():
     ap.add_argument("--plot", action="store_true", help="show pitch, accel pitch and rate over time")
     args = ap.parse_args()
 
-    df = load(args.file)
+    df = load(find_file(args.file))
     per_sec = df.groupby(df.t.astype(int)).agg(
         pitch=("pitch", "mean"),
         accel_pitch=("accel_pitch", "mean"),

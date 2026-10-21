@@ -87,7 +87,7 @@ ms,pitch,accel_pitch,pitch_rate,loop_avg_us,loop_max_us
 tools/venv/bin/python tools/serial_log.py -t 60 -s csv -o logs/my_run.txt
 ```
 
-(`-s csv` sends the `csv` command first). Files in `logs/` stay out of git.
+(`-s csv` sends the `csv` command first). Files in `logs/` stay out of git. Run these from the repo folder; [TOOLS.md](TOOLS.md) explains folders and the venv.
 
 ### Summarize
 

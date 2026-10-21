@@ -26,7 +26,7 @@ cad/            OpenSCAD sources
 cad/stl/        the exact STLs that were printed
 firmware/       Arduino sketches, one folder each (see firmware/README.md)
 firmware/uf2/   prebuilt files you can drag onto the Pico
-docs/           BUILD_RECORD, WIRING, CHANGELOG, FIRMWARE_PLAN, PID_TUNING, FLASHING, CALIBRATION_AND_LOGS
+docs/           BUILD_RECORD, WIRING, CHANGELOG, FIRMWARE_PLAN, PID_TUNING, FLASHING, CALIBRATION_AND_LOGS, TOOLS
 CLAUDE.md       project facts and working rules for Claude Code
 ```
 
@@ -42,7 +42,7 @@ arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/motor_test 
 arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn rp2040:rp2040:rpipicow firmware/motor_test
 ```
 
-Find the port with `ls /dev/cu.usbmodem*`. Serial is 115200 baud. Setup steps and the bring-up tests are in [firmware/README.md](firmware/README.md); the full flashing guide is [docs/FLASHING.md](docs/FLASHING.md); calibration and reading logs: [docs/CALIBRATION_AND_LOGS.md](docs/CALIBRATION_AND_LOGS.md).
+Find the port with `ls /dev/cu.usbmodem*`. Serial is 115200 baud. Setup steps and the bring-up tests are in [firmware/README.md](firmware/README.md); the full flashing guide is [docs/FLASHING.md](docs/FLASHING.md); calibration and reading logs: [docs/CALIBRATION_AND_LOGS.md](docs/CALIBRATION_AND_LOGS.md); all tools and how to run them: [docs/TOOLS.md](docs/TOOLS.md).
 
 ## Roadmap
 
