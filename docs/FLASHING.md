@@ -87,3 +87,4 @@ Only one program can hold the port at a time. Close the monitor before uploading
 | Upload says the port is busy | Close the serial monitor / screen first. |
 | Nothing prints after flashing | The sketch waits up to 5 s for a monitor, then runs anyway; open the monitor and type `help`, or press Enter. |
 | Output is garbage | Baud rate isn't 115200. |
+| `Operation not permitted` on `/Volumes/RPI-RP2` (uploading from Claude Code) | macOS hasn't given that app access to removable drives. The Pico is already in bootloader mode at this point, so drag the `.uf2` onto RPI-RP2 in Finder yourself. Or allow it in System Settings > Privacy & Security > Files and Folders > Removable Volumes. |
