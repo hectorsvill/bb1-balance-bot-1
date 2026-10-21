@@ -12,6 +12,8 @@
 //   GET  /log/meta    the "# setting" lines for the top of a log file (log_meta.h)
 //   GET  /log?since=N log records from tick N on, as CSV (see handleLog)
 //   GET  /sys         RAM and flash use as JSON (the page's System panel)
+//   POST /motor       args left, right, ms: timed motor test (same as serial "m L R ms")
+//   POST /motor/stop  stop the motors now
 //
 // Each handler is short and never touches the IMU or motors directly: it reads
 // the log buffer or sets a request in shared.h, exactly like the serial commands.
@@ -38,12 +40,14 @@ void handleState() {
   uint32_t total = totalWritten;
   bool have = total > 0 && logGet(total - 1, r);
 
-  char json[512];
+  char json[768];
   snprintf(json, sizeof(json),
            "{\"have\":%s,\"tick\":%lu,\"t_us\":%lu,\"mode\":%u,\"flag_bits\":%u,"
            "\"pitch\":%.2f,\"accel_pitch\":%.2f,\"pitch_rate\":%.2f,\"work_us\":%u,"
            "\"alpha\":%.3f,\"bias\":[%.2f,%.2f,%.2f],\"calibrations\":%lu,\"cal_ok\":%s,\"ever_cal\":%s,\"imu\":%s,"
-           "\"wifi_mode\":\"%s\",\"wifi_ssid\":\"%s\",\"ip\":\"%s\",\"uptime_s\":%lu}",
+           "\"wifi_mode\":\"%s\",\"wifi_ssid\":\"%s\",\"ip\":\"%s\",\"uptime_s\":%lu,"
+           "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
+           "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
            have ? r.mode : 0, have ? r.flags : 0,
@@ -53,7 +57,11 @@ void handleState() {
            (unsigned long)calibrationsDone, lastCalibrationOk ? "true" : "false", everCalibrated ? "true" : "false", imuFound ? "true" : "false",
            wifiMode == WIFI_HOME_NETWORK ? "home" : "own",
            wifiMode == WIFI_HOME_NETWORK ? wifiSettings.ssid : BB1_AP_SSID,
-           wifiAddress().c_str(), millis() / 1000);
+           wifiAddress().c_str(), millis() / 1000,
+           have ? (long)r.enc_l : 0L, have ? (long)r.enc_r : 0L, have ? r.speed_l : 0, have ? r.speed_r : 0,
+           have ? r.pwm_l : 0, have ? r.pwm_r : 0,
+           motorTestRunning ? "true" : "false", (unsigned long)motorTestsDone,
+           (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs);
   server.send(200, "application/json", json);
 }
 
@@ -140,7 +148,7 @@ void handleLog() {
   LogRecord r;
   for (uint32_t n = first; n < last; n++) {
     if (!logGet(n, r)) continue;                // overwritten while we were sending: skip
-    if (len > (int)sizeof(chunk) - 160) {       // nearly full: send what we have
+    if (len > (int)sizeof(chunk) - 200) {       // nearly full: send what we have (a line is < 200)
       server.sendContent(chunk, len);
       len = 0;
     }
@@ -148,6 +156,29 @@ void handleLog() {
   }
   if (len) server.sendContent(chunk, len);
   server.sendContent("");                       // empty piece = end of the response
+}
+
+// POST /motor left=100&right=100&ms=2000 -> a timed motor test.
+// Out-of-range numbers are clamped to the limits in config.h, never refused
+// silently: the answer says what will actually run.
+void handleMotor() {
+  if (motorTestRunning) {
+    server.send(409, "text/plain", "a motor test is already running");
+    return;
+  }
+  int l = server.arg("left").toInt(), r = server.arg("right").toInt();
+  int ms = server.hasArg("ms") ? server.arg("ms").toInt() : 2000;
+  testLeftPwm  = constrain(l, -MOTOR_TEST_MAX_PWM, MOTOR_TEST_MAX_PWM);
+  testRightPwm = constrain(r, -MOTOR_TEST_MAX_PWM, MOTOR_TEST_MAX_PWM);
+  testMs       = constrain(ms, 0, MOTOR_TEST_MAX_MS);
+  requestMotorTest = true;                     // last: core 1 reads the numbers after seeing this
+  server.send(200, "text/plain", "running: left " + String(testLeftPwm) + ", right " + String(testRightPwm) +
+                                 " for " + String(testMs) + " ms");
+}
+
+void handleMotorStop() {
+  requestMotorStop = true;
+  server.send(200, "text/plain", "stopped");
 }
 
 // GET /sys -> how much of the Pico's memory the firmware uses.
@@ -189,6 +220,8 @@ void webBegin() {
   server.on("/log/meta", HTTP_GET, handleLogMeta);
   server.on("/log", HTTP_GET, handleLog);
   server.on("/sys", HTTP_GET, handleSys);
+  server.on("/motor", HTTP_POST, handleMotor);
+  server.on("/motor/stop", HTTP_POST, handleMotorStop);
   server.onNotFound([]() { server.send(404, "text/plain", "not found"); });
   server.begin();
 }

@@ -187,7 +187,7 @@ Since step 4 the top lines come from `log_meta.h`:
 | `tick` | count | tick number since boot; goes up by exactly 1. A jump means records were lost. |
 | `t_us` | microseconds | when the tick started (since boot). Consecutive ticks are 5000 apart. |
 | `work_us` | microseconds | how long the tick's work took (budget 5000) |
-| `mode` | code | 0 boot, 1 calibrating, 2 running (motors off). More modes come with the motors. |
+| `mode` | code | 0 boot, 1 calibrating, 2 running (motors off), 3 motor test running. Arm / disarm modes come in step 6. |
 | `flag_bits` | bits | 1 = IMU read failed this tick, 2 = the previous tick overran 5 ms, 4 = no successful gyro calibration yet (the robot was moving at startup; `pitch_rate` still includes the bias, and BB1 retries every 3 s). Usually 0. |
 | `ax_raw` `ay_raw` `az_raw` | counts | accelerometer exactly as the chip sent it. g = raw / 16384 |
 | `temp_raw` | counts | chip temperature. deg C = raw / 340 + 36.53 |
@@ -195,8 +195,11 @@ Since step 4 the top lines come from `log_meta.h`:
 | `pitch` | deg | filtered pitch, forward + |
 | `pitch_rate` | deg/s | gyro X, bias removed, forward + |
 | `accel_pitch` | deg | accelerometer-only pitch |
+| `enc_l` `enc_r` | counts | encoder counts since boot, forward +. 520 per wheel turn (assumed) |
+| `speed_l` `speed_r` | counts/s | wheel speed over the last 10 ticks (50 ms), forward + |
+| `pwm_l` `pwm_r` | -255..255 | what was sent to each motor this tick, forward +. 0 = motor off. This is the robot's "action" for training. |
 
-Raw values are kept on purpose: a better filter, or a model, can be re-run on them later. Steps 5 to 9 add motor, encoder, PID and command columns at the end.
+Raw values are kept on purpose: a better filter, or a model, can be re-run on them later. Step 5 added the six wheel columns (log format 2); steps 6 to 9 add PID and command columns at the end.
 
 In your own Python, `load_dump()` from `tools/check_dump.py` gives you a pandas table:
 

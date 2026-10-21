@@ -48,6 +48,20 @@ const int PRINT_HZ = 10;                          // how often the serial readou
 const int LOG_SECONDS = 10;
 const int LOG_BUFFER_RECORDS = LOG_SECONDS * LOOP_HZ;
 
+// ---------- motors (step 5) ----------
+const int PWM_FREQ = 20000;          // 20 kHz: above hearing, so the motors don't whine
+const int PWM_MAX  = 255;            // analogWriteRange: 0 = off, 255 = full battery voltage
+// Motor test limits. The test always stops by itself after the time you ask
+// for, and never runs longer than MOTOR_TEST_MAX_MS or harder than MOTOR_TEST_MAX_PWM.
+const int MOTOR_TEST_MAX_PWM = 150;
+const int MOTOR_TEST_MAX_MS  = 3000;
+// Encoder counts per wheel turn: 13 pulses x 20:1 gearbox x 2 edges (assumed,
+// not measured cleanly yet; check by turning a wheel once by hand).
+const long COUNTS_PER_REV = 520;
+// Wheel speed = counts moved over the last SPEED_WINDOW ticks. 10 ticks = 50 ms:
+// at 1750 counts/s a single tick only sees about 9 counts, too coarse on its own.
+const int SPEED_WINDOW = 10;
+
 // ---------- angle filter ----------
 // Complementary filter weight: how much we trust the gyro each tick.
 // 0.98 at 200 Hz means the accelerometer pulls the angle back with a time

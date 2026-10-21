@@ -11,8 +11,8 @@
 #include "shared.h"
 
 // Bump this when the log columns change, so old and new files can be told apart.
-const char *FIRMWARE_NAME = "bb1 step 4";
-const int   LOG_FORMAT    = 1;
+const char *FIRMWARE_NAME = "bb1 step 5";
+const int   LOG_FORMAT    = 2;   // 2: step 5 added enc_l..pwm_r
 
 String logMetaLines() {
   String m;
@@ -22,5 +22,7 @@ String logMetaLines() {
   m += "# alpha," + String(requestedAlpha, 3) + ",loop_hz," + String(LOOP_HZ) +
        ",accel_lsb_per_g," + String(ACCEL_PER_G, 1) + ",gyro_lsb_per_dps," + String(GYRO_PER_DPS, 1) + "\n";
   m += "# accel_pitch_sign," + String((int)ACCEL_PITCH_SIGN) + ",gyro_pitch_sign," + String((int)GYRO_PITCH_SIGN) + "\n";
+  m += "# counts_per_rev," + String(COUNTS_PER_REV) + ",speed_window_ticks," + String(SPEED_WINDOW) +
+       ",pwm_max," + String(PWM_MAX) + ",pwm_freq_hz," + String(PWM_FREQ) + "\n";
   return m;
 }

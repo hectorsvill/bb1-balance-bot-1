@@ -74,6 +74,8 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   .bar { width:140px; height:8px; background:#0d1014; border-radius:4px; display:inline-block;
          vertical-align:middle; margin-left:8px; overflow:hidden; }
   .bar i { display:block; height:100%; background:var(--pitch); }
+  button.stop { background:var(--bad); font-weight:700; }
+  .num { width:90px; flex:none !important; min-width:0 !important; }
 </style>
 </head>
 <body>
@@ -107,6 +109,9 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
       <tr><td>Filter alpha</td><td id="alphaNow">--</td></tr>
       <tr><td>IMU</td><td id="imu">--</td></tr>
       <tr><td>Uptime</td><td id="uptime">--</td></tr>
+      <tr><td>Encoders left / right (counts, forward +)</td><td id="enc">--</td></tr>
+      <tr><td>Wheel speed left / right (counts/s)</td><td id="speed">--</td></tr>
+      <tr><td>Motor PWM left / right</td><td id="pwm">--</td></tr>
     </table>
   </div>
 
@@ -134,6 +139,24 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
     </div>
     <pre id="liveLog">Press Start to watch the log records arrive (the same columns as a downloaded CSV).</pre>
     <div class="msg" id="liveMsg"></div>
+  </div>
+
+  <div class="panel" id="p-motors">
+    <div class="head"><h2>Motor test</h2></div>
+    <div class="msg" style="color:var(--bad)">Wheels off the table first. Every test stops by itself.</div>
+    <div class="row">
+      <label>left <input class="num" id="mL" type="number" value="100" min="-150" max="150"></label>
+      <label>right <input class="num" id="mR" type="number" value="100" min="-150" max="150"></label>
+      <select id="mMs">
+        <option value="500">0.5 s</option><option value="1000">1 s</option>
+        <option value="2000" selected>2 s</option><option value="3000">3 s</option>
+      </select>
+    </div>
+    <div class="row">
+      <button onclick="motorTest()">Run</button>
+      <button class="stop" onclick="motorStop()">STOP (space)</button>
+    </div>
+    <div class="msg" id="motorMsg">PWM -150..150, forward +. 100 is about 40% power.</div>
   </div>
 
   <div class="panel" id="p-actions">
@@ -237,6 +260,27 @@ function forgetWifi() {
   if (!confirm('Forget the home network and restart on BB1\'s own network?')) return;
   post('/wifi/forget', null, 'netMsg');
 }
+
+// ---------- motor test ----------
+
+let testsDoneSeen = -1;    // so we can tell when a new test result arrives in /state
+
+function motorTest() {
+  if (!confirm('Run the motors? Wheels must be off the table.')) return;
+  post('/motor', { left: el('mL').value, right: el('mR').value, ms: el('mMs').value }, 'motorMsg');
+}
+
+function motorStop() {
+  post('/motor/stop', null, 'motorMsg');
+}
+
+// Space bar = stop, anywhere on the page (except while typing in a box).
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+    e.preventDefault();
+    motorStop();
+  }
+});
 
 // ---------- pulling log records ----------
 //
@@ -488,6 +532,16 @@ async function poll() {
     el('alphaNow').textContent = s.alpha.toFixed(3);
     el('imu').textContent = s.imu ? 'ok' : 'NOT FOUND';
     el('uptime').textContent = s.uptime_s + ' s';
+    el('enc').textContent = s.enc_l + ' / ' + s.enc_r;
+    el('speed').textContent = s.speed_l + ' / ' + s.speed_r;
+    el('pwm').textContent = s.pwm_l + ' / ' + s.pwm_r + (s.test_running ? '  (test running)' : '');
+    if (testsDoneSeen >= 0 && s.tests_done !== testsDoneSeen) {        // a test just finished
+      const sec = Math.max(s.test_ms, 1) / 1000;
+      el('motorMsg').textContent = 'done after ' + s.test_ms + ' ms: left moved ' + s.test_moved[0] +
+        ' counts (' + Math.round(s.test_moved[0] / sec) + '/s), right ' + s.test_moved[1] +
+        ' counts (' + Math.round(s.test_moved[1] / sec) + '/s)';
+    }
+    testsDoneSeen = s.tests_done;
   } catch (e) {
     if (++failures > 5) {
       el('conn').className = 'conn lost';

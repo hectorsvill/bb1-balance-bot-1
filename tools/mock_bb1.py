@@ -18,6 +18,7 @@ Only the Python standard library is used. Stop it with Ctrl-C.
 """
 
 import argparse
+import json
 import math
 import random
 import re
@@ -35,11 +36,34 @@ LOG_BUFFER_RECORDS = 10 * LOOP_HZ
 LOG_MAX_PER_REQUEST = 1000
 ACCEL_PER_G = 16384.0
 GYRO_PER_DPS = 65.5
-CSV_HEADER = "tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch"
+CSV_HEADER = ("tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
+              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r")
+MOTOR_TEST_MAX_PWM = 150
+MOTOR_TEST_MAX_MS = 3000
+COUNTS_PER_S_PER_PWM = 17.5      # measured: about 1750 counts/s at PWM 100, wheels in the air
 
 START = time.time()
 alpha = 0.98
 bias = [-0.50, 2.07, -2.20]      # deg/s, like a real calibration
+tests = []                        # motor tests: [first_tick, end_tick, left_pwm, right_pwm]
+
+
+def test_at(tick):
+    """The motor test running at this tick, or None."""
+    for t in tests:
+        if t[0] <= tick < t[1]:
+            return t
+    return None
+
+
+def encoders(tick):
+    """Pretend encoder counts: each test adds pwm x 17.5 counts/s while it runs."""
+    left = right = 0.0
+    for first, end, l, r in tests:
+        n = max(0, min(tick, end) - first)            # ticks of this test before `tick`
+        left += n * l * COUNTS_PER_S_PER_PWM / LOOP_HZ
+        right += n * r * COUNTS_PER_S_PER_PWM / LOOP_HZ
+    return int(left), int(right)
 
 
 def read_page():
@@ -64,8 +88,14 @@ def record(tick):
     ax, ay, az = rng.gauss(0, 150), math.sin(rad) * ACCEL_PER_G * 0.94, math.cos(rad) * ACCEL_PER_G * 0.94
     gx = (rate + bias[0]) * GYRO_PER_DPS + rng.gauss(0, 10)                            # raw gyro includes the bias
     gy, gz = bias[1] * GYRO_PER_DPS + rng.gauss(0, 10), bias[2] * GYRO_PER_DPS + rng.gauss(0, 10)
+    test = test_at(tick)
+    enc_l, enc_r = encoders(tick)
+    old_l, old_r = encoders(max(0, tick - 10))       # speed over the last 10 ticks, like motors.h
     return {
-        "tick": tick, "t_us": 2_000_000 + tick * 5000, "work_us": 450 + rng.randint(0, 40), "mode": 2, "flag_bits": 0,
+        "tick": tick, "t_us": 2_000_000 + tick * 5000, "work_us": 450 + rng.randint(0, 40),
+        "mode": 3 if test else 2, "flag_bits": 0,
+        "enc": [enc_l, enc_r], "speed": [(enc_l - old_l) * 20, (enc_r - old_r) * 20],
+        "pwm": [test[2], test[3]] if test else [0, 0],
         "raw": [int(ax), int(ay), int(az), -1200 + rng.randint(-5, 5), int(gx), int(gy), int(gz)],
         "pitch": pitch, "pitch_rate": rate, "accel_pitch": accel_pitch,
     }
@@ -74,15 +104,17 @@ def record(tick):
 def csv_line(r):
     raw = ",".join(str(v) for v in r["raw"])
     return (f'{r["tick"]},{r["t_us"]},{r["work_us"]},{r["mode"]},{r["flag_bits"]},{raw},'
-            f'{r["pitch"]:.3f},{r["pitch_rate"]:.3f},{r["accel_pitch"]:.3f}\n')
+            f'{r["pitch"]:.3f},{r["pitch_rate"]:.3f},{r["accel_pitch"]:.3f},'
+            f'{r["enc"][0]},{r["enc"][1]},{r["speed"][0]},{r["speed"][1]},{r["pwm"][0]},{r["pwm"][1]}\n')
 
 
 def meta_lines():
     return ("# firmware,bb1 MOCK (tools/mock_bb1.py)\n"
-            "# log_format,1\n"
+            "# log_format,2\n"
             f"# gyro_bias_dps,{bias[0]:.3f},{bias[1]:.3f},{bias[2]:.3f}\n"
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
-            "# accel_pitch_sign,1,gyro_pitch_sign,1\n")
+            "# accel_pitch_sign,1,gyro_pitch_sign,1\n"
+            "# counts_per_rev,520,speed_window_ticks,10,pwm_max,255,pwm_freq_hz,20000\n")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -102,19 +134,27 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(read_page(), "text/html")
         elif url.path == "/state":
             r = record(total_written() - 1)
-            self.reply(
-                '{"mock":true,"have":true,"tick":%d,"t_us":%d,"mode":2,"flag_bits":0,"pitch":%.2f,"accel_pitch":%.2f,'
-                '"pitch_rate":%.2f,"work_us":%d,"alpha":%.3f,"bias":[%.2f,%.2f,%.2f],"calibrations":1,"cal_ok":true,'
-                '"ever_cal":true,"imu":true,"wifi_mode":"own","wifi_ssid":"MOCK","ip":"localhost","uptime_s":%d}'
-                % (r["tick"], r["t_us"], r["pitch"], r["accel_pitch"], r["pitch_rate"], r["work_us"], alpha,
-                   *bias, time.time() - START), "application/json")
+            done = [t for t in tests if t[1] <= total_written()]
+            last = done[-1] if done else [0, 0, 0, 0]
+            moved = [int((last[1] - last[0]) * pwm * COUNTS_PER_S_PER_PWM / LOOP_HZ) for pwm in last[2:]]
+            state = {
+                "mock": True, "have": True, "tick": r["tick"], "t_us": r["t_us"], "mode": r["mode"], "flag_bits": 0,
+                "pitch": round(r["pitch"], 2), "accel_pitch": round(r["accel_pitch"], 2),
+                "pitch_rate": round(r["pitch_rate"], 2), "work_us": r["work_us"], "alpha": alpha, "bias": bias,
+                "calibrations": 1, "cal_ok": True, "ever_cal": True, "imu": True,
+                "wifi_mode": "own", "wifi_ssid": "MOCK", "ip": "localhost", "uptime_s": int(time.time() - START),
+                "enc_l": r["enc"][0], "enc_r": r["enc"][1], "speed_l": r["speed"][0], "speed_r": r["speed"][1],
+                "pwm_l": r["pwm"][0], "pwm_r": r["pwm"][1], "test_running": r["mode"] == 3,
+                "tests_done": len(done), "test_moved": moved, "test_ms": (last[1] - last[0]) * 5,
+            }
+            self.reply(json.dumps(state), "application/json")
         elif url.path == "/log/meta":
             self.reply(meta_lines())
         elif url.path == "/log":
             self.reply(self.log(int(args.get("since", 0))), "text/csv")
         elif url.path == "/sys":
-            self.reply('{"ram_total":262144,"ram_static":149000,"heap_total":113144,"heap_used":%d,'
-                       '"log_buffer":80000,"flash_total":2097152,"flash_used":421000,"page":%d,"cpu_mhz":133}'
+            self.reply('{"ram_total":262144,"ram_static":181200,"heap_total":80944,"heap_used":%d,'
+                       '"log_buffer":112000,"flash_total":2097152,"flash_used":433000,"page":%d,"cpu_mhz":133}'
                        % (21000 + random.randint(0, 3000), len(read_page()) + 1), "application/json")
         elif url.path == "/wifi":
             self.reply('{"mode":"own","saved_ssid":"","note":"mock"}', "application/json")
@@ -148,6 +188,21 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 alpha = a
                 self.reply(f"alpha = {a:.3f}")
+        elif self.path == "/motor":
+            now = total_written()
+            if test_at(now):
+                return self.reply("a motor test is already running", status=409)
+            clamp = lambda v, lim: max(-lim, min(lim, int(v or 0)))
+            l, r = clamp(form.get("left"), MOTOR_TEST_MAX_PWM), clamp(form.get("right"), MOTOR_TEST_MAX_PWM)
+            ms = max(0, min(MOTOR_TEST_MAX_MS, int(form.get("ms") or 2000)))
+            tests.append([now, now + ms // 5, l, r])
+            self.reply(f"running: left {l}, right {r} for {ms} ms (mock: nothing moves)")
+        elif self.path == "/motor/stop":
+            now = total_written()
+            for t in tests:
+                if t[0] <= now < t[1]:
+                    t[1] = now
+            self.reply("stopped")
         elif self.path in ("/wifi", "/wifi/forget"):
             self.reply("mock: nothing saved, the real robot would restart now")
         else:

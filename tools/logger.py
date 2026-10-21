@@ -17,6 +17,7 @@ how many records were lost and we count them.
 """
 
 import argparse
+import json
 import re
 import socket
 import sys
@@ -68,7 +69,7 @@ def main():
 
     meta = get(f"{base}/log/meta")
     state = get(f"{base}/state")
-    next_tick = int(re.search(r'"tick":(\d+)', state).group(1)) + 1   # start from "now"
+    next_tick = json.loads(state)["tick"] + 1                         # start from "now"
 
     rows, lost, header = [], 0, ""
     print(f"Recording from {args.host} ({ip}) into {out}")

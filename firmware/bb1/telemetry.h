@@ -20,6 +20,7 @@ enum Mode : uint8_t {
   MODE_BOOT        = 0,
   MODE_CALIBRATING = 1,
   MODE_RUNNING     = 2,   // reading sensors, motors off (until step 6 adds DISARMED / ARMED)
+  MODE_MOTOR_TEST  = 3,   // a timed motor test is running (step 5)
 };
 
 // Bits in LogRecord::flags
@@ -27,7 +28,8 @@ const uint8_t FLAG_IMU_ERROR = 1 << 0;   // the IMU read failed this tick (senso
 const uint8_t FLAG_OVERRUN   = 1 << 1;   // the previous tick's work took longer than 5 ms
 const uint8_t FLAG_NO_BIAS   = 1 << 2;   // no successful gyro calibration yet: pitch_rate includes the bias
 
-// One control tick. 40 bytes; 2000 of them (10 s) use 80 KB of the 264 KB RAM.
+// One control tick. 56 bytes; 2000 of them (10 s) use 112 KB of the 264 KB RAM.
+// (Step 5 added the last 16 bytes: encoders, wheel speeds, motor commands.)
 struct LogRecord {
   uint32_t tick;          // counts up by 1 every tick since boot; a gap means lost records
   uint32_t t_us;          // micros() when the tick started
@@ -38,6 +40,13 @@ struct LogRecord {
   float    pitch;         // deg, filtered, forward +
   float    pitch_rate;    // deg/s, bias-corrected, forward +
   float    accel_pitch;   // deg, accelerometer only
+  // step 5: wheels. Forward is positive for all of these.
+  int32_t  enc_l;         // left encoder counts since boot
+  int32_t  enc_r;         // right encoder counts since boot
+  int16_t  speed_l;       // left wheel speed, counts/s (over the last 50 ms)
+  int16_t  speed_r;       // right wheel speed, counts/s
+  int16_t  pwm_l;         // PWM sent to the left motor this tick, -255..255 (the "action")
+  int16_t  pwm_r;         // PWM sent to the right motor
 };
 
 // ---------- the ring buffer ----------
@@ -90,7 +99,8 @@ uint32_t logOldest() {
 // the web page download and tools/logger.py.
 
 const char *CSV_HEADER =
-  "tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch";
+  "tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
+  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r";
 
 void csvHeader(Print &p) {
   p.println(CSV_HEADER);
@@ -98,14 +108,15 @@ void csvHeader(Print &p) {
 
 // Write one record as a CSV line (with "\n") into buf. Returns the length.
 int formatCsv(char *buf, size_t size, const LogRecord &r) {
-  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f\n",
+  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d\n",
                   (unsigned long)r.tick, (unsigned long)r.t_us, r.work_us, r.mode, r.flags,
                   r.raw[0], r.raw[1], r.raw[2], r.raw[3], r.raw[4], r.raw[5], r.raw[6],
-                  r.pitch, r.pitch_rate, r.accel_pitch);
+                  r.pitch, r.pitch_rate, r.accel_pitch,
+                  (long)r.enc_l, (long)r.enc_r, r.speed_l, r.speed_r, r.pwm_l, r.pwm_r);
 }
 
 void printCsv(Print &p, const LogRecord &r) {
-  char buf[160];
+  char buf[200];
   formatCsv(buf, sizeof(buf), r);
   p.print(buf);
 }

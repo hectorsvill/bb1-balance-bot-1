@@ -67,10 +67,18 @@ def main():
     print(f"work per tick: avg {df.work_us.mean():.0f} us, max {df.work_us.max()} us  (budget 5000)")
     print(f"IMU errors: {int(((df.flag_bits & 1) > 0).sum())}, overruns: {int(((df.flag_bits & 2) > 0).sum())}")
     print(f"pitch: {df.pitch.min():.1f} to {df.pitch.max():.1f} deg")
+    wheels = "enc_l" in df                                   # step 5 (log_format 2) and later
+    if wheels:
+        moving = df[(df.pwm_l != 0) | (df.pwm_r != 0)]
+        print(f"encoders moved: left {df.enc_l.iloc[-1] - df.enc_l.iloc[0]}, right {df.enc_r.iloc[-1] - df.enc_r.iloc[0]} counts")
+        if len(moving):
+            print(f"motors on for {len(moving) / 200:.2f} s; while on, avg speed left {moving.speed_l.mean():.0f}, "
+                  f"right {moving.speed_r.mean():.0f} counts/s")
 
     if args.plot:
         import matplotlib.pyplot as plt
-        fig, (a1, a2, a3) = plt.subplots(3, 1, sharex=True, figsize=(10, 7))
+        fig, axes = plt.subplots(4 if wheels else 3, 1, sharex=True, figsize=(10, 9 if wheels else 7))
+        a1, a2, a3 = axes[:3]
         a1.plot(df.t, df.accel_pitch, label="accel only", alpha=0.5)
         a1.plot(df.t, df.pitch, label="pitch (filtered)")
         a1.set_ylabel("deg (forward +)")
@@ -80,6 +88,17 @@ def main():
         a3.plot(df.t, df.work_us, color="tab:gray")
         a3.set_ylabel("work us")
         a3.set_xlabel("seconds")
+        if wheels:
+            a4 = axes[3]
+            a4.plot(df.t, df.speed_l, label="speed left (counts/s)")
+            a4.plot(df.t, df.speed_r, label="speed right")
+            a4b = a4.twinx()                                  # PWM on its own scale, right-hand axis
+            a4b.plot(df.t, df.pwm_l, "--", color="tab:red", alpha=0.6, label="pwm left")
+            a4b.plot(df.t, df.pwm_r, ":", color="tab:purple", alpha=0.6, label="pwm right")
+            a4b.set_ylabel("PWM")
+            a4.set_ylabel("counts/s")
+            a4.legend(loc="upper left")
+            a4.set_xlabel("seconds")
         fig.suptitle(args.file)
         plt.show()
 

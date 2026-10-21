@@ -6,6 +6,28 @@
 | `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
+## bb1, step 5: motors + encoders (timed motor test)
+
+Everything from step 4, plus the motors and encoders on core 1 (`motors.h`). Encoders count all the time; the motors only run during a **timed motor test**, which always stops by itself (max 3 s, max PWM 150 of 255; both in `config.h`). STBY stays low the rest of the time. Every log record now also has `enc_l, enc_r, speed_l, speed_r, pwm_l, pwm_r` (log format 2).
+
+**Wheels off the table before any test.**
+
+| Where | How |
+|---|---|
+| Serial | `m 100 100` (both forward 2 s), `m 0 -80 1000` (right backward 1 s), `stop` or Enter to stop early, `enc` prints both counts |
+| Page | **Motor test** panel: left, right, time, **Run**. **STOP** button or the space bar stops it. |
+| curl | `curl -X POST -d "left=100&right=100&ms=2000" http://bb1.local/motor` |
+
+When a test ends, serial and the page report how far each wheel moved and the average counts/s.
+
+What to check (wheels in the air):
+1. `m 100 100`: both wheels roll **forward**, both counts positive, each about 1,750 counts/s (bring-up value).
+2. `m -100 -100`: both backward, both negative.
+3. `m 100 0` then `m 0 100`: only the left, then only the right wheel turns.
+4. Start `m 100 100 3000` and press Enter (or space on the page) after a second: stops at once.
+5. `enc`, turn one wheel exactly one turn forward by hand, `enc` again: the difference is the real counts per turn (520 assumed).
+6. **Record** on the page during a test, then `check_dump.py --plot`: the bottom plot shows speed and PWM. Missing ticks 0.
+
 ## bb1, step 4: saving logs + live log view (no motors)
 
 Everything from step 3, plus: **Record / Stop / Download** and **Save last 10 s** on the page, a **Live log** panel, a **Pico memory** panel, panels in one column you can reorder with ▲ ▼, and `tools/logger.py` to record from the Mac. New endpoints `/log?since=N`, `/log/meta`, `/sys` (docs/WEB_INTERFACE.md). If the robot is moving at startup, calibration now retries every 3 s until it's still (flag bit 4 in the log until then).

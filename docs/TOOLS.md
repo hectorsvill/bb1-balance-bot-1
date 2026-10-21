@@ -118,6 +118,8 @@ tools/venv/bin/python tools/check_dump.py logs/my_dump.txt --plot
 
 Reads what the firmware's `dump` command printed (captured with `serial_log.py -s dump`). Reports lost ticks, timing, errors; `--plot` shows pitch, rate and loop time.
 
+From step 5 on it also prints how far the wheels moved and their speed while the motors were on, and `--plot` adds a fourth plot with wheel speed and PWM.
+
 It also reads the CSV files from the web page (Download, Save last 10 s) and from `logger.py`: same layout. So `check_dump.py --plot` is also how you plot a run (the planned `plot_run.py` wasn't needed).
 
 ### logger.py: record a run over Wi-Fi

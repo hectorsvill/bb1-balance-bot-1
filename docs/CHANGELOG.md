@@ -8,9 +8,18 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- Test bb1 step 4 on the robot (upload stalled 2026-10-21: the Mac lost the Pico in bootloader mode)
+- Run the bb1 step 5 motor test on the robot (wheels in the air)
 
-## 2026-10-21 - bb1 step 4: saving logs, live log view (not tested on the robot yet)
+## 2026-10-21 - bb1 step 5: motors + encoders (motor test not run yet)
+
+- motors.h: TB6612 driver (forward +, STBY low unless a test runs), encoder interrupts on core 1, wheel speed over 10 ticks
+- Timed motor test from serial (`m L R ms`, `stop`, Enter), the page (Motor test panel, STOP / space bar) and `POST /motor`, `/motor/stop`; capped at PWM 150 and 3 s; mode 3 while running
+- LogRecord 40 -> 56 bytes (enc_l, enc_r, speed_l, speed_r, pwm_l, pwm_r); log format 2; `# counts_per_rev...` meta line; buffer 112 KB
+- check_dump.py: wheel summary and a speed / PWM plot; mock_bb1.py fakes the motors (17.5 counts/s per PWM)
+- Compiles: 20% flash, 70% RAM static, heap 64 KB free on the robot
+- Uploaded (the Pico came back after Hector replugged it). Self-check with no motors, logger.py 21 s over Wi-Fi while /state was polled at 20 Hz: 4254 records, 0 lost, 0 missing ticks, spacing 4997 to 5002 us, work 500 us avg / 716 max, 0 errors. That also covers step 4's logging path.
+
+## 2026-10-21 - bb1 step 4: saving logs, live log view
 
 - web.h: `/log?since=N` (CSV, up to 1000 records per request, sent in chunks, reports lost records), `/log/meta`, `/sys` (RAM and flash use)
 - log_meta.h: one block of `# setting` lines (firmware, log_format, bias, alpha, scales, signs) shared by the serial dump, the page and logger.py

@@ -34,16 +34,17 @@ The panels sit in one column, on a phone or a Mac. Each panel's **▲ ▼** arro
 | Panel | Shows / does |
 |---|---|
 | Pitch | big pitch number and a 10 s chart: blue = filtered pitch, orange = accelerometer only |
-| Live values | pitch rate, accel pitch, loop work time, tick, gyro bias, filter alpha, IMU status, uptime |
+| Live values | pitch rate, accel pitch, loop work time, tick, gyro bias, filter alpha, IMU status, uptime, encoders, wheel speeds, motor PWM |
 | Record a log | **Record** / **Stop** / **Download** a run, **Save last 10 s** (see below) |
 | Live log | the log records as they arrive, same columns as a downloaded file. Show every record (200/s), every 10th or every 40th. Pause, Clear. |
+| Motor test | left / right PWM (-150..150, forward +) and a time (0.5 to 3 s), **Run** (asks "wheels off the table?"), **STOP**. The space bar also stops, anywhere on the page. Shows how far each wheel moved. |
 | Actions | **Calibrate gyro** (lay it still first), **Set alpha** |
 | Pico memory | RAM used (fixed globals incl. the 80 KB log buffer, plus heap), heap free, flash used, page size, CPU clock. Updates every 2 s. |
 | Network | which network BB1 is on; save a home network; switch back to the own network |
 
 The top right says **connected** (green), **connection lost** (red) if BB1 stops answering, or **MOCK robot** (orange) when it's the offline mock.
 
-Coming next: motor test (step 5), Arm / Disarm and PID gains (steps 6 and 7), drive pad (milestone 2).
+Coming next: Arm / Disarm and PID gains (steps 6 and 7), drive pad (milestone 2).
 
 ### Saving logs
 
@@ -83,6 +84,8 @@ You can call these yourself with `curl` (on the same network as BB1):
 | `GET /log/meta` | the `# setting` lines for the top of a log file |
 | `GET /log?since=N` | log records from tick N on, as CSV (up to 1000 per request; see below) |
 | `GET /sys` | RAM and flash use as JSON |
+| `POST /motor` with `left=100&right=100&ms=2000` | timed motor test (clamped to the limits in `config.h`) |
+| `POST /motor/stop` | stop the motors now |
 
 `/log` starts with one line saying what came back, then the header and rows:
 

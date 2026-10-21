@@ -1,16 +1,18 @@
 // bb1.ino - BB1 balance bot main firmware.
 //
-// Step 4 of docs/FIRMWARE_PLAN.md: saving logs from the web page (on top of step 3's Wi-Fi page).
+// Step 5 of docs/FIRMWARE_PLAN.md: motors + encoders, and a timed motor test
+// from serial or the web page (on top of step 4's logging page).
 //
 //   core 1 (setup1 / loop1): the 200 Hz control loop and nothing else.
-//       read IMU -> complementary filter -> fill a LogRecord -> push it into the ring buffer
+//       read IMU -> complementary filter -> read encoders -> motor test -> LogRecord -> ring buffer
 //   core 0 (setup / loop):   everything slow.
 //       Wi-Fi + web page, serial commands, the 10 Hz readout, dumping the log buffer
 //
 // Why split them: printing, and later Wi-Fi, can take milliseconds at random
 // moments. On its own core the control loop keeps its 5 ms beat no matter what.
 //
-// Motors are held OFF (STBY low) the whole time. Nothing moves in this step.
+// Motors are OFF (STBY low) except during a motor test, which always stops by
+// itself (MOTOR_TEST_MAX_MS in config.h). No balancing yet.
 //
 // Board: Raspberry Pi Pico W, arduino-pico core by Earle Philhower (6.3.0).
 // Serial: 115200 baud, line ending "Newline". Type "help" for commands.
@@ -20,6 +22,7 @@
 //   config.h     pins, signs, rates, buffer size
 //   imu.h        MPU-6050 driver + gyro bias calibration
 //   angle.h      complementary filter
+//   motors.h     D153C motor driver, encoders, wheel speed
 //   telemetry.h  LogRecord, the ring buffer, CSV output
 //   shared.h     requests from core 0 to core 1, status back
 //   wifi_setup.h own network / home network, saved settings
@@ -30,6 +33,7 @@
 #include "config.h"
 #include "imu.h"
 #include "angle.h"
+#include "motors.h"
 #include "telemetry.h"
 #include "shared.h"
 #include "wifi_setup.h"
@@ -53,7 +57,41 @@ void calibrateNow() {
   calibrationsDone = calibrationsDone + 1;
 }
 
+// ---- the motor test (step 5) ----
+// Core 0 asks for one (shared.h); core 1 starts it between ticks, sets the PWM
+// every tick while it runs, and stops it when the time is up or Stop is asked.
+struct MotorTest {
+  bool running = false;
+  int  left = 0, right = 0;                 // PWM, forward +
+  unsigned long startMs = 0, durationMs = 0;
+  int32_t startL = 0, startR = 0;           // encoder counts when it started
+};
+MotorTest test;
+
+void motorTestStart() {
+  test.left  = constrain((int)testLeftPwm,  -MOTOR_TEST_MAX_PWM, MOTOR_TEST_MAX_PWM);
+  test.right = constrain((int)testRightPwm, -MOTOR_TEST_MAX_PWM, MOTOR_TEST_MAX_PWM);
+  test.durationMs = min((unsigned long)testMs, (unsigned long)MOTOR_TEST_MAX_MS);
+  test.startMs = millis();
+  test.startL = encoderLeft();
+  test.startR = encoderRight();
+  test.running = true;
+  motorTestRunning = true;
+  motorsEnable(true);                       // wake the driver; motorsDrive() runs every tick
+}
+
+void motorTestStop() {
+  motorsOff();                              // brake, then STBY low
+  test.running = false;
+  lastTestMovedL = encoderLeft() - test.startL;
+  lastTestMovedR = encoderRight() - test.startR;
+  lastTestRanMs = millis() - test.startMs;
+  motorTestRunning = false;
+  motorTestsDone = motorTestsDone + 1;      // core 0 sees this and reports the result
+}
+
 void setup1() {
+  motorsBegin();           // first: driver asleep, encoders counting
   imuFound = imuBegin();
   delay(500);              // let the chip settle and hands leave the robot
   if (imuFound) calibrateNow();
@@ -74,7 +112,17 @@ void loop1() {
   nextTick += LOOP_US;
 
   // Requests from core 0 are handled here, between ticks, never in the middle of one.
+  if (requestMotorStop) {
+    requestMotorStop = false;
+    requestMotorTest = false;
+    if (test.running) motorTestStop();
+  }
+  if (requestMotorTest) {
+    requestMotorTest = false;
+    if (!test.running) motorTestStart();
+  }
   if (requestCalibrate) {
+    if (test.running) motorTestStop();         // never calibrate with the wheels spinning
     calibrateNow();                            // takes 2 s; no records during it
     requestCalibrate = false;
     nextTick = micros() + LOOP_US;
@@ -95,7 +143,7 @@ void loop1() {
   LogRecord r;
   r.tick  = tick++;
   r.t_us  = now;
-  r.mode  = MODE_RUNNING;
+  r.mode  = test.running ? MODE_MOTOR_TEST : MODE_RUNNING;
   r.flags = overranLastTick ? FLAG_OVERRUN : 0;
   if (!everCalibrated) r.flags |= FLAG_NO_BIAS;
 
@@ -109,6 +157,17 @@ void loop1() {
   r.pitch       = angle.pitch;
   r.pitch_rate  = angle.pitchRate;
   r.accel_pitch = angle.accelPitch;
+
+  // Wheels: encoders and speed every tick, motors only during a test.
+  static WheelSpeed speedL, speedR;
+  r.enc_l   = encoderLeft();
+  r.enc_r   = encoderRight();
+  r.speed_l = (int16_t)constrain(speedL.update(r.enc_l), -32000.0f, 32000.0f);
+  r.speed_r = (int16_t)constrain(speedR.update(r.enc_r), -32000.0f, 32000.0f);
+  if (test.running && millis() - test.startMs >= test.durationMs) motorTestStop();   // time's up
+  if (test.running) motorsDrive(test.left, test.right);
+  r.pwm_l = test.running ? test.left : 0;
+  r.pwm_r = test.running ? test.right : 0;
   // ------------------------------
 
   unsigned long work = micros() - now;
@@ -128,7 +187,7 @@ bool quiet = false;        // "quiet": pause the 10 Hz readout
 
 void printHelp() {
   Serial.println();
-  Serial.println("BB1 step 4 commands:");
+  Serial.println("BB1 step 5 commands:");
   Serial.println("  cal       measure the gyro bias again (lay the robot still first)");
   Serial.println("  alpha N   set the filter weight, 0.90 to 0.999 (now " + String(requestedAlpha, 3) + ")");
   Serial.println("  csv       switch the readout to comma-separated lines (again to switch back)");
@@ -137,6 +196,11 @@ void printHelp() {
   Serial.println("  wifi      show the network and the page address");
   Serial.println("  wifi reset  forget the home network and restart on the own network");
   Serial.println("  quiet     stop / restart the 10 Hz readout (easier to read other output)");
+  Serial.println("  m L R [ms]  motor test: left and right PWM (-" + String(MOTOR_TEST_MAX_PWM) + ".." + String(MOTOR_TEST_MAX_PWM) +
+                 ", forward +) for ms (default 2000, max " + String(MOTOR_TEST_MAX_MS) + "). WHEELS OFF THE TABLE.");
+  Serial.println("            e.g. m 100 100 = both forward 2 s;  m 0 -80 1000 = right backward 1 s");
+  Serial.println("  stop      stop the motors now (so does pressing Enter during a test)");
+  Serial.println("  enc       print both encoder counts (turn a wheel one turn by hand to check 520)");
   Serial.println("  help      this list");
 }
 
@@ -178,6 +242,22 @@ void dumpLog(float seconds) {
                  (skipped ? ", " + String(skipped) + " overwritten before they could be printed" : ""));
 }
 
+// "m L R [ms]": read up to three numbers and ask core 1 to run the test.
+void startMotorTest(String args) {
+  int l = 0, r = 0, ms = 2000;
+  int n = sscanf(args.c_str(), "%d %d %d", &l, &r, &ms);
+  if (n < 2) {
+    Serial.println("usage: m LEFT RIGHT [ms], e.g. m 100 100 2000");
+    return;
+  }
+  testLeftPwm  = constrain(l, -MOTOR_TEST_MAX_PWM, MOTOR_TEST_MAX_PWM);
+  testRightPwm = constrain(r, -MOTOR_TEST_MAX_PWM, MOTOR_TEST_MAX_PWM);
+  testMs       = constrain(ms, 0, MOTOR_TEST_MAX_MS);
+  requestMotorTest = true;                     // last: core 1 reads the numbers after seeing this
+  Serial.println("Motor test: left " + String(testLeftPwm) + ", right " + String(testRightPwm) +
+                 " for " + String(testMs) + " ms. Press Enter to stop early.");
+}
+
 void handleCommand(String cmd) {
   cmd.trim();
   cmd.toLowerCase();
@@ -206,6 +286,15 @@ void handleCommand(String cmd) {
     rp2040.reboot();
   } else if (cmd == "quiet") {
     quiet = !quiet;
+  } else if (cmd == "stop") {
+    requestMotorStop = true;
+  } else if (cmd.startsWith("m ")) {
+    startMotorTest(cmd.substring(2));
+  } else if (cmd == "enc") {
+    LogRecord r;
+    if (totalWritten && logGet(totalWritten - 1, r))
+      Serial.println("encoders: left " + String(r.enc_l) + ", right " + String(r.enc_r) + " counts (forward +, " +
+                     String(COUNTS_PER_REV) + " per turn assumed)");
   } else if (cmd.startsWith("dump")) {
     dumpLog(cmd.substring(4).toFloat());       // "dump" alone gives 0 = everything
   } else {
@@ -215,9 +304,13 @@ void handleCommand(String cmd) {
 
 String line;
 void readSerial() {
+  static char prev = 0;
   while (Serial.available()) {
     char c = Serial.read();
+    if (c == '\n' && prev == '\r') { prev = c; continue; }   // "\r\n" is one Enter, not two
+    prev = c;
     if (c == '\n' || c == '\r') {
+      if (line.length() == 0 && motorTestRunning) requestMotorStop = true;   // Enter = stop
       handleCommand(line);
       line = "";
     } else {
@@ -277,7 +370,7 @@ void setup() {
   while (!Serial && millis() - t0 < 5000) {}   // wait up to 5 s for a serial monitor
 
   Serial.println();
-  Serial.println("BB1 step 4: Wi-Fi page + log download. Motors are off.");
+  Serial.println("BB1 step 5: motors + encoders. Motors only run during a timed test (m L R ms).");
   wifiStart();             // up to 15 s if a home network is saved; core 1 is already running
   webBegin();
   wifiPrintStatus();
@@ -305,6 +398,16 @@ void loop() {
                      ? "! robot moved (or the IMU didn't answer): bias not changed. Type cal to retry."
                      : "! robot moved during calibration. Set it down still; retrying every 3 s.");
     }
+  }
+
+  // Report each finished motor test (core 1 counts them up).
+  static uint32_t testsSeen = 0;
+  if (motorTestsDone != testsSeen) {
+    testsSeen = motorTestsDone;
+    long ms = max((long)lastTestRanMs, 1L);
+    Serial.println("Motor test done after " + String(ms) + " ms: left moved " + String(lastTestMovedL) +
+                   " counts (" + String(lastTestMovedL * 1000L / ms) + "/s), right " + String(lastTestMovedR) +
+                   " counts (" + String(lastTestMovedR * 1000L / ms) + "/s)");
   }
 
   readSerial();
