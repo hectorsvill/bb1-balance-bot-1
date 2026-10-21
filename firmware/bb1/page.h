@@ -5,17 +5,19 @@
 // R"PAGE( ... )PAGE" is a C++ "raw string": everything between the markers is
 // taken exactly as written, so the HTML needs no escaping.
 //
-// Memory: the string is "const", so it stays in flash (about 20 KB of 2 MB)
-// and costs no RAM. The browser does all the layout work, not the Pico.
+// Memory: the string is "const", so it stays in flash (about 35 KB of 2 MB)
+// and costs no RAM. The browser does all the layout and drawing, not the Pico.
 //
-// How it works: every 50 ms the page asks GET /state, adds the pitch to a
-// 10-second history, and redraws the chart and the numbers. Buttons send POSTs
-// (see web.h for the list). While Record or the Live log is on, one loop pulls
-// every 5 ms record with GET /log?since=N and hands it to both.
+// How it works: every 50 ms the page asks GET /state and updates the status
+// bar, the numbers and the charts. Buttons send POSTs (see web.h for the list).
+// While Record or Watch is on, one loop pulls every 5 ms record with
+// GET /log?since=N for the recording and the log table.
 //
-// Layout: the panels sit in one column. Each panel's arrows move it up or
-// down; the order is remembered by this browser (localStorage). Anything wider
-// than a panel (tables, the live log) scrolls sideways inside the panel.
+// Layout, top to bottom:
+//   status bar (always visible): connection, mode, arm countdown, STOP
+//   panels in one column: Balance, PID, Pitch, Log, Live values, Motor test,
+//   Sensors, Pico memory, Network. Click a panel's title to fold it; the
+//   arrows move it. Both are remembered by this browser (localStorage).
 //
 // To change the page without the robot: run tools/mock_bb1.py, which serves
 // this exact page with made-up data (docs/WEB_INTERFACE.md, "Offline mock").
@@ -29,208 +31,331 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BB1</title>
 <style>
-  :root { --bg:#111418; --panel:#1b2027; --text:#e6e9ee; --muted:#8a94a3; --line:#2b323c;
-          --pitch:#4fb3ff; --accel:#f2a33a; --ok:#4cc38a; --bad:#ff5c5c; }
-  * { box-sizing: border-box; }
-  body { margin:0; padding:16px; background:var(--bg); color:var(--text);
-         font:15px/1.4 -apple-system, system-ui, sans-serif; }
-  h1 { font-size:20px; margin:0; }
-  h2 { font-size:15px; margin:0; color:var(--muted); font-weight:600; }
-  .top { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px;
-         max-width:960px; margin:0 auto 12px; }
-  .conn { font-size:13px; color:var(--muted); }
-  .conn b { color:var(--ok); }
-  .conn.lost b { color:var(--bad); }
-  .conn.mock b { color:var(--accel); }
-  /* One column of panels. min-width:0 lets a panel shrink to the screen, and
-     overflow-x:auto makes wide content scroll inside it instead of stretching the page. */
-  .stack { display:flex; flex-direction:column; gap:12px; max-width:960px; margin:0 auto; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px;
-           min-width:0; overflow-x:auto; }
-  .head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-  .move button { background:none; color:var(--muted); padding:2px 8px; font-size:13px; }
-  .move button:hover { color:var(--text); }
-  .big { font-size:44px; font-weight:700; font-variant-numeric:tabular-nums; }
-  .big small { font-size:16px; color:var(--muted); font-weight:400; }
-  canvas { width:100%; min-width:300px; height:220px; display:block; }
-  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  td { padding:4px 12px 4px 0; border-bottom:1px solid var(--line); }
-  td:last-child { text-align:right; padding-right:0; }
-  .legend span { margin-right:14px; font-size:13px; }
-  .legend i { display:inline-block; width:10px; height:3px; vertical-align:middle; margin-right:5px; }
-  button, input, select { font:inherit; border-radius:8px; border:1px solid var(--line); padding:8px 12px; }
-  button { background:#2a6df4; color:white; border:none; cursor:pointer; }
-  button.secondary { background:#39414d; }
-  button:disabled { opacity:0.4; cursor:default; }
-  input, select { background:#0d1014; color:var(--text); }
-  input { width:100%; }
-  .row { display:flex; gap:8px; margin-bottom:8px; align-items:center; flex-wrap:wrap; }
-  .row input { flex:1; min-width:160px; }
-  .msg { font-size:13px; color:var(--muted); min-height:1.4em; }
-  /* The live log: fixed height, scrolls both ways, lines never wrap. */
-  pre { margin:0; height:260px; overflow:auto; white-space:pre; background:#0d1014;
-        border:1px solid var(--line); border-radius:8px; padding:8px;
-        font:12px/1.5 ui-monospace, Menlo, monospace; }
-  .bar { width:140px; height:8px; background:#0d1014; border-radius:4px; display:inline-block;
-         vertical-align:middle; margin-left:8px; overflow:hidden; }
-  .bar i { display:block; height:100%; background:var(--pitch); }
-  button.stop { background:var(--bad); font-weight:700; }
-  .num { width:90px; flex:none !important; min-width:0 !important; }
-  .state { font-size:22px; font-weight:700; }
-  /* Things with a hint: dotted underline, "?" cursor. Hover (or tap on a phone) to read it. */
+  /* ---------- colours and basics ---------- */
+  :root {
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c222b; --line:#262d37; --text:#e6edf3; --muted:#8b96a5;
+    --blue:#4ea1ff; --orange:#f0a03c; --green:#3fb97a; --red:#f05252; --purple:#b58cff; --teal:#3cc8c8;
+    --radius:12px;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 16px; }
+  .muted { color:var(--muted); }
+  .small { font-size:13px; }
+  .num-font { font-variant-numeric:tabular-nums; }
+
+  /* ---------- status bar: always on screen ---------- */
+  .bar-top { position:sticky; top:0; z-index:5; background:rgba(14,17,22,0.92); backdrop-filter:blur(8px);
+             border-bottom:1px solid var(--line); }
+  .bar-top .wrap { display:flex; align-items:center; gap:12px; padding-top:10px; padding-bottom:10px; flex-wrap:wrap; }
+  .brand { font-weight:800; font-size:18px; letter-spacing:0.5px; }
+  .conn { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); min-width:0; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); flex:none; }
+  .dot.ok { background:var(--green); } .dot.bad { background:var(--red); } .dot.mock { background:var(--orange); }
+  .spacer { flex:1; }
+  .chip { padding:4px 10px; border-radius:999px; font-weight:700; font-size:13px; background:var(--panel2); color:var(--muted); }
+  .chip.armed { background:rgba(63,185,122,0.18); color:var(--green); }
+  .chip.fallen { background:rgba(240,82,82,0.18); color:var(--red); }
+  .chip.test { background:rgba(240,160,60,0.18); color:var(--orange); }
+  .countdown { font-weight:800; font-size:20px; color:var(--green); min-width:4.5ch; text-align:right; }
+  .timebar { height:3px; background:transparent; }
+  .timebar i { display:block; height:100%; width:0; background:var(--green); transition:width 0.1s linear; }
+
+  /* ---------- panels ---------- */
+  .stack { display:flex; flex-direction:column; gap:14px; padding-top:14px; padding-bottom:40px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); min-width:0; }
+  .head { display:flex; align-items:center; gap:8px; padding:12px 14px; cursor:pointer; user-select:none; }
+  .head h2 { margin:0; font-size:15px; font-weight:700; flex:1; }
+  .head .fold { color:var(--muted); font-size:12px; transition:transform 0.15s; }
+  .panel.folded .fold { transform:rotate(-90deg); }
+  .panel.folded .body { display:none; }
+  .move button { background:none; color:var(--muted); padding:2px 6px; font-size:12px; }
+  .move button:hover { color:var(--text); background:var(--panel2); }
+  .body { padding:0 14px 14px; overflow-x:auto; }
+  .sub { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; margin:14px 0 8px; }
+
+  /* ---------- controls ---------- */
+  button, input, select { font:inherit; border-radius:8px; }
+  button { border:none; padding:9px 14px; cursor:pointer; background:var(--panel2); color:var(--text); font-weight:600; }
+  button:hover { filter:brightness(1.15); }
+  button:disabled { opacity:0.4; cursor:default; filter:none; }
+  button.primary { background:var(--blue); color:#fff; }
+  button.go { background:var(--green); color:#06210f; font-weight:800; }
+  button.stop { background:var(--red); color:#fff; font-weight:800; }
+  button.attention { background:var(--orange); color:#1d1206; }
+  button.big { padding:12px 22px; font-size:17px; }
+  input, select { background:#0b0e13; color:var(--text); border:1px solid var(--line); padding:8px 10px; }
+  input:focus, select:focus { outline:none; border-color:var(--blue); }
+  input.dirty { border-color:var(--orange); box-shadow:0 0 0 1px var(--orange); }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .row + .row { margin-top:8px; }
+  .grow { flex:1; min-width:160px; }
+  .msg { font-size:13px; color:var(--muted); margin-top:8px; min-height:1.2em; }
+  .warn { color:var(--orange); }
+
+  /* Number fields: the label above, the box, the unit below. */
+  .fields { display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr)); gap:10px; }
+  .field { display:flex; flex-direction:column; gap:4px; background:var(--panel2); border-radius:10px; padding:8px 10px; }
+  .field .name { font-size:13px; font-weight:700; }
+  .field input { width:100%; }
+  .field .unit { font-size:11px; color:var(--muted); }
+
+  /* Read-only numbers as tiles. */
+  .tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; }
+  /* Phones: keep the status bar on one line (the dot still shows the connection). */
+  @media (max-width:520px) { #conn { display:none; } .tiles { grid-template-columns:1fr 1fr; } }
+  .tile { background:var(--panel2); border-radius:10px; padding:8px 10px; min-width:0; }
+  .tile .name { font-size:12px; color:var(--muted); }
+  .tile .val { font-size:19px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tile .val small { font-size:12px; color:var(--muted); font-weight:400; }
+  .swatch { display:inline-block; width:10px; height:3px; border-radius:2px; vertical-align:middle; margin-right:6px; }
+
+  /* Charts */
+  canvas { width:100%; min-width:280px; height:200px; display:block; margin-top:10px; }
+  .legend { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; color:var(--muted); margin-top:6px; }
+
+  /* Arm area */
+  .armbox { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .armstate { font-size:24px; font-weight:800; }
+  .armstate.on { color:var(--green); } .armstate.fallen { color:var(--red); }
+  .bigtime { font-size:34px; font-weight:800; color:var(--green); font-variant-numeric:tabular-nums; }
+  .progress { height:6px; background:var(--panel2); border-radius:3px; overflow:hidden; margin-top:10px; }
+  .progress i { display:block; height:100%; width:0; background:var(--green); transition:width 0.1s linear; }
+
+  /* Log table: sticky header, scrolls both ways inside its box. */
+  .logview { height:280px; overflow:auto; border:1px solid var(--line); border-radius:10px; background:#0b0e13; margin-top:10px; }
+  .logview table { border-collapse:collapse; font:12px/1.5 ui-monospace, Menlo, monospace; white-space:nowrap; width:100%; }
+  .logview th { position:sticky; top:0; background:var(--panel2); color:var(--muted); text-align:right; font-weight:600; padding:5px 10px; }
+  .logview td { text-align:right; padding:2px 10px; border-top:1px solid #151a21; }
+  .logview tr.armed td { background:rgba(63,185,122,0.07); }
+  .logview .empty { padding:30px; text-align:center; color:var(--muted); font-family:inherit; }
+  .recdot { display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--red); margin-right:6px;
+            animation:blink 1s infinite; vertical-align:middle; }
+  @keyframes blink { 50% { opacity:0.2; } }
+
+  /* Memory bars */
+  .meter { height:8px; background:#0b0e13; border-radius:4px; overflow:hidden; margin-top:6px; }
+  .meter i { display:block; height:100%; background:var(--blue); }
+
+  /* Hints: dotted underline; hover (or tap on a phone) to read. */
   .hinted { text-decoration:underline dotted var(--muted); text-underline-offset:3px; cursor:help; }
-  #hintBox { position:fixed; max-width:min(360px, calc(100vw - 32px)); padding:8px 12px; pointer-events:none;
-             background:#2b323c; border:1px solid var(--muted); border-radius:8px; font-size:14px; display:none; z-index:9; }
-  .state.on { color:var(--ok); }
-  input.dirty { border-color:var(--accel); }
-  button.attention { background:var(--accel); color:#111; font-weight:700; }
-  .gains label { display:inline-flex; gap:6px; align-items:center; font-size:13px; color:var(--muted); }
+  #hintBox { position:fixed; max-width:min(360px, calc(100vw - 32px)); padding:8px 12px; pointer-events:none; z-index:9;
+             background:#2a313c; border:1px solid #3a4350; border-radius:8px; font-size:13px; display:none;
+             box-shadow:0 6px 20px rgba(0,0,0,0.4); }
 </style>
 </head>
 <body>
 
-<div class="top">
-  <h1>BB1 balance bot</h1>
-  <div class="conn" id="conn">connecting...</div>
+<!-- ===================== status bar ===================== -->
+<div class="bar-top">
+  <div class="wrap">
+    <span class="brand">BB1</span>
+    <span class="conn"><span class="dot" id="connDot"></span><span id="conn">connecting...</span></span>
+    <span class="spacer"></span>
+    <span class="chip" id="modeChip">--</span>
+    <span class="countdown" id="topTime"></span>
+    <button class="stop" id="stopBtn" onclick="stopAll()">STOP</button>
+  </div>
+  <div class="timebar"><i id="topBar"></i></div>
 </div>
 
-<div class="stack" id="stack">
+<div class="wrap stack" id="stack">
 
-  <div class="panel" id="p-pitch">
-    <div class="head"><h2>Pitch (forward +)</h2></div>
-    <div class="big"><span id="pitch">--</span><small> deg</small></div>
-    <canvas id="chart"></canvas>
-    <div class="legend">
-      <span><i style="background:var(--pitch)"></i>pitch (filtered)</span>
-      <span><i style="background:var(--accel)"></i>accel only</span>
-      <span style="color:var(--muted)">last 10 s</span>
-    </div>
-  </div>
-
-  <div class="panel" id="p-values">
-    <div class="head"><h2>Live values</h2></div>
-    <table>
-      <tr><td id="h-rate">Pitch rate</td><td id="rate">--</td></tr>
-      <tr><td id="h-accel">Accel-only pitch</td><td id="accel">--</td></tr>
-      <tr><td id="h-work">Loop work (budget 5000 us)</td><td id="work">--</td></tr>
-      <tr><td id="h-tick">Tick</td><td id="tick">--</td></tr>
-      <tr><td id="h-bias">Gyro bias x / y / z (deg/s)</td><td id="bias">--</td></tr>
-      <tr><td id="h-alpha">Filter alpha</td><td id="alphaNow">--</td></tr>
-      <tr><td>IMU</td><td id="imu">--</td></tr>
-      <tr><td>Uptime</td><td id="uptime">--</td></tr>
-      <tr><td id="h-enc">Encoders left / right (counts, forward +)</td><td id="enc">--</td></tr>
-      <tr><td id="h-speed">Wheel speed left / right (counts/s)</td><td id="speed">--</td></tr>
-      <tr><td id="h-pwm">Motor PWM left / right</td><td id="pwm">--</td></tr>
-      <tr><td id="h-pid">PID terms P / I / D (PWM)</td><td id="pid">--</td></tr>
-    </table>
-  </div>
-
-  <div class="panel" id="p-log">
-    <div class="head"><h2>Log</h2></div>
-    <div class="row"><input id="note" placeholder="note for this run, e.g. tilt test" autocomplete="off"></div>
-    <div class="row">
-      <button id="recBtn" onclick="toggleRecord()">Record</button>
-      <button class="secondary" id="dlBtn" onclick="downloadRecording()" disabled>Download</button>
-      <button class="secondary" id="saveLastBtn" onclick="saveLast()">Save last 10 s</button>
-    </div>
-    <div class="msg" id="logMsg">Record shows the records below as they arrive and keeps every one until you press Stop.</div>
-    <div class="row" style="margin-top:8px">
-      <button class="secondary" id="liveBtn" onclick="toggleLive()">Watch</button>
-      <select id="liveEvery">
-        <option value="1">show every record (200/s)</option>
-        <option value="10" selected>show every 10th (20/s)</option>
-        <option value="40">show every 40th (5/s)</option>
-      </select>
-      <button class="secondary" onclick="clearLive()">Clear</button>
-    </div>
-    <pre id="liveLog">Records appear here while recording. Watch shows them without recording.</pre>
-    <div class="msg" id="liveMsg"></div>
-  </div>
-
+  <!-- ===================== Balance ===================== -->
   <div class="panel" id="p-balance">
-    <div class="head"><h2>Balance</h2></div>
-    <div class="row">
-      <span class="state" id="armState">--</span>
-      <span class="msg" id="armReason"></span>
+    <div class="head"><span class="fold">&#9660;</span><h2>Balance</h2></div>
+    <div class="body">
+      <div class="armbox">
+        <span class="armstate" id="armState">--</span>
+        <span class="bigtime" id="armTime"></span>
+        <span class="msg" id="armReason" style="margin:0"></span>
+      </div>
+      <div class="progress" id="armProgress" style="visibility:hidden"><i id="armBar"></i></div>
+      <div class="row" style="margin-top:12px">
+        <button class="go big" id="armBtn" onclick="arm()">ARM</button>
+        <label class="row" style="gap:6px">for <input id="armSecs" type="number" value="5" min="0" max="600" step="1" style="width:80px"> s</label>
+        <button class="stop big" id="disarmBtn" onclick="disarm()">DISARM</button>
+      </div>
+      <div class="msg">Hold it near upright to arm. It stops by itself when the time runs out (0 = no limit), past 45 deg, or if this page stops for 1 s. Space bar = stop.</div>
+
+      <div class="sub">Gains</div>
+      <div class="fields gains">
+        <label class="field"><span class="name">Kp</span><input id="gKp" type="number" step="0.5"><span class="unit">PWM per deg</span></label>
+        <label class="field"><span class="name">Ki</span><input id="gKi" type="number" step="0.1"><span class="unit">PWM per deg&middot;s</span></label>
+        <label class="field"><span class="name">Kd</span><input id="gKd" type="number" step="0.05"><span class="unit">PWM per deg/s</span></label>
+      </div>
+      <div class="sub">Balance point and limits</div>
+      <div class="fields gains">
+        <label class="field"><span class="name">Trim</span><input id="gTrim" type="number" step="0.1"><span class="unit">deg</span></label>
+        <label class="field"><span class="name">Cap</span><input id="gCap" type="number" step="5"><span class="unit">PWM, of 255</span></label>
+        <label class="field"><span class="name">Deadband</span><input id="gDb" type="number" step="1"><span class="unit">PWM</span></label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="applyBtn" onclick="applyGains()">Apply</button>
+        <button id="trimHereBtn" onclick="post('/gains', {trim: 'here'}, 'gainsMsg')">Use current pitch as trim</button>
+      </div>
+      <div class="msg" id="gainsMsg">Change a box and it turns orange: press Apply (or Enter) to send it. Not saved: a restart goes back to config.h.</div>
     </div>
-    <div class="row">
-      <button id="armBtn" onclick="arm()">ARM</button>
-      <label>for <input class="num" id="armSecs" type="number" value="5" min="0" max="600" step="1"> s</label>
-      <button class="stop" id="disarmBtn" onclick="disarm()">DISARM (space)</button>
-    </div>
-    <div class="msg">Hold it near upright to arm. It disarms by itself after the time you set (0 = until you disarm), if it leans past 45 deg, or if this page stops for 1 s.</div>
-    <div class="row gains" style="margin-top:10px">
-      <label>Kp <input class="num" id="gKp" type="number" step="0.5"></label>
-      <label>Ki <input class="num" id="gKi" type="number" step="0.1"></label>
-      <label>Kd <input class="num" id="gKd" type="number" step="0.05"></label>
-    </div>
-    <div class="row gains">
-      <label>trim <input class="num" id="gTrim" type="number" step="0.1"></label>
-      <label>cap <input class="num" id="gCap" type="number" step="5"></label>
-      <label>deadband <input class="num" id="gDb" type="number" step="1"></label>
-    </div>
-    <div class="row">
-      <button class="secondary" id="applyBtn" onclick="applyGains()">Apply</button>
-      <button class="secondary" id="trimHereBtn" onclick="post('/gains', {trim: 'here'}, 'gainsMsg')">Use current pitch as trim</button>
-    </div>
-    <div class="msg" id="gainsMsg">Boxes turn orange when they differ from what BB1 is using: press Apply (or Enter) to send them. Not saved: a restart goes back to config.h.</div>
   </div>
 
+  <!-- ===================== PID (view only) ===================== -->
+  <div class="panel" id="p-pid">
+    <div class="head"><span class="fold">&#9660;</span><h2>PID</h2></div>
+    <div class="body">
+      <div class="tiles">
+        <div class="tile"><div class="name" id="h-err">Error (pitch - trim)</div><div class="val" id="pidErr">--</div></div>
+        <div class="tile"><div class="name" id="h-p"><span class="swatch" style="background:var(--blue)"></span>P</div><div class="val" id="pidP">--</div></div>
+        <div class="tile"><div class="name" id="h-i"><span class="swatch" style="background:var(--purple)"></span>I</div><div class="val" id="pidI">--</div></div>
+        <div class="tile"><div class="name" id="h-d"><span class="swatch" style="background:var(--teal)"></span>D</div><div class="val" id="pidD">--</div></div>
+        <div class="tile"><div class="name" id="h-out"><span class="swatch" style="background:var(--text)"></span>Output</div><div class="val" id="pidOut">--</div></div>
+      </div>
+      <canvas id="pidChart"></canvas>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--blue)"></span>P</span>
+        <span><span class="swatch" style="background:var(--purple)"></span>I</span>
+        <span><span class="swatch" style="background:var(--teal)"></span>D</span>
+        <span><span class="swatch" style="background:var(--text)"></span>output to the wheels</span>
+        <span><span class="swatch" style="background:var(--red)"></span>&plusmn; cap</span>
+        <span>PWM, last 10 s. All zero while disarmed.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Pitch ===================== -->
+  <div class="panel" id="p-pitch">
+    <div class="head"><span class="fold">&#9660;</span><h2>Pitch</h2></div>
+    <div class="body">
+      <div class="tiles">
+        <div class="tile"><div class="name">Pitch (forward +)</div><div class="val"><span id="pitch">--</span> <small>deg</small></div></div>
+        <div class="tile"><div class="name" id="h-rate">Pitch rate</div><div class="val"><span id="rate">--</span> <small>deg/s</small></div></div>
+        <div class="tile"><div class="name" id="h-accel">Accel-only pitch</div><div class="val"><span id="accel">--</span> <small>deg</small></div></div>
+      </div>
+      <canvas id="chart"></canvas>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--blue)"></span>pitch (filtered)</span>
+        <span><span class="swatch" style="background:var(--orange)"></span>accel only</span>
+        <span><span class="swatch" style="background:var(--green)"></span>trim</span>
+        <span>last 10 s</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Log ===================== -->
+  <div class="panel" id="p-log">
+    <div class="head"><span class="fold">&#9660;</span><h2>Log</h2></div>
+    <div class="body">
+      <div class="row">
+        <input class="grow" id="note" placeholder="Note for this run, e.g. hand-held tilt" autocomplete="off">
+      </div>
+      <div class="row">
+        <button class="primary" id="recBtn" onclick="toggleRecord()">&#9679; Record</button>
+        <button id="dlBtn" onclick="downloadRecording()" disabled>Download</button>
+        <button id="saveLastBtn" onclick="saveLast()">Save last 10 s</button>
+      </div>
+      <div class="msg" id="logMsg">Record keeps every 5 ms record and shows them below as they arrive.</div>
+
+      <div class="row" style="margin-top:12px">
+        <button id="liveBtn" onclick="toggleLive()">Watch</button>
+        <select id="liveEvery">
+          <option value="1">every record</option>
+          <option value="10" selected>every 10th</option>
+          <option value="40">every 40th</option>
+        </select>
+        <label class="row small muted" style="gap:6px"><input type="checkbox" id="allCols"> all columns</label>
+        <button onclick="clearLive()">Clear</button>
+        <span class="small muted" id="liveMsg"></span>
+      </div>
+      <div class="logview" id="logView"><div class="empty">Records show here while recording, or press Watch.</div></div>
+    </div>
+  </div>
+
+  <!-- ===================== Live values ===================== -->
+  <div class="panel" id="p-values">
+    <div class="head"><span class="fold">&#9660;</span><h2>Live values</h2></div>
+    <div class="body">
+      <div class="tiles">
+        <div class="tile"><div class="name" id="h-pwm">Motor PWM L / R</div><div class="val" id="pwm">--</div></div>
+        <div class="tile"><div class="name" id="h-speed">Wheel speed L / R</div><div class="val" id="speed">--</div></div>
+        <div class="tile"><div class="name" id="h-enc">Encoders L / R</div><div class="val" id="enc">--</div></div>
+        <div class="tile"><div class="name" id="h-work">Loop work</div><div class="val"><span id="work">--</span> <small>of 5000 us</small></div></div>
+        <div class="tile"><div class="name" id="h-web">Page delay</div><div class="val"><span id="webAge">--</span> <small>ms</small></div></div>
+        <div class="tile"><div class="name" id="h-tick">Tick</div><div class="val" id="tick">--</div></div>
+        <div class="tile"><div class="name">IMU</div><div class="val" id="imu">--</div></div>
+        <div class="tile"><div class="name">Uptime</div><div class="val" id="uptime">--</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Motor test ===================== -->
   <div class="panel" id="p-motors">
-    <div class="head"><h2>Motor test</h2></div>
-    <div class="msg" style="color:var(--bad)">Wheels off the table first. Every test stops by itself.</div>
-    <div class="row">
-      <label>left <input class="num" id="mL" type="number" value="100" min="-150" max="150"></label>
-      <label>right <input class="num" id="mR" type="number" value="100" min="-150" max="150"></label>
-      <select id="mMs">
-        <option value="500">0.5 s</option><option value="1000">1 s</option>
-        <option value="2000" selected>2 s</option><option value="3000">3 s</option>
-      </select>
+    <div class="head"><span class="fold">&#9660;</span><h2>Motor test</h2></div>
+    <div class="body">
+      <div class="msg warn" style="margin-top:0">Wheels off the table first. Every test stops by itself.</div>
+      <div class="fields" style="margin-top:8px">
+        <label class="field"><span class="name">Left</span><input id="mL" type="number" value="100" min="-150" max="150"><span class="unit">PWM, forward +</span></label>
+        <label class="field"><span class="name">Right</span><input id="mR" type="number" value="100" min="-150" max="150"><span class="unit">PWM, forward +</span></label>
+        <label class="field"><span class="name">Time</span>
+          <select id="mMs"><option value="500">0.5 s</option><option value="1000">1 s</option>
+            <option value="2000" selected>2 s</option><option value="3000">3 s</option></select>
+          <span class="unit">stops by itself</span></label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" onclick="motorTest()">Run</button>
+        <button class="stop" onclick="stopAll()">STOP</button>
+      </div>
+      <div class="msg" id="motorMsg">-150..150. 100 is about 40% power.</div>
     </div>
-    <div class="row">
-      <button onclick="motorTest()">Run</button>
-      <button class="stop" onclick="motorStop()">STOP (space)</button>
-    </div>
-    <div class="msg" id="motorMsg">PWM -150..150, forward +. 100 is about 40% power.</div>
   </div>
 
+  <!-- ===================== Sensors ===================== -->
   <div class="panel" id="p-actions">
-    <div class="head"><h2>Actions</h2></div>
-    <div class="row">
-      <button id="calBtn" onclick="post('/cal', null, 'calMsg')">Calibrate gyro</button>
-      <span class="msg">lay the robot still first</span>
+    <div class="head"><span class="fold">&#9660;</span><h2>Sensors</h2></div>
+    <div class="body">
+      <div class="tiles">
+        <div class="tile"><div class="name" id="h-bias">Gyro bias x / y / z</div><div class="val" id="bias">--</div></div>
+        <div class="tile"><div class="name" id="h-alpha">Filter alpha</div><div class="val" id="alphaNow">--</div></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="calBtn" onclick="post('/cal', null, 'calMsg')">Calibrate gyro</button>
+        <span class="small muted">lay the robot still first</span>
+      </div>
+      <div class="msg" id="calMsg"></div>
+      <div class="row">
+        <input id="alpha" type="number" step="0.001" min="0.9" max="0.999" placeholder="alpha, e.g. 0.98" style="width:170px">
+        <button onclick="post('/alpha', {value: el('alpha').value}, 'alphaMsg')">Set alpha</button>
+      </div>
+      <div class="msg" id="alphaMsg"></div>
     </div>
-    <div class="msg" id="calMsg"></div>
-    <div class="row">
-      <input id="alpha" type="number" step="0.001" min="0.9" max="0.999" placeholder="alpha, e.g. 0.98">
-      <button class="secondary" onclick="post('/alpha', {value: el('alpha').value}, 'alphaMsg')">Set alpha</button>
-    </div>
-    <div class="msg" id="alphaMsg"></div>
   </div>
 
+  <!-- ===================== Pico memory ===================== -->
   <div class="panel" id="p-sys">
-    <div class="head"><h2>Pico memory</h2></div>
-    <table>
-      <tr><td id="h-ram">RAM used (of 256 KB)</td><td id="ramUsed">--</td></tr>
-      <tr><td>&nbsp;&nbsp;fixed: globals, incl. the log buffer</td><td id="ramStatic">--</td></tr>
-      <tr><td>&nbsp;&nbsp;heap in use (Wi-Fi, web requests)</td><td id="heapUsed">--</td></tr>
-      <tr><td id="h-heap">Heap free</td><td id="heapFree">--</td></tr>
-      <tr><td id="h-flash">Flash used by the program (of 2 MB)</td><td id="flashUsed">--</td></tr>
-      <tr><td>&nbsp;&nbsp;this page</td><td id="pageSize">--</td></tr>
-      <tr><td>CPU clock</td><td id="cpu">--</td></tr>
-    </table>
+    <div class="head"><span class="fold">&#9660;</span><h2>Pico memory</h2></div>
+    <div class="body">
+      <div class="tiles">
+        <div class="tile"><div class="name" id="h-ram">RAM used, of 256 KB</div><div class="val" id="ramUsed">--</div><div class="meter"><i id="ramBar"></i></div></div>
+        <div class="tile"><div class="name" id="h-heap">Heap free</div><div class="val" id="heapFree">--</div></div>
+        <div class="tile"><div class="name" id="h-flash">Flash used, of 2 MB</div><div class="val" id="flashUsed">--</div><div class="meter"><i id="flashBar"></i></div></div>
+        <div class="tile"><div class="name">Log buffer</div><div class="val" id="logBuf">--</div></div>
+        <div class="tile"><div class="name">This page</div><div class="val" id="pageSize">--</div></div>
+        <div class="tile"><div class="name">CPU clock</div><div class="val" id="cpu">--</div></div>
+      </div>
+    </div>
   </div>
 
+  <!-- ===================== Network ===================== -->
   <div class="panel" id="p-net">
-    <div class="head"><h2>Network</h2></div>
-    <div class="msg" id="netNow"></div>
-    <div class="row"><input id="ssid" placeholder="home Wi-Fi name" autocomplete="off"></div>
-    <div class="row"><input id="pass" type="password" placeholder="home Wi-Fi password"></div>
-    <div class="row">
-      <button onclick="saveWifi()">Save and join</button>
-      <button class="secondary" onclick="forgetWifi()">Use own network</button>
+    <div class="head"><span class="fold">&#9660;</span><h2>Network</h2></div>
+    <div class="body">
+      <div class="msg" id="netNow" style="margin-top:0"></div>
+      <div class="row"><input class="grow" id="ssid" placeholder="home Wi-Fi name" autocomplete="off"></div>
+      <div class="row"><input class="grow" id="pass" type="password" placeholder="home Wi-Fi password"></div>
+      <div class="row">
+        <button class="primary" onclick="saveWifi()">Save and join</button>
+        <button onclick="forgetWifi()">Use own network</button>
+      </div>
+      <div class="msg" id="netMsg"></div>
     </div>
-    <div class="msg" id="netMsg"></div>
   </div>
 
 </div>
@@ -240,51 +365,66 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
 <script>
 const el = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const store = {                                  // localStorage can be blocked: never let that break the page
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
 
 // ---------- hints ----------
 //
 // One place for every explanation on the page. Each key is an element id.
 // Hover over a hinted word (dotted underline) and the hint appears next to it;
 // move away and it disappears. Phones can't hover, so a tap shows it for 5 s.
-// For a box inside a <label>, both the word and the box show the hint.
+// For a box inside a <label>, the whole label shows the hint.
 
 const HINTS = {
+  // Status bar
+  stopBtn: 'Stops everything now: disarms the balance loop and ends any motor test. The space bar does the same.',
+  modeChip: 'What BB1 is doing: DISARMED (motors off), ARMED (balancing), FALLEN (leaned past 45 deg, motors off), MOTOR TEST.',
   // Balance
   armBtn: 'Start balancing: the PID drives both wheels from the lean. Only works within 10 deg of the trim, with the gyro calibrated.',
-  disarmBtn: 'Stop balancing now: brakes both wheels and puts the motor driver to sleep. The space bar does the same anywhere on the page.',
+  armSecs: 'Arm time: BB1 disarms by itself after this many seconds, with a countdown at the top. 0 = until you disarm (or a safety check stops it).',
+  disarmBtn: 'Stop balancing now: brakes both wheels and puts the motor driver to sleep.',
   gKp: 'Kp (proportional): PWM per degree of lean past the trim. The main "fight back" strength. Too low: falls slowly. Too high: shakes fast.',
   gKi: 'Ki (integral): pushes against a lean that lasts, to fix steady drift. Keep at 0 until Kp and Kd work.',
   gKd: 'Kd (derivative): PWM per deg/s of falling speed, from the gyro. Brakes the swinging that Kp causes. Too high: motors buzz.',
-  gTrim: 'Trim: the pitch (deg) where BB1 really balances. The loop holds this angle, not 0. Measured -4.39 deg.',
+  gTrim: 'Trim: the pitch where BB1 really balances. The loop holds this angle, not 0. Measured -4.39 deg.',
   gCap: 'Cap: the most PWM the balance loop may send (of 255). 80 = about 30% power, gentle for first tests. Raise it once it balances.',
   gDb: 'Deadband: PWM added to every non-zero command, because the motors do not turn at all below a few PWM. 0 until we measure it.',
-  applyBtn: 'Send all six numbers to BB1 (Enter in any box does the same). Orange = some box differs from what BB1 is using. They apply on the next 5 ms tick. Not saved: a restart goes back to the defaults in config.h.',
-  armSecs: 'Arm time: BB1 disarms by itself after this many seconds. 0 = stays armed until you disarm (or a safety check stops it).',
+  applyBtn: 'Send all six numbers to BB1 (Enter in any box does the same). Orange = something differs from what BB1 is using. Applies on the next 5 ms tick.',
   trimHereBtn: 'Hold BB1 at its balance point (where it would tip neither way), then press: the current pitch becomes the trim.',
+  // PID
+  'h-err': 'How far past the balance point it leans, in degrees. Forward +. This is what the PID works on.',
+  'h-p': 'P = Kp x error. Pushes harder the further it leans.',
+  'h-i': 'I = Ki x (error added up over time). Fixes a lean that lasts. 0 while Ki is 0.',
+  'h-d': 'D = Kd x pitch rate. Reacts to how fast it is tipping; damps the swinging.',
+  'h-out': 'P + I + D (+ deadband), clipped to the cap: the PWM actually sent to both wheels.',
+  // Pitch
+  'h-rate': 'How fast it is tipping, deg/s, from the gyro. Forward +.',
+  'h-accel': 'Pitch from the accelerometer alone: right on average, but jumpy when the robot moves or is bumped.',
+  // Log
+  note: 'Saved in the file and its name, so you can tell runs apart later.',
+  recBtn: 'Record keeps every 5 ms record until you press Stop, and shows them in the table as they arrive. Then Download saves a CSV.',
+  saveLastBtn: 'Download the last 10 s BB1 still has in memory, even if you were not recording.',
+  liveBtn: 'Show the records in the table without recording. Pause freezes it so you can read.',
+  liveEvery: 'How many records to show in the table. Recording always keeps every record.',
+  allCols: 'Show every column, as in the downloaded file. Off: only the most useful ones.',
+  // Live values
+  'h-pwm': 'What is being sent to each motor right now, -255..255, forward +.',
+  'h-speed': 'Wheel speed over the last 50 ms, counts/s. About 1750 at PWM 100 with the wheels in the air.',
+  'h-enc': 'Encoder counts since startup, forward +. About 520 per wheel turn.',
+  'h-work': 'How long one 5 ms tick took. Must stay well under 5000 us or the loop runs late.',
+  'h-web': 'How long since this page last heard from BB1. Over 1000 ms while armed from the page = it disarms.',
+  'h-tick': 'Counts up 200 times a second. Every log row has one; a gap means lost records.',
   // Motor test
   mL: 'Left wheel PWM, -150..150. Positive = roll forward. 100 is about 40% power.',
   mR: 'Right wheel PWM, -150..150. Positive = roll forward.',
   mMs: 'How long the test runs. It always stops by itself.',
-  // Logging
-  note: 'Saved in the file and its name, so you can tell runs apart later.',
-  recBtn: 'Record keeps every 5 ms record until you press Stop, and shows them in the box below as they arrive. Then Download saves a CSV.',
-  liveBtn: 'Watch the records without recording. Pause view freezes the box so you can read it.',
-  saveLastBtn: 'Download the last 10 s BB1 still has in memory, even if you were not recording.',
-  liveEvery: 'How many records to show in the box. Recording always keeps every record.',
-  // Actions
-  calBtn: 'Measures the gyro bias (its reading when still) for 2 s. Lay BB1 still first. Disarms if armed.',
-  alpha: 'Filter weight 0.90..0.999: how much the angle trusts the gyro over the accelerometer each tick. Higher = smoother, slower to correct drift.',
-  // Live values
-  'h-rate': 'How fast it is tipping, deg/s, from the gyro. Forward +.',
-  'h-accel': 'Pitch from the accelerometer alone: right on average, but jumpy when the robot moves or is bumped.',
-  'h-work': 'How long one 5 ms tick took. Must stay well under 5000 us or the loop runs late.',
-  'h-tick': 'Counts up 200 times a second. Every log row has one; a gap means lost records.',
-  'h-bias': 'What the gyro reads while still, subtracted from every reading. Measured at startup and by Calibrate gyro.',
+  // Sensors
+  'h-bias': 'What the gyro reads while still (deg/s), subtracted from every reading. Measured at startup and by Calibrate gyro.',
   'h-alpha': 'The complementary filter weight in use (see Set alpha).',
-  'h-enc': 'Encoder counts since startup, forward +. About 520 per wheel turn.',
-  'h-speed': 'Wheel speed over the last 50 ms. About 1750 counts/s at PWM 100 with the wheels in the air.',
-  'h-pwm': 'What is being sent to each motor right now, -255..255, forward +.',
-  'h-pid': 'The three parts of the balance output: P from the lean, I from lasting lean, D from tipping speed. PWM = P + I + D, clipped to the cap.',
+  calBtn: 'Measures the gyro bias for 2 s. Lay BB1 still first. Disarms if armed.',
+  alpha: 'Filter weight 0.90..0.999: how much the angle trusts the gyro over the accelerometer each tick. Higher = smoother, slower to correct drift.',
   // Memory
   'h-ram': 'RAM used: fixed globals (mostly the 10 s log buffer) plus the heap in use.',
   'h-heap': 'RAM left for Wi-Fi and web requests. Keep it above about 20 KB.',
@@ -296,7 +436,7 @@ function showHint(text, anchor) {
   const box = el('hintBox');
   box.textContent = text;
   box.style.display = 'block';
-  // Put it just below the hovered word, kept inside the window.
+  // Just below the hovered word (or above it near the bottom), inside the window.
   const r = anchor.getBoundingClientRect();
   const left = Math.min(r.left, window.innerWidth - box.offsetWidth - 16);
   const below = r.bottom + 6 + box.offsetHeight < window.innerHeight;
@@ -314,29 +454,25 @@ for (const [id, text] of Object.entries(HINTS)) {
   const target = el(id);
   if (!target) continue;
   const label = target.closest('label');
-  const word = label || target;               // what you hover: the label (word + box), or the element
+  const word = label ? (label.querySelector('.name') || label) : target;   // what gets the dotted underline
+  const area = label || target;                                           // what you hover
   word.classList.add('hinted');
-  target.setAttribute('aria-description', text);   // screen readers still get it (no "title": it would pop up twice)
-  word.addEventListener('mouseenter', () => showHint(text, word));
-  word.addEventListener('mouseleave', hideHint);
-  word.addEventListener('touchstart', () => {  // phones: tap shows it for 5 s
-    showHint(text, word);
-    hintTimer = setTimeout(hideHint, 5000);
-  }, { passive: true });
+  target.setAttribute('aria-description', text);
+  area.addEventListener('mouseenter', () => showHint(text, area));
+  area.addEventListener('mouseleave', hideHint);
+  area.addEventListener('touchstart', () => { showHint(text, area); hintTimer = setTimeout(hideHint, 5000); }, { passive: true });
 }
 window.addEventListener('scroll', hideHint, { passive: true });
 
-// ---------- moving panels ----------
+// ---------- panels: fold and move ----------
 //
-// Each panel gets an up and a down arrow. Moving one just moves its <div> in
-// the page; the new order is saved in this browser so it stays after a reload.
+// Click a panel's title to fold it away. The arrows move it up or down. Both
+// are remembered by this browser so the page looks the same after a reload.
 
 const stack = el('stack');
+const folded = new Set(store.get('bb1.folded', []));
 
-function saveOrder() {
-  const ids = [...stack.children].map(p => p.id);
-  try { localStorage.setItem('bb1.panelOrder', JSON.stringify(ids)); } catch (e) {}
-}
+function saveOrder() { store.set('bb1.panelOrder', [...stack.children].map(p => p.id)); }
 
 function movePanel(panel, dir) {
   if (dir < 0 && panel.previousElementSibling) stack.insertBefore(panel, panel.previousElementSibling);
@@ -346,18 +482,21 @@ function movePanel(panel, dir) {
 }
 
 for (const panel of stack.children) {
+  const head = panel.querySelector('.head');
   const box = document.createElement('span');
   box.className = 'move';
   box.innerHTML = '<button title="move up">&#9650;</button><button title="move down">&#9660;</button>';
-  box.children[0].onclick = () => movePanel(panel, -1);
-  box.children[1].onclick = () => movePanel(panel, +1);
-  panel.querySelector('.head').appendChild(box);
+  box.children[0].onclick = e => { e.stopPropagation(); movePanel(panel, -1); };
+  box.children[1].onclick = e => { e.stopPropagation(); movePanel(panel, +1); };
+  head.appendChild(box);
+  head.addEventListener('click', () => {
+    panel.classList.toggle('folded');
+    panel.classList.contains('folded') ? folded.add(panel.id) : folded.delete(panel.id);
+    store.set('bb1.folded', [...folded]);
+  });
+  if (folded.has(panel.id)) panel.classList.add('folded');
 }
-
-try {                                          // put the panels back in the saved order
-  const saved = JSON.parse(localStorage.getItem('bb1.panelOrder') || '[]');
-  for (const id of saved) if (el(id)) stack.appendChild(el(id));
-} catch (e) {}
+for (const id of store.get('bb1.panelOrder', [])) if (el(id)) stack.appendChild(el(id));
 
 // ---------- talking to the robot ----------
 
@@ -366,11 +505,24 @@ async function post(url, fields, msgId) {
   const body = new URLSearchParams(fields || {});
   try {
     const res = await fetch(url, { method: 'POST', body });
-    el(msgId).textContent = await res.text();
+    const text = await res.text();
+    if (msgId) el(msgId).textContent = text;
   } catch (e) {
-    el(msgId).textContent = 'no answer from the robot';
+    if (msgId) el(msgId).textContent = 'no answer from the robot';
   }
 }
+
+// STOP (status bar, motor test panel, space bar): ends a motor test and disarms.
+function stopAll() { post('/motor/stop', null, 'motorMsg'); }
+
+document.addEventListener('keydown', e => {
+  // Works even right after clicking a button (which keeps the focus): preventDefault
+  // stops the space bar from "clicking" that button again (e.g. ARM).
+  if (e.code === 'Space' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+    e.preventDefault();
+    stopAll();
+  }
+});
 
 function saveWifi() {
   if (!el('ssid').value) { el('netMsg').textContent = 'type the network name first'; return; }
@@ -392,13 +544,10 @@ function motorTest() {
   post('/motor', { left: el('mL').value, right: el('mR').value, ms: el('mMs').value }, 'motorMsg');
 }
 
-function motorStop() {
-  post('/motor/stop', null, 'motorMsg');
-}
-
 // ---------- balance ----------
 
 function arm() { post('/arm', { seconds: el('armSecs').value || 0 }, 'armReason'); }
+function disarm() { post('/disarm', null, 'armReason'); }
 
 // Browsers slow a hidden tab down to about one update a second, which would
 // trip the 1 s heartbeat anyway. Say so clearly instead: disarm when hidden.
@@ -406,7 +555,6 @@ let armedNow = false;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && armedNow) navigator.sendBeacon('/disarm?why=hidden');
 });
-function disarm() { post('/disarm', null, 'armReason'); }
 
 // Which box shows which of BB1's settings (the names in /state "gains").
 const GAIN_BOXES = { gKp: 'kp', gKi: 'ki', gKd: 'kd', gTrim: 'trim', gCap: 'cap', gDb: 'deadband' };
@@ -448,20 +596,31 @@ for (const id of Object.keys(GAIN_BOXES)) {
   el(id).addEventListener('keydown', e => { if (e.key === 'Enter') applyGains(); });   // Enter = Apply
 }
 
-// Space bar = stop motors and disarm, anywhere on the page (except while typing in a box).
-document.addEventListener('keydown', e => {
-  if (e.code === 'Space' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
-    e.preventDefault();
-    motorStop();
-  }
-});
+// The status bar and the Balance panel: mode, countdown, reason.
+function showMode(s) {
+  armedNow = s.armed;
+  const mode = s.armed ? 'ARMED' : s.test_running ? 'MOTOR TEST' : s.mode === 5 ? 'FALLEN' : 'DISARMED';
+  el('modeChip').textContent = mode;
+  el('modeChip').className = 'chip' + (s.armed ? ' armed' : s.test_running ? ' test' : s.mode === 5 ? ' fallen' : '');
+  el('armState').textContent = s.armed ? 'Armed' : s.mode === 5 ? 'Fallen' : 'Disarmed';
+  el('armState').className = 'armstate' + (s.armed ? ' on' : s.mode === 5 ? ' fallen' : '');
+
+  // Countdown: BB1 says how many ms are left (-1 = no timer running).
+  const timed = s.armed && s.arm_left_ms >= 0 && s.arm_ms > 0;
+  const left = timed ? (s.arm_left_ms / 1000).toFixed(1) + ' s' : '';
+  const frac = timed ? 100 * s.arm_left_ms / s.arm_ms : 0;
+  el('topTime').textContent = left;
+  el('armTime').textContent = left;
+  el('topBar').style.width = el('armBar').style.width = frac + '%';
+  el('armProgress').style.visibility = timed ? 'visible' : 'hidden';
+  el('armReason').textContent = s.armed ? (timed ? 'left, then it stops by itself' : 'balancing, no time limit') : s.reason;
+}
 
 // ---------- pulling log records ----------
 //
-// The robot keeps the last 10 s of records. While Record or Live log is on,
+// The robot keeps the last 10 s of records. While Record or Watch is on,
 // pumpLoop() asks for everything newer than what we have (/log?since=next)
-// about four times a second and hands the new lines to whoever is listening.
-// One loop for both, so watching and recording never ask twice.
+// about four times a second and hands the new lines to both.
 
 // Ask for records from tick "since" on. The first line of the answer says
 // which ticks came back and how many were lost (see handleLog in web.h).
@@ -492,7 +651,7 @@ async function pumpLoop() {
       if (live.on) liveAdd(r.rows, r.lost);
       if (r.to - r.from < 1000) await sleep(250);   // caught up: wait a bit before asking again
     } catch (e) {
-      el('logMsg').textContent = el('liveMsg').textContent = 'no answer from the robot, retrying...';
+      el('logMsg').textContent = 'no answer from the robot, retrying...';
       await sleep(500);
     }
   }
@@ -503,8 +662,8 @@ async function pumpLoop() {
 
 const rec = { on: false, rows: [], lost: 0, meta: '', header: '', note: '', started: null };
 
-function recStatus(word) {
-  return word + ': ' + rec.rows.length + ' records (' + (rec.rows.length / 200).toFixed(1) + ' s)' +
+function recStatus() {
+  return rec.rows.length + ' records, ' + (rec.rows.length / 200).toFixed(1) + ' s' +
          (rec.lost ? ', ' + rec.lost + ' lost' : '');
 }
 
@@ -512,16 +671,18 @@ function recordAdd(rows, lost) {
   rec.rows.push(...rows);
   rec.lost += lost;
   rec.header = logHeader;
-  el('logMsg').textContent = recStatus('recording');
+  el('logMsg').innerHTML = '<span class="recdot"></span>Recording: ' + recStatus();
 }
 
 async function toggleRecord() {
   if (rec.on) {                                     // Stop
     rec.on = false;
-    if (live.byRecord) { live.byRecord = false; setLive(false); }    // the view stops with the recording
-    el('recBtn').textContent = 'Record';
+    if (live.byRecord) { live.byRecord = false; setLive(false); }    // the table stops with the recording
+    el('recBtn').innerHTML = '&#9679; Record';
+    el('recBtn').className = 'primary';
     el('dlBtn').disabled = rec.rows.length === 0;
-    el('logMsg').textContent = recStatus('stopped') + '. Press Download to save.';
+    el('dlBtn').className = rec.rows.length ? 'primary' : '';
+    el('logMsg').textContent = 'Stopped: ' + recStatus() + '. Press Download to save it.';
     return;
   }
   try {
@@ -533,9 +694,11 @@ async function toggleRecord() {
   rec.rows = []; rec.lost = 0; rec.note = el('note').value; rec.started = new Date();
   rec.on = true;
   if (!live.on) { clearLive(); live.byRecord = true; setLive(true); }   // show what's being recorded
-  el('recBtn').textContent = 'Stop';
+  el('recBtn').innerHTML = '&#9632; Stop';
+  el('recBtn').className = 'stop';
   el('dlBtn').disabled = true;
-  el('logMsg').textContent = recStatus('recording');
+  el('dlBtn').className = '';
+  el('logMsg').innerHTML = '<span class="recdot"></span>Recording: ' + recStatus();
   startPump();
 }
 
@@ -571,84 +734,103 @@ async function saveLast() {
     while (r.to - r.from >= 1000) { r = await fetchLog(r.to); rows = rows.concat(r.rows); }
     const note = el('note').value || 'last 10 s';
     saveFile(meta, note, new Date(), header, rows, 0);
-    el('logMsg').textContent = 'saved the last ' + (rows.length / 200).toFixed(1) + ' s (' + rows.length + ' records)';
+    el('logMsg').textContent = 'Saved the last ' + (rows.length / 200).toFixed(1) + ' s (' + rows.length + ' records).';
   } catch (e) {
     el('logMsg').textContent = 'no answer from the robot';
   }
 }
 
-// ---------- live log ----------
+// ---------- the log table ----------
 //
-// Shows the newest records as text. Only the last LIVE_LINES are kept, so the
-// page doesn't slow down after a long run. "every 10th" keeps it readable;
-// Record still saves every record either way.
+// Shows the newest records as a table with a fixed header row. Only the last
+// LIVE_ROWS are kept, so the page stays quick on a long run. By default it
+// shows the most useful columns; "all columns" shows every one.
 
-const LIVE_LINES = 200;
-const live = { on: false, byRecord: false, lines: [], total: 0, lost: 0 };
+const LIVE_ROWS = 120;
+const SHORT_COLUMNS = ['tick', 'mode', 'pitch', 'pitch_rate', 'p_term', 'i_term', 'd_term', 'pwm_l', 'pwm_r',
+                       'speed_l', 'speed_r', 'reason', 'web_age_ms'];
+const live = { on: false, byRecord: false, rows: [], total: 0, lost: 0 };
 
 function liveAdd(rows, lost) {
   const every = Number(el('liveEvery').value);
   for (const line of rows) {
-    const tick = parseInt(line, 10);               // the first column is the tick number
-    if (tick % every === 0) live.lines.push(line);
+    if (parseInt(line, 10) % every === 0) live.rows.push(line);     // the first column is the tick
   }
   live.total += rows.length;
   live.lost += lost;
-  if (live.lines.length > LIVE_LINES) live.lines.splice(0, live.lines.length - LIVE_LINES);
+  if (live.rows.length > LIVE_ROWS) live.rows.splice(0, live.rows.length - LIVE_ROWS);
+  drawLogTable();
+}
 
-  const pre = el('liveLog');
-  const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
-  pre.textContent = logHeader + '\n' + live.lines.join('\n');
-  if (atBottom) pre.scrollTop = pre.scrollHeight;  // follow new lines, unless you scrolled up to read
-  el('liveMsg').textContent = live.total + ' records received' + (live.lost ? ', ' + live.lost + ' lost' : '') +
-                              '. Scroll sideways for more columns.';
+function drawLogTable() {
+  const view = el('logView');
+  if (!logHeader || !live.rows.length) return;
+  const names = logHeader.split(',');
+  const show = el('allCols').checked ? names.map((_, i) => i)
+                                     : SHORT_COLUMNS.map(n => names.indexOf(n)).filter(i => i >= 0);
+  const modeCol = names.indexOf('mode');
+  const atBottom = view.scrollTop + view.clientHeight >= view.scrollHeight - 30;
+  let html = '<table><thead><tr>' + show.map(i => '<th>' + names[i] + '</th>').join('') + '</tr></thead><tbody>';
+  for (const line of live.rows) {
+    const v = line.split(',');
+    html += '<tr' + (v[modeCol] === '4' ? ' class="armed"' : '') + '>' + show.map(i => '<td>' + v[i] + '</td>').join('') + '</tr>';
+  }
+  view.innerHTML = html + '</tbody></table>';
+  if (atBottom) view.scrollTop = view.scrollHeight;  // follow new rows, unless you scrolled up to read
+  el('liveMsg').textContent = live.total + ' received' + (live.lost ? ', ' + live.lost + ' lost' : '');
 }
 
 function setLive(on) {
   live.on = on;
-  el('liveBtn').textContent = on ? 'Pause view' : 'Watch';
+  el('liveBtn').textContent = on ? 'Pause' : 'Watch';
   if (on) startPump();
 }
 
 function toggleLive() {
-  live.byRecord = false;           // you took over the view: Stop won't turn it off
+  live.byRecord = false;           // you took over the table: Stop won't turn it off
   setLive(!live.on);
 }
 
 function clearLive() {
-  live.lines = []; live.total = 0; live.lost = 0;
-  el('liveLog').textContent = logHeader;
+  live.rows = []; live.total = 0; live.lost = 0;
+  el('logView').innerHTML = '<div class="empty">Records show here while recording, or press Watch.</div>';
   el('liveMsg').textContent = '';
 }
+
+el('allCols').addEventListener('change', drawLogTable);
 
 // ---------- Pico memory ----------
 
 const kb = b => (b / 1024).toFixed(1) + ' KB';
-const bar = (part, whole) => '<span class="bar"><i style="width:' + (100 * part / whole).toFixed(0) + '%"></i></span>';
 
 async function pollSys() {
   try {
     const m = await (await fetch('/sys', { cache: 'no-store' })).json();
     const used = m.ram_static + m.heap_used;
-    el('ramUsed').innerHTML = kb(used) + ' (' + (100 * used / m.ram_total).toFixed(0) + '%)' + bar(used, m.ram_total);
-    el('ramStatic').textContent = kb(m.ram_static) + ' (log buffer ' + kb(m.log_buffer) + ')';
-    el('heapUsed').textContent = kb(m.heap_used);
+    el('ramUsed').textContent = kb(used) + ' (' + (100 * used / m.ram_total).toFixed(0) + '%)';
+    el('ramBar').style.width = (100 * used / m.ram_total) + '%';
     el('heapFree').textContent = kb(m.heap_total - m.heap_used);
-    el('flashUsed').innerHTML = kb(m.flash_used) + ' (' + (100 * m.flash_used / m.flash_total).toFixed(0) + '%)' +
-                                bar(m.flash_used, m.flash_total);
+    el('flashUsed').textContent = kb(m.flash_used) + ' (' + (100 * m.flash_used / m.flash_total).toFixed(0) + '%)';
+    el('flashBar').style.width = (100 * m.flash_used / m.flash_total) + '%';
+    el('logBuf').textContent = kb(m.log_buffer);
     el('pageSize').textContent = kb(m.page);
     el('cpu').textContent = m.cpu_mhz + ' MHz';
   } catch (e) {}
   setTimeout(pollSys, 2000);                           // memory changes slowly
 }
 
-// ---------- the chart ----------
+// ---------- charts ----------
+//
+// One small function draws any of the line charts. history holds the last
+// 10 s of samples; each series says which field to draw and in what colour.
 
 const HISTORY_MS = 10000;
-let history = [];          // { t: browser time in ms, pitch, accel }
+let history = [];          // { t: browser time in ms, pitch, accel, trim, p, i, d, out, cap }
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-function drawChart() {
-  const c = el('chart');
+function drawChart(id, series, opt) {
+  const c = el(id);
+  if (!c.clientWidth) return;                        // folded away: nothing to draw
   const dpr = window.devicePixelRatio || 1;          // sharp lines on retina screens
   c.width = c.clientWidth * dpr;
   c.height = c.clientHeight * dpr;
@@ -656,32 +838,52 @@ function drawChart() {
   g.scale(dpr, dpr);
   const w = c.clientWidth, h = c.clientHeight;
 
-  // Vertical range: at least -10..+10 deg, growing to fit the data.
-  let lo = -10, hi = 10;
-  for (const p of history) { lo = Math.min(lo, p.pitch, p.accel); hi = Math.max(hi, p.pitch, p.accel); }
-  lo = Math.floor(lo / 10) * 10; hi = Math.ceil(hi / 10) * 10;
+  // Vertical range: at least opt.min..opt.max, growing to fit the data, with
+  // grid lines at a round step (1, 2 or 5 x 10^n) so the labels read well.
+  let lo = opt.min, hi = opt.max;
+  for (const p of history) for (const s of series) { lo = Math.min(lo, p[s.key]); hi = Math.max(hi, p[s.key]); }
+  const raw = (hi - lo) / 5, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const every = [1, 2, 5, 10].map(m => m * mag).find(st => st >= raw);
+  lo = Math.floor(lo / every) * every; hi = Math.ceil(hi / every) * every;
   const now = performance.now();
   const x = t => w - (now - t) / HISTORY_MS * w;
-  const y = v => h - (v - lo) / (hi - lo) * h;
+  const y = v => h - 4 - (v - lo) / (hi - lo) * (h - 8);
 
-  // Grid lines every 10 degrees, 0 brighter.
-  g.font = '11px system-ui'; g.fillStyle = '#8a94a3';
-  for (let v = lo; v <= hi; v += 10) {
-    g.strokeStyle = v === 0 ? '#556070' : '#2b323c';
+  // Grid lines, zero brighter, labels on the left.
+  g.font = '11px system-ui'; g.fillStyle = css('--muted');
+  for (let v = lo; v <= hi; v += every) {
+    g.strokeStyle = v === 0 ? '#3a4452' : '#202731';
+    g.lineWidth = 1;
     g.beginPath(); g.moveTo(0, y(v)); g.lineTo(w, y(v)); g.stroke();
-    g.fillText(v + '°', 4, y(v) - 3);
+    g.fillText(v + opt.unit, 4, y(v) < 14 ? y(v) + 12 : y(v) - 3);   // top label goes under its line
   }
 
-  function line(key, color) {
-    g.strokeStyle = color; g.lineWidth = 2; g.beginPath();
-    history.forEach((p, i) => i ? g.lineTo(x(p.t), y(p[key])) : g.moveTo(x(p.t), y(p[key])));
+  for (const s of series) {
+    g.strokeStyle = s.color; g.lineWidth = s.width || 2; g.setLineDash(s.dash || []);
+    g.beginPath();
+    history.forEach((p, i) => i ? g.lineTo(x(p.t), y(p[s.key])) : g.moveTo(x(p.t), y(p[s.key])));
     g.stroke();
   }
-  line('accel', '#f2a33a');
-  line('pitch', '#4fb3ff');
+  g.setLineDash([]);
 }
 
-// ---------- polling ----------
+function drawCharts() {
+  drawChart('chart', [
+    { key: 'trim', color: css('--green'), width: 1, dash: [4, 4] },
+    { key: 'accel', color: css('--orange') },
+    { key: 'pitch', color: css('--blue') },
+  ], { min: -10, max: 10, unit: '°' });
+  drawChart('pidChart', [
+    { key: 'cap', color: css('--red'), width: 1, dash: [4, 4] },
+    { key: 'ncap', color: css('--red'), width: 1, dash: [4, 4] },
+    { key: 'p', color: css('--blue') },
+    { key: 'i', color: css('--purple') },
+    { key: 'd', color: css('--teal') },
+    { key: 'out', color: css('--text'), width: 2.5 },
+  ], { min: -50, max: 50, unit: '' });
+}
+
+// ---------- polling /state ----------
 
 let lastTick = -1, failures = 0;
 
@@ -692,56 +894,66 @@ async function poll() {
     const res = await fetch('/state', { cache: 'no-store', signal: AbortSignal.timeout ? AbortSignal.timeout(1000) : undefined });
     const s = await res.json();
     failures = 0;
-    el('conn').className = s.mock ? 'conn mock' : 'conn';
-    el('conn').innerHTML = (s.mock ? '<b>MOCK robot (made-up data)</b>' : '<b>connected</b>') + ' &middot; ' +
-                           (s.wifi_mode === 'home' ? 'home network ' : 'own network ') + s.wifi_ssid + ' &middot; ' + s.ip;
+    el('connDot').className = 'dot ' + (s.mock ? 'mock' : 'ok');
+    el('conn').textContent = (s.mock ? 'MOCK robot (made-up data)' : (s.wifi_mode === 'home' ? 'home Wi-Fi' : 'own network') +
+                              ' ' + s.wifi_ssid) + ' · ' + s.ip;
     el('netNow').textContent = s.wifi_mode === 'home'
       ? 'On the home network "' + s.wifi_ssid + '". Own network is off.'
       : 'On BB1\'s own network "' + s.wifi_ssid + '". Save a home network below to join it instead.';
 
+    showMode(s);
+    showGains(s.gains);
+    const err = s.pitch - s.gains.trim;
     if (s.have) {
       el('pitch').textContent = s.pitch.toFixed(1);
-      el('rate').textContent = s.pitch_rate.toFixed(1) + ' deg/s';
-      el('accel').textContent = s.accel_pitch.toFixed(1) + ' deg';
-      el('work').textContent = s.work_us + ' us';
+      el('rate').textContent = s.pitch_rate.toFixed(1);
+      el('accel').textContent = s.accel_pitch.toFixed(1);
+      el('work').textContent = s.work_us;
       el('tick').textContent = s.tick;
-      if (s.tick !== lastTick) {                       // only add new samples to the chart
-        history.push({ t: performance.now(), pitch: s.pitch, accel: s.accel_pitch });
+      if (s.tick !== lastTick) {                       // only add new samples to the charts
+        history.push({ t: performance.now(), pitch: s.pitch, accel: s.accel_pitch, trim: s.gains.trim,
+                       p: s.p, i: s.i, d: s.d, out: s.armed ? s.pwm_l : 0, cap: s.gains.cap, ncap: -s.gains.cap });
         lastTick = s.tick;
       }
     }
+    el('pidErr').innerHTML = err.toFixed(1) + ' <small>deg</small>';
+    el('pidP').textContent = s.p.toFixed(1);
+    el('pidI').textContent = s.i.toFixed(1);
+    el('pidD').textContent = s.d.toFixed(1);
+    el('pidOut').innerHTML = (s.armed ? s.pwm_l : 0) + ((s.flag_bits & 8) ? ' <small class="warn">at cap</small>' : '');
     el('bias').innerHTML = s.ever_cal ? s.bias.map(b => b.toFixed(2)).join(' / ')
-      : '<span style="color:var(--bad)">not calibrated: set the robot down still</span>';
+      : '<span style="color:var(--red)">not calibrated</span>';
     el('alphaNow').textContent = s.alpha.toFixed(3);
     el('imu').textContent = s.imu ? 'ok' : 'NOT FOUND';
     el('uptime').textContent = s.uptime_s + ' s';
     el('enc').textContent = s.enc_l + ' / ' + s.enc_r;
     el('speed').textContent = s.speed_l + ' / ' + s.speed_r;
-    el('pwm').textContent = s.pwm_l + ' / ' + s.pwm_r + (s.test_running ? '  (test running)' : '');
-    el('pid').textContent = s.p.toFixed(1) + ' / ' + s.i.toFixed(1) + ' / ' + s.d.toFixed(1);
-    armedNow = s.armed;
-    el('armState').textContent = s.armed ? 'ARMED' : (s.mode === 5 ? 'FALLEN' : 'disarmed');
-    el('armState').className = s.armed ? 'state on' : 'state';
-    el('armReason').textContent = s.armed ? 'balancing' + (s.arm_ms ? ', stops after ' + s.arm_ms / 1000 + ' s' : '') : s.reason;
-    showGains(s.gains);
+    el('pwm').textContent = s.pwm_l + ' / ' + s.pwm_r;
     if (testsDoneSeen >= 0 && s.tests_done !== testsDoneSeen) {        // a test just finished
       const sec = Math.max(s.test_ms, 1) / 1000;
-      el('motorMsg').textContent = 'done after ' + s.test_ms + ' ms: left moved ' + s.test_moved[0] +
+      el('motorMsg').textContent = 'Done after ' + s.test_ms + ' ms: left moved ' + s.test_moved[0] +
         ' counts (' + Math.round(s.test_moved[0] / sec) + '/s), right ' + s.test_moved[1] +
-        ' counts (' + Math.round(s.test_moved[1] / sec) + '/s)';
+        ' counts (' + Math.round(s.test_moved[1] / sec) + '/s).';
     }
     testsDoneSeen = s.tests_done;
+    lastAnswer = performance.now();
   } catch (e) {
     if (++failures > 5) {
-      el('conn').className = 'conn lost';
-      el('conn').innerHTML = '<b>connection lost</b> &middot; retrying';
+      el('connDot').className = 'dot bad';
+      el('conn').textContent = 'connection lost, retrying...';
+      el('modeChip').textContent = 'NO CONNECTION';
+      el('modeChip').className = 'chip fallen';
     }
   }
   const cutoff = performance.now() - HISTORY_MS;
   while (history.length && history[0].t < cutoff) history.shift();
-  drawChart();
+  drawCharts();
   setTimeout(poll, 50);                                // about 20 updates per second
 }
+
+// "Page delay" counts up between answers, so a stall is visible as it happens.
+let lastAnswer = performance.now();
+setInterval(() => { el('webAge').textContent = Math.round(performance.now() - lastAnswer); }, 100);
 
 poll();
 pollSys();

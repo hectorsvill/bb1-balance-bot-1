@@ -85,6 +85,7 @@ void balanceArm(float pitch, bool motorTestOn) {
   balance.overrunsInRow = 0;
   balance.armed = true;
   balance.armedAtMs = millis();
+  armedSinceMs = balance.armedAtMs;
   robotArmed = true;
   disarmReason = REASON_NONE;
   motorsEnable(true);                           // wake the driver; balanceTick() sets the PWM

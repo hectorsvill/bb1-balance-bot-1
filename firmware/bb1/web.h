@@ -41,6 +41,9 @@ void handlePage() {
 
 void handleState() {
   lastWebHeartbeatMs = millis();               // the page is still there (see HEARTBEAT_MS)
+  // Time left on the arm timer, for the page's countdown (-1 = no timer running).
+  long armLeftMs = (robotArmed && armTimeMs) ? (long)armTimeMs - (long)(millis() - armedSinceMs) : -1;
+  if (armLeftMs < -1) armLeftMs = 0;
   LogRecord r;
   uint32_t total = totalWritten;
   bool have = total > 0 && logGet(total - 1, r);
@@ -53,7 +56,7 @@ void handleState() {
            "\"wifi_mode\":\"%s\",\"wifi_ssid\":\"%s\",\"ip\":\"%s\",\"uptime_s\":%lu,"
            "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
-           "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
+           "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
            "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f}}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
@@ -69,7 +72,7 @@ void handleState() {
            have ? r.pwm_l : 0, have ? r.pwm_r : 0,
            motorTestRunning ? "true" : "false", (unsigned long)motorTestsDone,
            (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
-           robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs,
+           robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs, armLeftMs,
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
            (unsigned long)gainsVersion, gainKp, gainKi, gainKd, balanceTrim, pwmCap, motorDeadband);
   server.send(200, "application/json", json);

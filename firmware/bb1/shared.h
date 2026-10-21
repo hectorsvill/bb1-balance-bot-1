@@ -50,5 +50,6 @@ volatile int32_t  lastTestMovedL = 0;      // encoder counts each wheel moved in
 volatile int32_t  lastTestMovedR = 0;
 volatile uint32_t lastTestRanMs  = 0;
 volatile bool     robotArmed     = false;   // the balance loop is driving the motors
+volatile uint32_t armedSinceMs   = 0;       // millis() when it last armed (for the page's countdown)
 volatile uint8_t  disarmReason   = 0;       // Reason in control.h: why it last disarmed / refused to arm
 volatile uint32_t armAttempts    = 0;       // counts up after each arm request is handled

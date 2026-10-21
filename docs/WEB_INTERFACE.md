@@ -31,20 +31,21 @@ The password is stored as plain text on the Pico. It never goes into git.
 
 Anything with a dotted underline has a hint: hover over it on the Mac and it appears next to it, move away and it goes; on a phone, tap the word (shows for 5 s). All hint texts live in one table, `HINTS` in `page.h`, keyed by element id: edit them there.
 
-The panels sit in one column, on a phone or a Mac. Each panel's **▲ ▼** arrows move it up or down; the order is remembered by that browser. Anything wider than a panel (the live log, long tables) scrolls sideways inside its box, never the whole page.
+**Status bar** (stays at the top while you scroll): connection dot (green = BB1, orange = the offline mock, red = lost), the mode (DISARMED / ARMED / FALLEN / MOTOR TEST), the **arm countdown** with a shrinking green line under the bar, and a red **STOP** that ends everything. The space bar does the same as STOP from anywhere on the page.
+
+The panels sit in one column, on a phone or a Mac. Click a panel's title to fold it away; the **▲ ▼** arrows move it. Folds and order are remembered by that browser. Anything wider than a panel (the log table) scrolls sideways inside its box, never the whole page.
 
 | Panel | Shows / does |
 |---|---|
-| Pitch | big pitch number and a 10 s chart: blue = filtered pitch, orange = accelerometer only |
-| Live values | pitch rate, accel pitch, loop work time, tick, gyro bias, filter alpha, IMU status, uptime, encoders, wheel speeds, motor PWM, PID terms |
-| Log | **Record** / **Stop** / **Download** a run, **Save last 10 s** (see below). While recording, the box below shows the records as they arrive (every record, every 10th or every 40th). **Watch** shows them without recording; **Pause view** freezes the box to read it. |
-| Balance | **ARM** for N s (0 = until you disarm) / **DISARM** (space bar also disarms), state (ARMED / disarmed / FALLEN and why), Kp Ki Kd, trim, PWM cap, deadband with **Apply**, **Use current pitch as trim** |
-| Motor test | left / right PWM (-150..150, forward +) and a time (0.5 to 3 s), **Run** (asks "wheels off the table?"), **STOP**. The space bar also stops, anywhere on the page. Shows how far each wheel moved. |
-| Actions | **Calibrate gyro** (lay it still first), **Set alpha** |
-| Pico memory | RAM used (fixed globals incl. the 80 KB log buffer, plus heap), heap free, flash used, page size, CPU clock. Updates every 2 s. |
+| Balance | state, big countdown and progress bar while armed, **ARM** for N s (0 = until you disarm), **DISARM**; gain boxes (Kp, Ki, Kd) and limits (trim, cap, deadband) with their units, **Apply**, **Use current pitch as trim** |
+| PID | view only: error (pitch − trim), P, I, D and the output in tiles, and a 10 s chart of P, I, D and the output with the ±cap lines. All zero while disarmed |
+| Pitch | pitch, pitch rate, accel-only pitch, and a 10 s chart: blue = filtered pitch, orange = accelerometer only, green dashes = trim |
+| Log | note, **Record** / **Stop**, **Download**, **Save last 10 s**. While recording, a table shows the records as they arrive (armed rows tinted green); **Watch** shows it without recording, **Pause** freezes it. Every record / 10th / 40th; **all columns** shows every column, otherwise the useful ones |
+| Live values | motor PWM, wheel speeds, encoders, loop work, page delay (counts up live when BB1 stops answering), tick, IMU, uptime |
+| Motor test | left / right PWM (-150..150, forward +) and a time (0.5 to 3 s), **Run** (asks "wheels off the table?"), **STOP**. Shows how far each wheel moved |
+| Sensors | gyro bias, filter alpha, **Calibrate gyro** (lay it still first), **Set alpha** |
+| Pico memory | RAM used with a bar, heap free, flash used with a bar, log buffer, page size, CPU clock. Updates every 2 s |
 | Network | which network BB1 is on; save a home network; switch back to the own network |
-
-The top right says **connected** (green), **connection lost** (red) if BB1 stops answering, or **MOCK robot** (orange) when it's the offline mock.
 
 Coming next: saving gains and a step test (step 7), drive pad (milestone 2).
 

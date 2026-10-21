@@ -170,6 +170,7 @@ class Handler(BaseHTTPRequestHandler):
                 "tests_done": len(done), "test_moved": moved, "test_ms": (last[1] - last[0]) * 5,
                 "armed": r["mode"] == 4, "reason": reason, "arm_attempts": arm_attempts,
                 "arm_ms": int((arm_until - armed_from) * 5) if arm_until and armed_from is not None else 0,
+                "arm_left_ms": max(0, (arm_until - total_written()) * 5) if arm_until and armed_from is not None else -1,
                 "p": round(r["ctl"][1], 1), "i": 0.0, "d": round(r["ctl"][3], 1), "gains": gains,
             }
             self.reply(json.dumps(state), "application/json")

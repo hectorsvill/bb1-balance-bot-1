@@ -19,6 +19,7 @@ Newest first.
 - Found it: with the motors off and /state polled about 20 times a second, `web_age_ms` reached 1190 ms (0.19 s of 8 s over 1 s): the Wi-Fi chip's power-save naps. `WiFi.noLowPowerMode()` on the home network: max 600 ms, never over 1 s in 10 s, 0 missing ticks
 - Arm timer: ARM for N s on the page (default 5), `arm N` on serial, `seconds=` on /arm; reason 11
 - Page: Record and Live log combined into one Log panel (recording shows the records as they arrive); gain boxes turn orange when they differ from BB1 and Apply says Apply changes; Enter applies; hover / tap hints on every non-obvious control
+- Page redesign (Hector asked): status bar always on top with mode, arm countdown and STOP; Balance panel with a big countdown and progress bar, gain fields with units; new view-only PID panel (tiles + 10 s chart of P, I, D, output, ±cap); Log as a table with a sticky header, tinted armed rows, short / all columns; tiles instead of tables; panels fold; hints on hover. `/state` gained `arm_left_ms`. Page is now about 47 KB of flash
 - docs: Balance panel control by control (WEB_INTERFACE.md), what the hand-held test is for (PID_TUNING.md)
 
 - pid.h (derivative on the gyro rate, clamped integral, no windup while saturated), control.h (disarmed / armed / fallen, arm only within 10 deg of trim and calibrated; disarm on > 45 deg, 5 IMU errors or overruns in a row, or 1 s without the page while armed from it)
