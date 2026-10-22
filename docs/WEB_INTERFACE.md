@@ -51,6 +51,8 @@ Coming next: saving gains and a step test (step 7), drive pad (milestone 2).
 
 Armed from the page, BB1 disarms if the page stops polling `/state` for 1 s (closed tab, phone screen off, Wi-Fi drop). That's on purpose.
 
+The Pico's web server answers **one connection at a time**, so anything slow (a big `/log` answer while Recording) delays `/state`. Until 2026-10-21 it also waited up to 5 s for the browser to close each connection, which caused "lost the web page" disarms; `route()` in `web.h` now closes it straight away. For balance tests we arm from serial instead (no heartbeat) and record with `logger.py`: `firmware/README.md`, "Hand-held test, the current way". Later the Pi Zero W will serve the page and the Pico won't run Wi-Fi at all.
+
 ### Balance panel, control by control
 
 | Control | What it does | Why it's there |

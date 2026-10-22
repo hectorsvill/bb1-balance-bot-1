@@ -48,6 +48,8 @@ What you do and what each part checks:
 | tilt past 45 deg | motors stop, FALLEN | the fall cut-out works |
 | Record during all of it, Download, `check_dump.py --plot` | pitch, P/D terms and PWM move together | the log shows what you saw, for later analysis and training |
 
+**How to run it now:** arm from serial and record with `logger.py`, page closed. Step by step: `firmware/README.md`, "Hand-held test, the current way". The table above still says what each part checks.
+
 Hand-held, it won't feel like balancing: nothing pushes back on the wheels, so they just spin. That's expected; this test is only about direction and the cut-outs.
 
 ## 4. Tuning steps on BB1

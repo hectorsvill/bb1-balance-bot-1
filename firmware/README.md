@@ -13,6 +13,43 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
+Fix (2026-10-21): the web server now closes each connection after answering (`route()` in `web.h`). Before, one connection the browser left open froze the server for up to 5 s and armed runs disarmed with "lost the web page".
+
+### Hand-held test, the current way: serial + logger.py (no web page)
+
+Why not the page: arming from the page ties the motors to Wi-Fi (no `/state` for 1 s = disarm), and Wi-Fi hiccups kept cutting the test short. For getting BB1 to balance we leave the page closed: you arm from **serial** over the USB cable (no heartbeat check then) and **logger.py** records over Wi-Fi in the background. If Wi-Fi stalls, the robot keeps the last 10 s, so the logger catches up without losing records. All other cut-outs still work: the arm timer, 45 deg (FALLEN), IMU errors, late loops, Enter.
+
+**Before you start**
+1. Battery on (D153C switch) **first**, then plug in USB (power rule).
+2. Close every BB1 page tab (phone too), so nothing else talks to BB1.
+3. Fingers clear of the wheels. Hold the frame, wheels in the air.
+
+**Terminal 1: the serial monitor** (find the port with `ls /dev/cu.usbmodem*`)
+
+```bash
+arduino-cli monitor -p /dev/cu.usbmodem21401 -c baudrate=115200
+```
+
+Type `gains` and check: kp 15, kd 0.5, trim about −3.98, cap 80. (`wifi` shows the IP if `bb1.local` doesn't work below.)
+
+**Terminal 2: the logger** (from the repo folder). Start it just before you arm; it stops by itself after 30 s.
+
+```bash
+tools/venv/bin/python tools/logger.py -t 30 -n "handheld"
+```
+
+**The test** (type in terminal 1)
+1. Hold BB1 at its balance point and type `arm 5`. You should see `ARMED`. It disarms by itself after 5 s.
+2. Tilt a little forward ("hectorsvill" side down): both wheels roll **forward**, harder with more tilt.
+3. Tilt a little back: both roll **backward**.
+4. To stop early: press Enter. Wrong way round? Enter at once and tell me.
+5. Once more with `arm 5`, then tilt past 45 deg: `DISARMED: fell over (leaned past 45 deg)`. If it says `arm time finished`, you were slower than 5 s: try again.
+
+**After**
+1. Wait for the logger to finish. It prints the file name: `logs/bb1_<date>_<time>_handheld.csv`.
+2. Check it: `tools/venv/bin/python tools/check_dump.py logs/<that file> --plot`. Missing ticks should be 0.
+3. Send me the file name and tell me what the wheels did. Monitor: Ctrl-C to quit.
+
 ## bb1, step 6: arm / disarm + the angle loop
 
 The first balance controller (`pid.h`, `control.h`). Boots **disarmed**. **ARM** (page, or `arm` on serial) only works within 10 deg of the trim with the gyro calibrated; then the PID drives both wheels from the lean. It disarms by itself if it leans past 45 deg (FALLEN), the IMU fails 5 ticks running, the loop overruns 5 ticks running, or (armed from the page) the page stops asking for `/state` for 1 s. **DISARM**, STOP, the space bar, serial `disarm` or Enter stop it.
