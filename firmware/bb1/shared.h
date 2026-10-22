@@ -27,7 +27,8 @@ volatile bool     requestMotorStop = false; // stop now (page Stop button, space
 // Balancing (step 6). Core 0 sets these; core 1 reads them every tick.
 // Each is 32 bits, so a tick never sees half a number. gainsVersion counts
 // every change, and goes in each log record so a run shows which gains it used.
-volatile float    gainKp = DEFAULT_KP, gainKi = DEFAULT_KI, gainKd = DEFAULT_KD;
+// P, I, D gains (Kp, Ki, Kd), set from serial or the page; core 1 copies them into the PID each tick.
+volatile float    gainP = DEFAULT_P_GAIN, gainI = DEFAULT_I_GAIN, gainD = DEFAULT_D_GAIN;
 volatile float    balanceTrim   = DEFAULT_TRIM;
 volatile float    pwmCap        = DEFAULT_PWM_CAP;
 volatile float    motorDeadband = DEFAULT_DEADBAND;

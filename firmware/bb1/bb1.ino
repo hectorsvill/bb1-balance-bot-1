@@ -237,7 +237,7 @@ void printHelp() {
   Serial.println("  stop      stop the motors now (so does pressing Enter during a test)");
   Serial.println("  enc       print both encoder counts (turn a wheel one turn by hand to check 520)");
   Serial.println("  arm [N]   start balancing (hold it near upright first); N = stop after N s. disarm, or Enter, stops it");
-  Serial.println("  kp N / ki N / kd N   set a gain (now " + String(gainKp, 2) + " / " + String(gainKi, 2) + " / " + String(gainKd, 2) + ")");
+  Serial.println("  p N / i N / d N   set the P, I, D gain, same as kp / ki / kd (now " + String(gainP, 2) + " / " + String(gainI, 2) + " / " + String(gainD, 2) + ")");
   Serial.println("  trim N    balance point in deg (now " + String(balanceTrim, 2) + ");  trim here = use the current pitch");
   Serial.println("  cap N     PWM limit while armed (now " + String(pwmCap, 0) + ");  deadband N  (now " + String(motorDeadband, 0) + ")");
   Serial.println("  gains     print the balance settings");
@@ -293,9 +293,10 @@ float latestPitch() {
 // "kp 15", "trim here", ... Each change bumps gainsVersion so logs show it.
 bool handleGainCommand(const String &cmd) {
   float v = cmd.substring(cmd.indexOf(' ') + 1).toFloat();
-  if      (cmd.startsWith("kp "))       gainKp = constrain(v, 0.0f, 100.0f);
-  else if (cmd.startsWith("ki "))       gainKi = constrain(v, 0.0f, 100.0f);
-  else if (cmd.startsWith("kd "))       gainKd = constrain(v, 0.0f, 20.0f);
+  // "p 15" or "kp 15" both work (Betaflight says P, textbooks say Kp).
+  if      (cmd.startsWith("kp ") || cmd.startsWith("p ")) gainP = constrain(v, 0.0f, 100.0f);
+  else if (cmd.startsWith("ki ") || cmd.startsWith("i ")) gainI = constrain(v, 0.0f, 100.0f);
+  else if (cmd.startsWith("kd ") || cmd.startsWith("d ")) gainD = constrain(v, 0.0f, 20.0f);
   else if (cmd == "trim here")          balanceTrim = latestPitch();
   else if (cmd.startsWith("trim "))     balanceTrim = constrain(v, -20.0f, 20.0f);
   else if (cmd.startsWith("cap "))      pwmCap = constrain(v, 0.0f, (float)PWM_MAX);

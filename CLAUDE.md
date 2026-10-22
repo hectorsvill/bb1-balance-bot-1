@@ -6,6 +6,7 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 
 ## How to work with me
 
+- I fly FPV (Betaflight): explain PID with quad comparisons. Code names the gains `gainP/gainI/gainD`; serial, JSON and logs still say kp/ki/kd.
 - I'm learning embedded and robotics, not just shipping code. PID tuning is the main thing I want to learn: I pick the gains; you explain what the logs show and why, and only suggest numbers if I ask. Explain the why briefly, comment the code so it teaches, and go one small step at a time: I test each step on the hardware and report back before we move on.
 - Keep replies concise. Docs in Markdown.
 - Steps to follow (tests, setup) are never conversational: a numbered checklist, one action per line, the key or command in bold or code, an **Expect:** line, then what to send back.

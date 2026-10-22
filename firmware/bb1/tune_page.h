@@ -105,24 +105,36 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
 
 <!-- Notes: the method, short. Full guide: docs/PID_TUNING.md -->
 <div class="panel">
-  <h2>How to tune</h2>
+  <h2>How to use this page</h2>
   <ol>
-    <li>On the floor, clear space front and back. In the terminal: <code>tools/venv/bin/python tools/handheld.py -s 10 -n "kp15 kd0.5"</code></li>
-    <li>Stand BB1 up, press <b>a</b> in the terminal, let go. Watch, catch it. 3 tries per setting.</li>
-    <li>Change <b>one</b> number here, <b>Apply</b>, try again. Write down what changed.</li>
-    <li>Order: Kp first (Ki 0), then Kd, then a little Ki only if it keeps drifting one way.</li>
-    <li>Happy with it: disarmed, <b>Save to flash</b>. Press <b>q</b> in the terminal to save the log.</li>
+    <li>Battery on first, then USB. BB1 on the floor, clear space front and back.</li>
+    <li>In the terminal: <code>tools/venv/bin/python tools/handheld.py -s 10 -n "P15 D0.5"</code> (no <code>--kp</code> / <code>--kd</code>: they would overwrite this page).</li>
+    <li>Change <b>one</b> box here, press <b>Apply</b>. The terminal prints <code>BB1: gains vN ...</code> with the new numbers.</li>
+    <li>Stand BB1 up, press <b>a</b> in the terminal, let go, catch it. 3 tries per setting. Watch <b>PWM out</b> and the chart.</li>
+    <li>Order: P first (I = 0), then D, then a little I only if it keeps drifting one way. Same as tuning a quad.</li>
+    <li>Happy with it: disarm, <b>Save to flash</b>. Press <b>q</b> in the terminal to save the log (it records every gains version you tried).</li>
   </ol>
+  <h2>If you fly FPV</h2>
+  <p class="muted" style="margin:0 0 8px">Same PID as one axis of Betaflight's pitch loop. The stick is fixed at "stand upright" (the trim), the motors are the wheels.</p>
+  <table>
+    <tr><th>Term</th><th>On a quad</th><th>On BB1</th></tr>
+    <tr><td><b>P</b> (Kp)</td><td>snaps back to the stick; too much = fast P wobble</td><td>pushes against the lean; too much = fast shaking</td></tr>
+    <tr><td><b>I</b> (Ki)</td><td>holds angle against wind / a heavy side</td><td>fixes a steady lean one way; too much = slow rocking</td></tr>
+    <tr><td><b>D</b> (Kd)</td><td>damps bounce-back and prop wash; too much = hot motors</td><td>brakes the fall; too much = buzzing, jittery motors</td></tr>
+    <tr><td>Trim</td><td>accelerometer trim (it drifts if wrong)</td><td>the angle where BB1 really balances</td></tr>
+    <tr><td>Cap</td><td>motor output limit / throttle limit</td><td>max PWM while balancing (255 = full)</td></tr>
+  </table>
+  <h2 style="margin-top:12px">You see / try</h2>
   <table>
     <tr><th>You see</th><th>Try</th></tr>
-    <tr><td>Falls over slowly, wheels too gentle</td><td>more Kp</td></tr>
-    <tr><td>Fast back-and-forth shaking</td><td>more Kd, or less Kp</td></tr>
-    <tr><td>Buzzing, jittery motors</td><td>less Kd</td></tr>
-    <tr><td>PWM out stuck at the cap, then falls</td><td>raise Cap (max 255)</td></tr>
+    <tr><td>Falls over slowly, wheels too gentle</td><td>more P</td></tr>
+    <tr><td>Fast back-and-forth shaking</td><td>more D, or less P</td></tr>
+    <tr><td>Buzzing, jittery motors</td><td>less D</td></tr>
+    <tr><td>PWM out stuck at the cap ("at cap"), then falls</td><td>raise Cap (max 255)</td></tr>
     <tr><td>Always falls / rolls the same way</td><td>Trim: hold it at its balance point, "Trim = current pitch"</td></tr>
-    <tr><td>Slow big rocking</td><td>less Ki</td></tr>
+    <tr><td>Slow big rocking</td><td>less I</td></tr>
   </table>
-  <p class="muted">What the terms mean: P pushes in proportion to the lean (error), D pushes against how fast it is leaning (damps it), I adds up a lean that lasts (fixes a steady drift). PWM out = P + I + D, limited to the cap. Full guide: <code>docs/PID_TUNING.md</code>.</p>
+  <p class="muted">PWM out = P term + I term + D term, limited to the cap. P term = P gain x error, D term = D gain x lean speed, I term = I gain x error added up over time. Full guide: <code>docs/PID_TUNING.md</code>.</p>
 </div>
 
 </main>

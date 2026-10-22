@@ -130,7 +130,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
 
   // ---- the angle loop ----
   Pid &pid = balance.pid;
-  pid.kp = gainKp;  pid.ki = gainKi;  pid.kd = gainKd;
+  pid.gainP = gainP;  pid.gainI = gainI;  pid.gainD = gainD;
   pid.limit = pwmCap;
   float error = a.pitch - setpoint;             // forward lean past the balance point = positive
   float out = pid.update(error, a.pitchRate, dt);

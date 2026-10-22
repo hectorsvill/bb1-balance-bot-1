@@ -65,10 +65,13 @@ const int SPEED_WINDOW = 10;
 // ---------- balancing (step 6) ----------
 // Starting values. Change them live with serial (kp, ki, kd, trim, cap, deadband)
 // or the page's Balance panel. "save" stores them in flash (settings.h); saved
-// values replace these at power-up. Units: PWM per deg (Kp), PWM per deg*s (Ki), PWM per deg/s (Kd).
-const float DEFAULT_KP = 15.0;     // a guess to start from; tune per docs/PID_TUNING.md
-const float DEFAULT_KI = 0.0;
-const float DEFAULT_KD = 0.5;
+// values replace these at power-up, so after changing these type "defaults" then
+// "save" (docs/PID_TUNING.md, "Two ways to change the gains").
+// P, I, D gains like Betaflight's (pid.h explains each). Units: PWM per deg (P),
+// PWM per deg*s (I), PWM per deg/s (D). Serial / page / logs call them kp, ki, kd.
+const float DEFAULT_P_GAIN = 15.0;     // a guess to start from; tune per docs/PID_TUNING.md
+const float DEFAULT_I_GAIN = 0.0;
+const float DEFAULT_D_GAIN = 0.5;
 const float DEFAULT_TRIM = -4.39;  // deg: the pitch where BB1 really balances (measured 2026-10-21; page: "Use current pitch")
 const float DEFAULT_PWM_CAP = 80;  // PWM limit while armed (of 255). Gentle for first tests; raise once it balances.
 const float DEFAULT_DEADBAND = 0;  // PWM added so small corrections still turn the wheels. Measure it.

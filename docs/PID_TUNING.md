@@ -52,11 +52,25 @@ What you do and what each part checks:
 
 Hand-held, it won't feel like balancing: nothing pushes back on the wheels, so they just spin. That's expected; this test is only about direction and the cut-outs.
 
+### Names: P, I, D vs Kp, Ki, Kd
+
+Same thing, two habits. Betaflight calls the gains **P, I, D**; textbooks call them **Kp, Ki, Kd** ("K" = gain). The page shows both, e.g. **P (Kp)**. In the code the gains are `gainP`, `gainI`, `gainD` (`shared.h`, `pid.h`) and the parts of the output they make are the **P term, I term, D term** (`p`, `i`, `d` in `pid.h`, `p_term`... in the log). Serial takes `p 15` or `kp 15` (same for i / d). The `gains` line, `/state` JSON and log headers still say `kp ki kd` so old logs and tools keep working.
+
+| Term | On a quad (Betaflight) | On BB1 |
+|---|---|---|
+| P | snaps back to the stick; too much = fast P wobble | pushes against the lean; too much = fast shaking |
+| I | holds the angle against wind or a heavy side | fixes a steady lean one way; too much = slow rocking |
+| D | damps bounce-back and prop wash; too much = hot motors | brakes the fall; too much = buzzing, jittery motors |
+| Trim | accelerometer trim | the angle where BB1 really balances |
+| Cap | motor output limit | max PWM while balancing (of 255) |
+
+The big difference: a quad's setpoint comes from your stick; BB1's is fixed at "upright" (the trim). One axis only.
+
 ### Two ways to change the gains
 
 **A. The tuning page (live, no flashing).** Open **http://bb1.local/tune** (or `http://<ip>/tune`; type `wifi` on serial for the IP). It shows only what tuning needs: boxes for Kp, Ki, Kd, trim and cap, live pitch, error, the P / I / D terms, PWM out, a 5 s chart, and short notes.
 
-1. Start `tools/handheld.py` as usual, **without** `--kp/--kd/--cap` (those would overwrite what the page set).
+1. Battery on first, then USB. Start `tools/venv/bin/python tools/handheld.py -s 10 -n "P15 D0.5"`, **without** `--kp/--kd/--cap` (those would overwrite what the page set).
 2. Open **http://bb1.local/tune** on the Mac or phone.
 3. Type one new number, press **Apply**. **Expect:** the terminal prints `BB1: gains vN: kp ...` and the status line shows the new numbers.
 4. Arm with **a** in the terminal, try, catch it.
@@ -64,7 +78,7 @@ Hand-held, it won't feel like balancing: nothing pushes back on the wheels, so t
 
 The page never arms. Arming and logging stay in the terminal, so a Wi-Fi hiccup can't cut a try short (armed from serial, the page heartbeat doesn't apply). Every change prints a `gains` line on serial, and `handheld.py` writes each version into the log file as `# gains_vN,kp ... cap ...`, so the log says which gains every row used (`gains_ver` column).
 
-**B. In the code (`config.h`).** The starting values are `DEFAULT_KP`, `DEFAULT_KI`, `DEFAULT_KD`, `DEFAULT_TRIM`, `DEFAULT_PWM_CAP` in `firmware/bb1/config.h`.
+**B. In the code (`config.h`).** The starting values are `DEFAULT_P_GAIN`, `DEFAULT_I_GAIN`, `DEFAULT_D_GAIN`, `DEFAULT_TRIM`, `DEFAULT_PWM_CAP` in `firmware/bb1/config.h`.
 
 1. `vim firmware/bb1/config.h`, change the number, save.
 2. Compile and upload (`docs/FLASHING.md`), about a minute.

@@ -84,7 +84,7 @@ void handleState() {
            (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
            robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs, armLeftMs, stepActive ? "true" : "false",
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
-           (unsigned long)gainsVersion, gainKp, gainKi, gainKd, balanceTrim, pwmCap, motorDeadband);
+           (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband);
   server.send(200, "application/json", json);
 }
 
@@ -232,9 +232,9 @@ void handleGains() {
   auto num = [](const char *name, float lo, float hi, volatile float &target) {
     if (server.hasArg(name) && server.arg(name).length()) target = constrain(server.arg(name).toFloat(), lo, hi);
   };
-  num("kp", 0, 100, gainKp);
-  num("ki", 0, 100, gainKi);
-  num("kd", 0, 20, gainKd);
+  num("kp", 0, 100, gainP);
+  num("ki", 0, 100, gainI);
+  num("kd", 0, 20, gainD);
   num("cap", 0, PWM_MAX, pwmCap);
   num("deadband", 0, 100, motorDeadband);
   if (server.arg("trim") == "here") {
@@ -245,8 +245,8 @@ void handleGains() {
   }
   gainsVersion = gainsVersion + 1;
   printGains();                                // tell the terminal too (handheld.py logs it)
-  server.send(200, "text/plain", "gains v" + String(gainsVersion) + ": kp " + String(gainKp, 2) + ", ki " +
-              String(gainKi, 2) + ", kd " + String(gainKd, 2) + ", trim " + String(balanceTrim, 2) +
+  server.send(200, "text/plain", "gains v" + String(gainsVersion) + ": kp " + String(gainP, 2) + ", ki " +
+              String(gainI, 2) + ", kd " + String(gainD, 2) + ", trim " + String(balanceTrim, 2) +
               ", cap " + String(pwmCap, 0) + ", deadband " + String(motorDeadband, 0));
 }
 

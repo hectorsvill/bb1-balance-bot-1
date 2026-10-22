@@ -24,8 +24,8 @@ String logMetaLines() {
   m += "# accel_pitch_sign," + String((int)ACCEL_PITCH_SIGN) + ",gyro_pitch_sign," + String((int)GYRO_PITCH_SIGN) + "\n";
   m += "# counts_per_rev," + String(COUNTS_PER_REV) + ",speed_window_ticks," + String(SPEED_WINDOW) +
        ",pwm_max," + String(PWM_MAX) + ",pwm_freq_hz," + String(PWM_FREQ) + "\n";
-  m += "# gains_ver," + String(gainsVersion) + ",kp," + String(gainKp, 3) + ",ki," + String(gainKi, 3) +
-       ",kd," + String(gainKd, 3) + ",trim," + String(balanceTrim, 2) + ",pwm_cap," + String(pwmCap, 0) +
+  m += "# gains_ver," + String(gainsVersion) + ",kp," + String(gainP, 3) + ",ki," + String(gainI, 3) +
+       ",kd," + String(gainD, 3) + ",trim," + String(balanceTrim, 2) + ",pwm_cap," + String(pwmCap, 0) +
        ",deadband," + String(motorDeadband, 0) + "\n";
   return m;
 }
