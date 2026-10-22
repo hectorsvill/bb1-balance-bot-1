@@ -70,3 +70,11 @@ Run with `tools/handheld.py` (serial arm, Wi-Fi log), kp 15, kd 0.5, trim −3.9
 | Lean back (error < −3 deg) | PWM −60 both, wheel speed −243 / −237 counts/s: **backward, correct** |
 | Fall cut-out (past 45 deg) | **works both ways** (`logs/bb1_2026-10-21_22-21-22_handheld.csv`): forward cut at error +45.5 deg, back at −45.5 deg, PWM 0 the same tick, FALLEN |
 
+## First floor attempts (2026-10-21, kp 15, kd 0.5, trim −3.98, cap 80)
+
+File: `logs/bb1_2026-10-21_22-31-13_floor-kp15.csv`. Three tries, each stood about 2 s, then fell **backward** and the 45 deg cut-out stopped the motors (FALLEN).
+
+- Every try: it hovers near the trim for 1 to 1.5 s, starts leaning back, the PWM grows and **hits the cap (80) at about 5 deg** of lean. From then on the wheels can't go faster (about 340 counts/s) and it falls in about 0.2 s.
+- Below PWM about 15 the wheels don't turn at all (speed 0): the motor deadband.
+- Reading: cap 80 is the limit, as in PID_TUNING.md ("wheels spin but it still falls"). Next: cap 150, same gains.
+

@@ -1,5 +1,7 @@
 """handheld.py - run an arm test from one window: keys to arm and stop, log saved by itself.
 
+How it works inside: docs/HANDHELD_TOOL.md.
+
 Usage (from the repo folder, USB plugged in, BB1 on the home network):
     tools/venv/bin/python tools/handheld.py                    # arm 5 s per press of "a"
     tools/venv/bin/python tools/handheld.py -s 3 -n "tilt"     # 3 s per arm, note "tilt"

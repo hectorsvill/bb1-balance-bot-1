@@ -137,7 +137,7 @@ For the hand-held (and later floor) tests without the web page. Needs USB plugge
 | `--host 192.168.1.240` | robot address, if `bb1.local` is slow (type `wifi` on serial) |
 | `-p /dev/cu.usbmodemXXXX` | serial port, if more than one Pico is plugged in |
 
-Only one program can hold the USB port: close `arduino-cli monitor` and the Arduino IDE Serial Monitor first.
+Only one program can hold the USB port: close `arduino-cli monitor` and the Arduino IDE Serial Monitor first. How it works inside (threads, keys, status line): `docs/HANDHELD_TOOL.md`.
 
 ### logger.py: record a run over Wi-Fi
 

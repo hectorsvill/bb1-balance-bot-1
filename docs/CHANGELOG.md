@@ -10,6 +10,11 @@ Newest first.
 - Battery cradle (record the pack's size and capacity)
 - Measure the motor deadband
 
+## 2026-10-21 - first floor attempts
+
+- 3 tries at kp 15 / kd 0.5 / cap 80: about 2 s upright each, then fell backward once the PWM hit the cap (80). Details in BUILD_RECORD.md. Next: cap 150
+- docs/HANDHELD_TOOL.md: how `tools/handheld.py` works inside
+
 ## 2026-10-21 - hand-held arm test: directions correct
 
 - First full hand-held run (`tools/handheld.py`): armed 5 s with no Wi-Fi cut-out; leaning forward drove both wheels forward, leaning back drove them backward. Fall cut-out checked both ways (22:21 run). Numbers in BUILD_RECORD.md. Hand-held test passed: next is the floor
