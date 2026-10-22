@@ -10,6 +10,13 @@ Newest first.
 - Battery cradle (record the pack's size and capacity)
 - Measure the motor deadband
 
+## 2026-10-21 - PID tuning page (/tune)
+
+- New small page at http://bb1.local/tune (`tune_page.h`): Kp, Ki, Kd, trim, cap with Apply / Save to flash; live pitch, error, P / I / D, PWM out, 5 s chart; tuning notes. Never arms (arm and log with `handheld.py`). Also in `mock_bb1.py`
+- Changing gains from a page now prints the `gains` line on serial (`printGains()` moved to `settings.h`), so `handheld.py` shows it and writes `# gains_vN,...` lines into the log
+- docs/PID_TUNING.md: "Two ways to change the gains" (page, or `config.h` + `defaults` because flash overrides `config.h`)
+- Checked on the robot: /tune loads, live data, Apply works and the gains line appears on serial
+
 ## 2026-10-21 - first floor attempts
 
 - Run 4: cap 150 applied, longest try 7.2 s; rolls up to 2.6 wheel turns, so floor only (not a desk). Hector takes over the PID tuning from here

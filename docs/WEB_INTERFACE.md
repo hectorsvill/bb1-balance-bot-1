@@ -53,6 +53,10 @@ Armed from the page, BB1 disarms if the page stops polling `/state` for 1 s (clo
 
 The Pico's web server answers **one connection at a time**, so anything slow (a big `/log` answer while Recording) delays `/state`. Until 2026-10-21 it also waited up to 5 s for the browser to close each connection, which caused "lost the web page" disarms; `route()` in `web.h` now closes it straight away. For balance tests we arm from serial instead (no heartbeat) and record with `logger.py`: `firmware/README.md`, "Hand-held test, the current way". Later the Pi Zero W will serve the page and the Pico won't run Wi-Fi at all.
 
+### The tuning page (/tune)
+
+**http://bb1.local/tune** is a small page for PID tuning only: Kp, Ki, Kd, trim and cap boxes with **Apply**, **Trim = current pitch**, **Save to flash** and **Reload from BB1**; live pitch, error, P / I / D terms and PWM out with a 5 s chart; and the tuning notes. It never arms: arm and log from the terminal with `tools/handheld.py`. It uses the same `/state`, `/gains` and `/gains/save` as the full page (polls `/state` 10 times a second). Source: `firmware/bb1/tune_page.h`; offline at http://localhost:8080/tune with `mock_bb1.py`. How to use it while tuning: `docs/PID_TUNING.md`, "Two ways to change the gains".
+
 ### Balance panel, control by control
 
 | Control | What it does | Why it's there |
@@ -102,6 +106,7 @@ You can call these yourself with `curl` (on the same network as BB1):
 | Request | Does |
 |---|---|
 | `GET /` | the page |
+| `GET /tune` | the small PID tuning page (`tune_page.h`) |
 | `GET /state` | newest values as JSON |
 | `POST /cal` | recalibrate the gyro |
 | `POST /alpha` with `value=0.98` | set the filter weight |

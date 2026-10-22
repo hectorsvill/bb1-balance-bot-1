@@ -128,7 +128,7 @@ It also reads the CSV files from the web page (Download, Save last 10 s) and fro
 tools/venv/bin/python tools/handheld.py
 ```
 
-For the hand-held (and later floor) tests without the web page. Needs USB plugged in and BB1 on the home network. Keys, no Enter needed: **a** arms for 5 s (`arm 5` on serial, it stops by itself), **Enter** or **space** disarms, **g** prints the gains, **:** lets you type any serial command and Enter (`kp 20`, `kd 0.6`, `trim here`, `save`), **q** (or Ctrl-C) disarms, saves the log and quits. BB1's 10 Hz readout is folded into one status line (pitch and how far from the trim, arming needs within 10 deg, plus how much has been logged); answers like `ARMED` and `DISARMED: fell over` print in full. The log is recorded over Wi-Fi like `logger.py` (it reuses its code) and saved as `logs/bb1_<date>_<time>_handheld.csv`.
+For the hand-held (and later floor) tests without the web page. Needs USB plugged in and BB1 on the home network. Keys, no Enter needed: **a** arms for 5 s (`arm 5` on serial, it stops by itself), **Enter** or **space** disarms, **g** prints the gains, **:** lets you type any serial command and Enter (`kp 20`, `kd 0.6`, `trim here`, `save`), **q** (or Ctrl-C) disarms, saves the log and quits. BB1's 10 Hz readout is folded into one status line (pitch and how far from the trim, arming needs within 10 deg, plus how much has been logged); answers like `ARMED` and `DISARMED: fell over` print in full. The log is recorded over Wi-Fi like `logger.py` (it reuses its code) and saved as `logs/bb1_<date>_<time>_handheld.csv`. Gains changed on the `/tune` page show up in the status line and in the file (`# gains_vN,...` lines).
 
 | Option | Meaning |
 |---|---|

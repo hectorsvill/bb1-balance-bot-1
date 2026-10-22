@@ -284,12 +284,6 @@ void dumpLog(float seconds) {
                  (skipped ? ", " + String(skipped) + " overwritten before they could be printed" : ""));
 }
 
-void printGains() {
-  Serial.println("gains v" + String(gainsVersion) + ": kp " + String(gainKp, 2) + "  ki " + String(gainKi, 2) +
-                 "  kd " + String(gainKd, 2) + "  trim " + String(balanceTrim, 2) + " deg  cap " + String(pwmCap, 0) +
-                 "  deadband " + String(motorDeadband, 0));
-}
-
 // The newest pitch, read from the log like everything else on core 0.
 float latestPitch() {
   LogRecord r;

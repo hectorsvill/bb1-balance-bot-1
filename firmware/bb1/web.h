@@ -3,6 +3,7 @@
 // Runs on core 0. The browser asks for things with plain HTTP:
 //
 //   GET  /            the page (page.h)
+//   GET  /tune        the small PID tuning page (tune_page.h): gains + live P/I/D, never arms
 //   GET  /state       newest values as JSON, polled ~20 times a second by the page
 //   POST /cal         recalibrate the gyro (same as typing "cal")
 //   POST /alpha       body/arg value=0.98: set the filter weight
@@ -32,6 +33,7 @@
 #include "control.h"
 #include "settings.h"
 #include "page.h"
+#include "tune_page.h"
 
 WebServer server(80);
 
@@ -40,6 +42,11 @@ unsigned long restartAt = 0;
 
 void handlePage() {
   server.send(200, "text/html", PAGE_HTML);
+}
+
+// The small PID tuning page (tune_page.h): gains, live P/I/D, notes. Never arms.
+void handleTunePage() {
+  server.send(200, "text/html", TUNE_HTML);
 }
 
 void handleState() {
@@ -237,6 +244,7 @@ void handleGains() {
     num("trim", -20, 20, balanceTrim);
   }
   gainsVersion = gainsVersion + 1;
+  printGains();                                // tell the terminal too (handheld.py logs it)
   server.send(200, "text/plain", "gains v" + String(gainsVersion) + ": kp " + String(gainKp, 2) + ", ki " +
               String(gainKi, 2) + ", kd " + String(gainKd, 2) + ", trim " + String(balanceTrim, 2) +
               ", cap " + String(pwmCap, 0) + ", deadband " + String(motorDeadband, 0));
@@ -249,6 +257,7 @@ void handleGainsSave() {
 
 void handleGainsDefaults() {
   settingsDefaults();
+  printGains();
   server.send(200, "text/plain", "back to the config.h defaults (press Save to keep them)");
 }
 
@@ -306,6 +315,7 @@ void route(const char *path, HTTPMethod method, void (*handler)()) {
 
 void webBegin() {
   route("/", HTTP_GET, handlePage);
+  route("/tune", HTTP_GET, handleTunePage);
   route("/state", HTTP_GET, handleState);
   route("/cal", HTTP_POST, handleCal);
   route("/alpha", HTTP_POST, handleAlpha);

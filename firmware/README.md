@@ -13,6 +13,8 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
+Tuning page (2026-10-21): **http://bb1.local/tune** changes Kp, Ki, Kd, trim and cap live and shows only pitch, error, P / I / D and PWM (`tune_page.h`). It never arms; arm and log with `handheld.py`. A change from any page now also prints a `gains` line on serial. Both ways to change gains (page, or `config.h` + `defaults`): `docs/PID_TUNING.md`.
+
 Fix (2026-10-21): the web server now closes each connection after answering (`route()` in `web.h`). Before, one connection the browser left open froze the server for up to 5 s and armed runs disarmed with "lost the web page".
 
 ### Hand-held test, the current way: serial + logger.py (no web page)

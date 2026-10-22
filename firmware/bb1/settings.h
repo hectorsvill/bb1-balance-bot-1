@@ -14,6 +14,15 @@
 #include "config.h"
 #include "shared.h"
 
+// One line with every balance setting. Printed for the serial "gains" command
+// and whenever the web page changes them, so tools/handheld.py always shows
+// (and logs) the gains BB1 is really using. handheld.py reads this exact layout.
+void printGains() {
+  Serial.println("gains v" + String(gainsVersion) + ": kp " + String(gainKp, 2) + "  ki " + String(gainKi, 2) +
+                 "  kd " + String(gainKd, 2) + "  trim " + String(balanceTrim, 2) + " deg  cap " + String(pwmCap, 0) +
+                 "  deadband " + String(motorDeadband, 0));
+}
+
 const int      SETTINGS_ADDR  = 128;
 const uint32_t SETTINGS_MAGIC = 0xBB1C0001;   // "this really is our data", and its layout version
 

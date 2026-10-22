@@ -52,7 +52,7 @@ A *thread* is a second line of work in the same program. Python lets them share 
 
 ## The saved file
 
-Same layout as the page's Download and `logger.py`: the `# setting` lines from `log_meta.h`, `# note`, `# recorded_at`, `# records,N,lost,N`, the CSV header, then one row per tick. Saving is done by `save_log()` in `logger.py`, shared by both tools, so the two can never drift apart. Check any file with `tools/check_dump.py <file> --plot`.
+Same layout as the page's Download and `logger.py`: the `# setting` lines from `log_meta.h`, `# note`, `# recorded_at`, `# records,N,lost,N`, one `# gains_vN,kp 15 ki 0 kd 0.5 trim -3.98 cap 80 deadband 0` line per gains version seen during the run (from `g`, `:` commands or the `/tune` page), the CSV header, then one row per tick. Saving is done by `save_log()` in `logger.py`, shared by both tools, so the two can never drift apart. Check any file with `tools/check_dump.py <file> --plot`.
 
 ## Safety
 

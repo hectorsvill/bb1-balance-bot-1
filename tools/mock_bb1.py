@@ -29,6 +29,7 @@ from urllib.parse import parse_qs, urlparse
 
 REPO = Path(__file__).resolve().parent.parent
 PAGE_H = REPO / "firmware" / "bb1" / "page.h"
+TUNE_H = REPO / "firmware" / "bb1" / "tune_page.h"
 
 # Same numbers as the firmware (config.h, imu.h, web.h).
 LOOP_HZ = 200
@@ -73,10 +74,10 @@ def encoders(tick):
     return int(left), int(right)
 
 
-def read_page():
-    """The page exactly as the firmware sends it: the raw string after PAGE_HTML[] = R"PAGE(."""
-    text = PAGE_H.read_text()
-    return re.search(r'PAGE_HTML\[\] = R"PAGE\((.*)\)PAGE"', text, re.S).group(1)
+def read_page(path=PAGE_H, name="PAGE_HTML"):
+    """A page exactly as the firmware sends it: the raw string after NAME[] = R"PAGE(."""
+    text = path.read_text()
+    return re.search(name + r'\[\] = R"PAGE\((.*)\)PAGE"', text, re.S).group(1)
 
 
 def total_written():
@@ -151,6 +152,8 @@ class Handler(BaseHTTPRequestHandler):
         args = {k: v[0] for k, v in parse_qs(url.query).items()}
         if url.path == "/":
             self.reply(read_page(), "text/html")
+        elif url.path == "/tune":
+            self.reply(read_page(TUNE_H, "TUNE_HTML"), "text/html")
         elif url.path == "/state":
             global armed_from, reason
             if armed_from is not None and arm_until and total_written() >= arm_until:   # the arm timer ran out

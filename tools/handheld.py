@@ -84,6 +84,7 @@ class SerialLink(threading.Thread):
         self.readout = ""
         self.trim = None                          # from the "gains" answer, to show the lean from the trim
         self.gains = ""                           # "kp 15 kd 0.5 cap 80", shown in the status line
+        self.versions = {}                        # every gains version seen: {3: "kp 15 ki 0 kd 0.5 ..."}, saved in the log
         self.running = True
 
     def send(self, cmd):
@@ -105,6 +106,10 @@ class SerialLink(threading.Thread):
                     w = line.split()
                     pick = lambda key: f"{float(w[w.index(key) + 1]):g}"    # the number after a word
                     self.gains = f"kp {pick('kp')} kd {pick('kd')} cap {pick('cap')}"
+                    # The CSV only has gains_ver per row, so keep what each version
+                    # meant (changes from the /tune page arrive here too).
+                    ver = int(w[1].lstrip("v").rstrip(":"))
+                    self.versions[ver] = " ".join(f"{k} {pick(k)}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband"))
                 say(f"BB1: {line}")
 
 
@@ -202,7 +207,8 @@ def main():
         rec.running = False
         link.running = False
         print()
-        save_log(out, rec.meta, args.note, started, rec.header, rec.rows, rec.lost)
+        versions = "".join(f"# gains_v{v},{g}\n" for v, g in sorted(link.versions.items()))
+        save_log(out, rec.meta + versions, args.note, started, rec.header, rec.rows, rec.lost)
 
 
 if __name__ == "__main__":

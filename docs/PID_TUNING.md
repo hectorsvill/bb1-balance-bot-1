@@ -52,9 +52,29 @@ What you do and what each part checks:
 
 Hand-held, it won't feel like balancing: nothing pushes back on the wheels, so they just spin. That's expected; this test is only about direction and the cut-outs.
 
+### Two ways to change the gains
+
+**A. The tuning page (live, no flashing).** Open **http://bb1.local/tune** (or `http://<ip>/tune`; type `wifi` on serial for the IP). It shows only what tuning needs: boxes for Kp, Ki, Kd, trim and cap, live pitch, error, the P / I / D terms, PWM out, a 5 s chart, and short notes.
+
+1. Start `tools/handheld.py` as usual, **without** `--kp/--kd/--cap` (those would overwrite what the page set).
+2. Open **http://bb1.local/tune** on the Mac or phone.
+3. Type one new number, press **Apply**. **Expect:** the terminal prints `BB1: gains vN: kp ...` and the status line shows the new numbers.
+4. Arm with **a** in the terminal, try, catch it.
+5. Happy with it: disarm, then **Save to flash** on the page (or `:` → `save` in the terminal).
+
+The page never arms. Arming and logging stay in the terminal, so a Wi-Fi hiccup can't cut a try short (armed from serial, the page heartbeat doesn't apply). Every change prints a `gains` line on serial, and `handheld.py` writes each version into the log file as `# gains_vN,kp ... cap ...`, so the log says which gains every row used (`gains_ver` column).
+
+**B. In the code (`config.h`).** The starting values are `DEFAULT_KP`, `DEFAULT_KI`, `DEFAULT_KD`, `DEFAULT_TRIM`, `DEFAULT_PWM_CAP` in `firmware/bb1/config.h`.
+
+1. `vim firmware/bb1/config.h`, change the number, save.
+2. Compile and upload (`docs/FLASHING.md`), about a minute.
+3. **Important:** saved settings in flash **override** `config.h` at startup. After flashing, type `defaults` on serial (or `:` → `defaults` in `handheld.py`), then `save`. **Expect:** `gains vN: ...` shows your new numbers.
+
+Without step 3 your code change seems to do nothing. Use A while tuning (seconds per change); use B to write down the final numbers so a fresh flash starts from them.
+
 ## 4. Tuning steps on BB1
 
-All gains change live from the page. Change one thing at a time and write down what you saw.
+All gains change live from the tuning page (above) or serial. Change one thing at a time and write down what you saw.
 
 1. **Kp only** (Ki = 0, Kd = 0). Start small and raise it until the robot fights back when tilted and starts to oscillate fast around upright. That's roughly "too much".
 2. **Add Kd.** Raise it until the oscillation calms down. Too much D makes the motors buzz or jitter (it amplifies noise). Then try raising Kp a bit more, and Kd again.
