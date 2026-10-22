@@ -7,7 +7,9 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 ## How to work with me
 
 - I'm learning embedded and robotics, not just shipping code. Explain the why briefly, comment the code so it teaches, and go one small step at a time: I test each step on the hardware and report back before we move on.
-- Keep replies concise. Docs in Markdown. Use vim (never nano) in any editor instructions.
+- Keep replies concise. Docs in Markdown.
+- Steps to follow (tests, setup) are never conversational: a numbered checklist, one action per line, the key or command in bold or code, an **Expect:** line, then what to send back.
+- Update the docs with every change (repo `docs/`, `firmware/README.md`, CHANGELOG, this file's Next step, vault Dev Log and Dashboard). Use vim (never nano) in any editor instructions.
 - I hand-solder everything and don't use header pins.
 - Every firmware step keeps logging in mind: new sensor values, commands and outputs go into the telemetry record (see `docs/FIRMWARE_PLAN.md`, section 6). I want to train an AI model on these logs later to drive the bot.
 - Code must stay readable enough that I can jump in and change it myself: small files, clear names, comments that explain why. If unsure about a choice, ask me.
