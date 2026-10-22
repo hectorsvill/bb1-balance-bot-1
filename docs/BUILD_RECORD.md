@@ -78,3 +78,12 @@ File: `logs/bb1_2026-10-21_22-31-13_floor-kp15.csv`. Three tries, each stood abo
 - Below PWM about 15 the wheels don't turn at all (speed 0): the motor deadband.
 - Reading: cap 80 is the limit, as in PID_TUNING.md ("wheels spin but it still falls"). Next: cap 150, same gains.
 
+## Floor attempts 2 (2026-10-21, file `logs/bb1_2026-10-21_22-41-56_floor-cap150.csv`)
+
+Meant to test cap 150, but the cap **stayed at 80** the whole run (gains_ver 2 in every row, max PWM 80), so this is a second run of kp 15 / kd 0.5 / cap 80. Seven tries:
+
+- **Try 1 stood the full 10 s** (stopped by the arm timer). It rocked about ±4 deg around upright, pushing up to the cap now and then. Average pitch −4.6 deg, slightly behind the trim (−3.98): the real balance point may be about 0.6 deg further back.
+- Tries 2 to 7: 0.5 to 3.2 s, five fell backward and one forward. Each fall happened while the PWM sat at the cap (57 to 193 ticks at the cap).
+- The robot drifted backward over the run (encoders about −4,000 counts on each side): it only fights the lean, nothing holds its position yet (that's the speed loop, step 8).
+- Next: really set cap 150 (check with `g` before arming).
+
