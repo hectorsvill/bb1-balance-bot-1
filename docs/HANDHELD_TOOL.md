@@ -47,7 +47,7 @@ A *thread* is a second line of work in the same program. Python lets them share 
 3. **Send any `--kp/--kd/--cap/--trim` you gave, then ask for `gains`**, so you see the settings. The script reads the trim (to show "from trim") and kp, kd, cap (shown in the status line) from that answer, so the screen always shows what BB1 is really using.
 4. **Keys without Enter.** `tty.setcbreak()` puts the terminal in *cbreak* mode: each key arrives immediately and isn't echoed. `select()` waits up to 0.2 s for a key, so the status line refreshes 5 times a second even when you press nothing.
 5. **Keys:** `a` sends `arm 5` (BB1 disarms itself after 5 s), Enter or space sends `disarm`, `g` sends `gains`, `:` switches back to normal typing for one line and sends what you type (`kp 20`, `save`...).
-6. **The status line** is redrawn in place: `\r` goes back to the start of the line and `ESC[K` clears it. Full lines from BB1 are printed above it the same way (`say()`).
+6. **The status line** is redrawn in place: `\r` goes back to the start of the line and `ESC[K` clears it. It's cut to the window width and only redrawn when it changes: a line wider than the window wraps onto two rows, `\r` can only go back to the start of the last row, and every refresh would leave a new line behind (it looks like spam). Keep the window at least about 60 characters wide to see all of it. Full lines from BB1 are printed above it the same way (`say()`).
 7. **On q or Ctrl-C** (the `finally:` block, which runs even after an error): give the terminal back its normal mode, send `disarm` (never leave it armed), wait 0.5 s for the last records, then save.
 
 ## The saved file

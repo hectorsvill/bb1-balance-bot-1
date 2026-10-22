@@ -31,6 +31,7 @@ closed). The firmware's other cut-outs still work: the arm timer, 45 deg
 import argparse
 import json
 import select
+import shutil
 import socket
 import sys
 import termios
@@ -97,7 +98,7 @@ class SerialLink(threading.Thread):
                 pitch = float(line.split("|")[0].split()[1])    # "pitch  -3.9 | ..." -> -3.9
                 self.readout = f"pitch {pitch:+.1f}"
                 if self.trim is not None:            # how far from the balance point: arming needs within 10
-                    self.readout += f" ({pitch - self.trim:+.1f} from trim)"
+                    self.readout += f" (trim {pitch - self.trim:+.1f})"
             else:
                 if line.startswith("gains") and " trim " in line:   # "gains v2: kp 15.00 ... trim -3.98 deg ..."
                     self.trim = float(line.split(" trim ")[1].split()[0])
@@ -154,6 +155,7 @@ def main():
     # cbreak: each key arrives at once, without waiting for Enter, and isn't echoed.
     old = termios.tcgetattr(sys.stdin)
     tty.setcbreak(sys.stdin)
+    shown = ""                                         # the status line now on screen
     try:
         while True:
             # Wait up to 0.2 s for a key, then refresh the status line either way.
@@ -175,15 +177,22 @@ def main():
                     tty.setcbreak(sys.stdin)
                     if cmd:
                         link.send(cmd)
+                    shown = ""                         # the prompt replaced the status line: draw it again
                 elif key == "q":
                     break
-            status = f"{link.readout or 'waiting for serial'}  | {link.gains}  | log {len(rec.rows) / 200:.1f} s"
+            status = f"{link.readout or 'waiting for serial'} | {link.gains} | log {len(rec.rows) / 200:.0f} s"
             if rec.lost:
                 status += f", {rec.lost} lost"
             if rec.problem:
                 status += f"  | {rec.problem}"
-            sys.stdout.write("\r\x1b[K" + status)
-            sys.stdout.flush()
+            # Cut it to the window width: a line that wraps can't be redrawn in
+            # place (\r only goes back to the start of the last row), and every
+            # refresh would leave a new line behind, which looks like spam.
+            width = shutil.get_terminal_size().columns - 1
+            if status != shown:                        # redraw only when something changed
+                sys.stdout.write("\r\x1b[K" + status[:width])
+                sys.stdout.flush()
+                shown = status
     except KeyboardInterrupt:
         pass
     finally:
