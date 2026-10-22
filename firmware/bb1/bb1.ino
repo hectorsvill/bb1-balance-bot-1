@@ -222,7 +222,7 @@ bool quiet = false;        // "quiet": pause the 10 Hz readout
 
 void printHelp() {
   Serial.println();
-  Serial.println("BB1 step 6 commands:");
+  Serial.println("BB1 step 7 commands:");
   Serial.println("  cal       measure the gyro bias again (lay the robot still first)");
   Serial.println("  alpha N   set the filter weight, 0.90 to 0.999 (now " + String(requestedAlpha, 3) + ")");
   Serial.println("  csv       switch the readout to comma-separated lines (again to switch back)");
@@ -461,7 +461,7 @@ void setup() {
   while (!Serial && millis() - t0 < 5000) {}   // wait up to 5 s for a serial monitor
 
   Serial.println();
-  Serial.println("BB1 step 6: arm / disarm + angle loop. Motors run only when armed or in a timed test.");
+  Serial.println("BB1 step 7: balancing with saved settings. Motors run only when armed or in a timed test.");
   wifiStart();             // up to 15 s if a home network is saved; core 1 is already running
   Serial.println(settingsLoad() ? "Balance settings loaded from flash." : "No saved balance settings: using config.h defaults.");
   webBegin();
