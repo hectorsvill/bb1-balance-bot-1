@@ -9,6 +9,7 @@ Keys (no Enter needed):
     a        arm for a few seconds (default 5), it disarms by itself after that
     Enter    disarm now (so does space)
     g        print the balance settings (gains)
+    :        type any serial command, then Enter (e.g. "kp 20", "kd 0.6", "trim here", "save")
     q        disarm, save the log and quit (Ctrl-C does the same)
 
 What it does: two helpers run side by side.
@@ -129,7 +130,7 @@ def main():
     rec.start()
 
     print(f"Recording from {args.host} ({ip}). Log will be saved to {out.name}")
-    print(f"Keys: a = arm {arm_s:g} s   Enter/space = disarm   g = gains   q = save and quit")
+    print(f"Keys: a = arm {arm_s:g} s   Enter/space = disarm   g = gains   : = type a command   q = save and quit")
     print("Hold BB1 in the air, wheels free, fingers clear.")
     link.send("gains")
 
@@ -147,6 +148,16 @@ def main():
                     link.send("disarm")
                 elif key == "g":
                     link.send("gains")
+                elif key == ":":
+                    # Back to normal typing for one line, so you can send any
+                    # serial command (gains, trim, save...). BB1's answer prints as usual.
+                    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old)
+                    sys.stdout.write("\r\x1b[Kcommand: ")
+                    sys.stdout.flush()
+                    cmd = sys.stdin.readline().strip()
+                    tty.setcbreak(sys.stdin)
+                    if cmd:
+                        link.send(cmd)
                 elif key == "q":
                     break
             status = f"{link.readout or 'waiting for serial'}  | log {len(rec.rows) / 200:.1f} s"

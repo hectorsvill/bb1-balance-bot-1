@@ -19,7 +19,7 @@ Newest first.
 - Hand-held ARM kept disarming after 1 to 2 s with "lost the web page". The 21:04 log showed /state reaching BB1 only every 0.5 to 2.5 s although the page asks 20 times a second
 - Cause: the WebServer library serves one connection at a time and, after answering, waits up to 5 s for the browser to close it. One connection left open froze every other request (measured: 4.8 s)
 - Fix: web.h `route()` closes the connection after every answer. Re-measured: no more 5 s freeze. A long `/log` answer (Record) can still delay /state by a few hundred ms
-- tools/handheld.py: the arm test in one window (a = arm 5 s, Enter = disarm, q = save the log), records over Wi-Fi like logger.py. logger.py's file naming and saving moved into `log_path()` / `save_log()` so both share them
+- tools/handheld.py: the arm test in one window (a = arm 5 s, Enter = disarm, : = any serial command such as `kp 20`, q = save the log), records over Wi-Fi like logger.py. logger.py's file naming and saving moved into `log_path()` / `save_log()` so both share them
 - Decision: for balance tests, arm from serial (`arm 5`, no page heartbeat) and record with `logger.py`, page closed. Steps in `firmware/README.md`. Trim re-measured −3.98 after the battery was refitted, saved in flash
 
 ## 2026-10-21 - bb1 step 7: save settings + step test

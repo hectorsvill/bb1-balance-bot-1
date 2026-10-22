@@ -43,6 +43,19 @@ It prints the gains first: check kp 15, kd 0.5, trim about −3.98, cap 80. The 
 1. Press **q**. It disarms, saves `logs/bb1_<date>_<time>_handheld.csv` and prints a `check_dump.py ... --plot` line: run it. Missing ticks should be 0.
 2. Send me the file name and tell me what the wheels did.
 
+**Result 2026-10-21: passed.** Wheels roll toward the lean both ways and the 45 deg cut-out works (numbers in docs/BUILD_RECORD.md).
+
+### First floor attempts (next)
+
+Why on the floor now: in the air nothing pushes back, so you only learn the directions. On the floor the wheels have to catch the fall, which is what the gains are for. Expect it to fall a lot at first: that's how you find the right Kp.
+
+1. Something soft around it (a towel or cushions), clear space in front and behind.
+2. Start the tool with a longer arm time: `tools/venv/bin/python tools/handheld.py -s 10 -n "floor kp15"`.
+3. Hold BB1 upright on the floor, hands loosely either side (not touching), press **a**, let go gently.
+4. Watch what it does, then catch it (or let it fall onto the soft stuff; past 45 deg it stops by itself).
+5. Change one gain with **:** (for example `kp 20`), try again. The table in docs/PID_TUNING.md, section 4, says which way to go. Write each try in the note (`-n`) or tell me.
+6. When a setting is better, type `save` with **:** while disarmed.
+
 **Without the tool** (same test by hand): a serial monitor (`arduino-cli monitor -p /dev/cu.usbmodem21401 -c baudrate=115200`, or the Arduino IDE 2 Serial Monitor at 115200 baud, New Line) plus `tools/venv/bin/python tools/logger.py -t 30 -n "handheld"` in a second terminal. Type `quiet` first to pause the 10 Hz readout, then `gains`, `arm 5`, Enter to disarm.
 
 ## bb1, step 6: arm / disarm + the angle loop
