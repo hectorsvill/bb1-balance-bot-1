@@ -43,6 +43,29 @@ def fetch_log(base, since):
     return info, lines[1], lines[2:]
 
 
+def log_path(note, started, out=None):
+    """logs/bb1_<date>_<time>[_note].csv inside the repo (or the given path)."""
+    slug = re.sub(r"[^a-z0-9]+", "-", note.lower()).strip("-")[:40]
+    out = Path(out) if out else Path("logs") / f"bb1_{started:%Y-%m-%d_%H-%M-%S}{'_' + slug if slug else ''}.csv"
+    if not out.is_absolute():
+        out = REPO / out
+    out.parent.mkdir(parents=True, exist_ok=True)
+    return out
+
+
+def save_log(out, meta, note, started, header, rows, lost):
+    """Write the same layout as the page's Download: settings lines, header, rows."""
+    with open(out, "w") as f:
+        f.write(meta)
+        f.write(f"# note,{note.replace(',', ';')}\n")
+        f.write(f"# recorded_at,{started.astimezone().isoformat()}\n")
+        f.write(f"# records,{len(rows)},lost,{lost}\n")
+        f.write(header + "\n")
+        f.write("\n".join(rows) + "\n")
+    print(f"Saved {len(rows)} records ({len(rows) / 200:.1f} s, {lost} lost) to {out}")
+    print(f"Check it:  tools/venv/bin/python tools/check_dump.py {out.relative_to(REPO) if out.is_relative_to(REPO) else out} --plot")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--host", default="bb1.local", help="robot address, optionally with :port (default bb1.local)")
@@ -61,11 +84,7 @@ def main():
     base = f"http://{ip}{':' + port if port else ''}"
 
     started = datetime.now()
-    slug = re.sub(r"[^a-z0-9]+", "-", args.note.lower()).strip("-")[:40]
-    out = Path(args.out) if args.out else Path("logs") / f"bb1_{started:%Y-%m-%d_%H-%M-%S}{'_' + slug if slug else ''}.csv"
-    if not out.is_absolute():
-        out = REPO / out
-    out.parent.mkdir(parents=True, exist_ok=True)
+    out = log_path(args.note, started, args.out)
 
     meta = get(f"{base}/log/meta")
     state = get(f"{base}/state")
@@ -95,15 +114,7 @@ def main():
     except KeyboardInterrupt:
         pass
 
-    with open(out, "w") as f:
-        f.write(meta)
-        f.write(f"# note,{args.note.replace(',', ';')}\n")
-        f.write(f"# recorded_at,{started.astimezone().isoformat()}\n")
-        f.write(f"# records,{len(rows)},lost,{lost}\n")
-        f.write(header + "\n")
-        f.write("\n".join(rows) + "\n")
-    print(f"Saved {len(rows)} records ({len(rows) / 200:.1f} s, {lost} lost) to {out}")
-    print(f"Check it:  tools/venv/bin/python tools/check_dump.py {out.relative_to(REPO) if out.is_relative_to(REPO) else out} --plot")
+    save_log(out, meta, args.note, started, header, rows, lost)
 
 
 if __name__ == "__main__":

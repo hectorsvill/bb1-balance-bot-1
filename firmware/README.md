@@ -21,36 +21,29 @@ Why not the page: arming from the page ties the motors to Wi-Fi (no `/state` for
 
 **Before you start**
 1. Battery on (D153C switch) **first**, then plug in USB (power rule).
-2. Close every BB1 page tab (phone too), so nothing else talks to BB1.
+2. Close every BB1 page tab (phone too), and any serial monitor (only one program can hold the USB port).
 3. Fingers clear of the wheels. Hold the frame, wheels in the air.
 
-**Terminal 1: the serial monitor** (find the port with `ls /dev/cu.usbmodem*`)
+**Start the test tool** (from the repo folder). It talks to BB1 over USB and records the log over Wi-Fi at the same time:
 
 ```bash
-arduino-cli monitor -p /dev/cu.usbmodem21401 -c baudrate=115200
+tools/venv/bin/python tools/handheld.py
 ```
 
-Type `quiet` first: it pauses the 10 Hz readout so the screen only shows answers and ARMED / DISARMED (type `quiet` again to bring it back). Then `gains` and check: kp 15, kd 0.5, trim about −3.98, cap 80.
+It prints the gains first: check kp 15, kd 0.5, trim about −3.98, cap 80. The bottom line shows the pitch, how far you are from the trim, and how much has been logged. Keys (no Enter needed): **a** = arm 5 s, **Enter** or **space** = disarm now, **g** = gains, **q** = save the log and quit.
 
-The Arduino IDE 2 Serial Monitor works just as well instead: set **115200 baud** and **New Line**, close any other monitor first (only one program can hold the port), and type the same commands in its box. (`wifi` shows the IP if `bb1.local` doesn't work below.)
-
-**Terminal 2: the logger** (from the repo folder). Start it just before you arm; it stops by itself after 30 s.
-
-```bash
-tools/venv/bin/python tools/logger.py -t 30 -n "handheld"
-```
-
-**The test** (type in terminal 1)
-1. Hold BB1 at its balance point and type `arm 5`. You should see `ARMED`. It disarms by itself after 5 s.
+**The test**
+1. Hold BB1 at its balance point (status line near 0 from trim) and press **a**. You see `ARMED`. It disarms by itself after 5 s.
 2. Tilt a little forward ("hectorsvill" side down): both wheels roll **forward**, harder with more tilt.
 3. Tilt a little back: both roll **backward**.
-4. To stop early: press Enter. Wrong way round? Enter at once and tell me.
-5. Once more with `arm 5`, then tilt past 45 deg: `DISARMED: fell over (leaned past 45 deg)`. If it says `arm time finished`, you were slower than 5 s: try again.
+4. Wrong way round? Press **Enter** at once and tell me.
+5. Press **a** again, then tilt past 45 deg: `DISARMED: fell over (leaned past 45 deg)`. If it says `arm time finished`, you were slower than 5 s: try again.
 
 **After**
-1. Wait for the logger to finish. It prints the file name: `logs/bb1_<date>_<time>_handheld.csv`.
-2. Check it: `tools/venv/bin/python tools/check_dump.py logs/<that file> --plot`. Missing ticks should be 0.
-3. Send me the file name and tell me what the wheels did. Monitor: Ctrl-C to quit.
+1. Press **q**. It disarms, saves `logs/bb1_<date>_<time>_handheld.csv` and prints a `check_dump.py ... --plot` line: run it. Missing ticks should be 0.
+2. Send me the file name and tell me what the wheels did.
+
+**Without the tool** (same test by hand): a serial monitor (`arduino-cli monitor -p /dev/cu.usbmodem21401 -c baudrate=115200`, or the Arduino IDE 2 Serial Monitor at 115200 baud, New Line) plus `tools/venv/bin/python tools/logger.py -t 30 -n "handheld"` in a second terminal. Type `quiet` first to pause the 10 Hz readout, then `gains`, `arm 5`, Enter to disarm.
 
 ## bb1, step 6: arm / disarm + the angle loop
 

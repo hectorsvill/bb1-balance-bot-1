@@ -9,6 +9,7 @@ Python helpers that run on the Mac, with their own virtual environment in `tools
 | `serial_log.py` | Reads the Pico's USB serial for N seconds, prints it, optionally saves it (`-o logs/run.txt`) |
 | `summarize_serial.py` | Summarizes a captured `csv`-mode run, one line per second; `--plot` draws it |
 | `check_dump.py` | Loads any log (serial `dump`, page Download, `logger.py`), checks nothing is missing, `--plot` draws it; `load_dump()` for your own scripts |
+| `handheld.py` | Arm test in one window: keys a = arm 5 s, Enter = disarm, q = save the log and quit; records over Wi-Fi like `logger.py` |
 | `logger.py` | Records every log record from BB1 over Wi-Fi into `logs/bb1_<date>_<time>_<note>.csv` (same layout as the page's Download) |
 | `mock_bb1.py` | A pretend BB1 on the Mac: serves the real page with made-up data at http://localhost:8080 |
 

@@ -122,6 +122,23 @@ From step 5 on it also prints how far the wheels moved and their speed while the
 
 It also reads the CSV files from the web page (Download, Save last 10 s) and from `logger.py`: same layout. So `check_dump.py --plot` is also how you plot a run (the planned `plot_run.py` wasn't needed).
 
+### handheld.py: an arm test in one window
+
+```bash
+tools/venv/bin/python tools/handheld.py
+```
+
+For the hand-held (and later floor) tests without the web page. Needs USB plugged in and BB1 on the home network. Keys, no Enter needed: **a** arms for 5 s (`arm 5` on serial, it stops by itself), **Enter** or **space** disarms, **g** prints the gains, **q** (or Ctrl-C) disarms, saves the log and quits. BB1's 10 Hz readout is folded into one status line (pitch and how far from the trim, arming needs within 10 deg, plus how much has been logged); answers like `ARMED` and `DISARMED: fell over` print in full. The log is recorded over Wi-Fi like `logger.py` (it reuses its code) and saved as `logs/bb1_<date>_<time>_handheld.csv`.
+
+| Option | Meaning |
+|---|---|
+| `-s 3` | arm time per press of a (default 5, 1 to 10 s) |
+| `-n "tilt"` | note in the file and its name (default handheld) |
+| `--host 192.168.1.240` | robot address, if `bb1.local` is slow (type `wifi` on serial) |
+| `-p /dev/cu.usbmodemXXXX` | serial port, if more than one Pico is plugged in |
+
+Only one program can hold the USB port: close `arduino-cli monitor` and the Arduino IDE Serial Monitor first.
+
 ### logger.py: record a run over Wi-Fi
 
 ```bash
