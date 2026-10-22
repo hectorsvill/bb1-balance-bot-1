@@ -52,6 +52,7 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
   ol, ul { margin:4px 0; padding-left:20px; } li { margin:3px 0; }
   table { border-collapse:collapse; width:100%; font-size:14px; }
   td, th { text-align:left; padding:4px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .tip { text-decoration:underline dotted; cursor:help; }
   code { background:var(--panel2); padding:1px 5px; border-radius:5px; }
 </style>
 </head>
@@ -71,12 +72,13 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
 <div class="panel">
   <h2>Gains <span class="muted" id="ver"></span></h2>
   <div class="grid">
-    <label class="box"><span class="name">Kp (lean)</span><input id="kp" inputmode="decimal"></label>
-    <label class="box"><span class="name">Ki (slow drift)</span><input id="ki" inputmode="decimal"></label>
-    <label class="box"><span class="name">Kd (lean speed)</span><input id="kd" inputmode="decimal"></label>
+    <label class="box"><span class="name tip" data-tip="P (proportional): pushes in proportion to the lean. P term = Kp x error. More Kp = stronger push back; too much = fast shaking.">P (Kp)</span><input id="kp" inputmode="decimal"></label>
+    <label class="box"><span class="name tip" data-tip="I (integral): adds up a lean that lasts and pushes harder the longer it lasts. I term = Ki x error summed over time. Fixes a steady drift one way; too much = slow, big rocking. Start at 0.">I (Ki)</span><input id="ki" inputmode="decimal"></label>
+    <label class="box"><span class="name tip" data-tip="D (derivative): pushes against how fast it is leaning, like a brake. D term = Kd x lean speed (deg/s). Calms shaking; too much = buzzing, jittery motors.">D (Kd)</span><input id="kd" inputmode="decimal"></label>
     <label class="box"><span class="name">Trim (deg)</span><input id="trim" inputmode="decimal"></label>
     <label class="box"><span class="name">Cap (PWM of 255)</span><input id="cap" inputmode="numeric"></label>
   </div>
+  <div class="muted" id="tipText" style="margin-top:8px; min-height:1.4em">Hover over (or tap) P, I or D to see what it does.</div>
   <div class="buttons">
     <button class="go" id="apply">Apply</button>
     <button id="trimHere">Trim = current pitch</button>
@@ -155,6 +157,14 @@ el('apply').onclick = async () => {
 el('trimHere').onclick = async () => { await post('/gains', { trim: 'here' }); filledVer = -1; };
 el('save').onclick = () => post('/gains/save', {});
 el('reload').onclick = () => { filledVer = -1; };
+
+// Hover helper: hovering (Mac) or tapping (phone) P, I or D shows what it does
+// under the boxes. The text lives in each label's data-tip.
+for (const t of document.querySelectorAll('.tip')) {
+  const show = () => { el('tipText').textContent = t.dataset.tip; };
+  t.addEventListener('mouseenter', show);
+  t.addEventListener('click', show);
+}
 
 // ---------- chart: error x10 and PWM out, last 5 s ----------
 const history = [];
