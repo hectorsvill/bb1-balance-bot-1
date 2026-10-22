@@ -289,26 +289,41 @@ void handleSys() {
   server.send(200, "application/json", json);
 }
 
+// Why every route goes through route() instead of server.on():
+// the WebServer library serves one browser connection at a time. After it
+// answers, it waits up to 5 s (HTTP_MAX_CLOSE_WAIT) for the browser to close
+// that connection, and browsers don't always close it right away (for example
+// after the page gave up on a slow /state). Meanwhile every other request
+// waits in line, /state stops arriving, and an armed robot disarms with
+// "lost the web page". Closing the connection ourselves after each answer
+// frees the server for the next request at once.
+void route(const char *path, HTTPMethod method, void (*handler)()) {
+  server.on(path, method, [handler]() {
+    handler();
+    server.client().stop();                    // sends anything left, then closes
+  });
+}
+
 void webBegin() {
-  server.on("/", HTTP_GET, handlePage);
-  server.on("/state", HTTP_GET, handleState);
-  server.on("/cal", HTTP_POST, handleCal);
-  server.on("/alpha", HTTP_POST, handleAlpha);
-  server.on("/wifi", HTTP_GET, handleWifiGet);
-  server.on("/wifi", HTTP_POST, handleWifiSave);
-  server.on("/wifi/forget", HTTP_POST, handleWifiForget);
-  server.on("/log/meta", HTTP_GET, handleLogMeta);
-  server.on("/log", HTTP_GET, handleLog);
-  server.on("/sys", HTTP_GET, handleSys);
-  server.on("/motor", HTTP_POST, handleMotor);
-  server.on("/motor/stop", HTTP_POST, handleMotorStop);
-  server.on("/arm", HTTP_POST, handleArm);
-  server.on("/disarm", HTTP_POST, handleDisarm);
-  server.on("/gains", HTTP_POST, handleGains);
-  server.on("/gains/save", HTTP_POST, handleGainsSave);
-  server.on("/gains/defaults", HTTP_POST, handleGainsDefaults);
-  server.on("/step", HTTP_POST, handleStep);
-  server.onNotFound([]() { server.send(404, "text/plain", "not found"); });
+  route("/", HTTP_GET, handlePage);
+  route("/state", HTTP_GET, handleState);
+  route("/cal", HTTP_POST, handleCal);
+  route("/alpha", HTTP_POST, handleAlpha);
+  route("/wifi", HTTP_GET, handleWifiGet);
+  route("/wifi", HTTP_POST, handleWifiSave);
+  route("/wifi/forget", HTTP_POST, handleWifiForget);
+  route("/log/meta", HTTP_GET, handleLogMeta);
+  route("/log", HTTP_GET, handleLog);
+  route("/sys", HTTP_GET, handleSys);
+  route("/motor", HTTP_POST, handleMotor);
+  route("/motor/stop", HTTP_POST, handleMotorStop);
+  route("/arm", HTTP_POST, handleArm);
+  route("/disarm", HTTP_POST, handleDisarm);
+  route("/gains", HTTP_POST, handleGains);
+  route("/gains/save", HTTP_POST, handleGainsSave);
+  route("/gains/defaults", HTTP_POST, handleGainsDefaults);
+  route("/step", HTTP_POST, handleStep);
+  server.onNotFound([]() { server.send(404, "text/plain", "not found"); server.client().stop(); });
   server.begin();
 }
 

@@ -10,6 +10,12 @@ Newest first.
 - Battery cradle (record the pack's size and capacity)
 - Hand-held arm test of bb1 step 6 (direction + cut-outs), measure the motor deadband
 
+## 2026-10-21 - web server: close each connection (fix "lost the web page")
+
+- Hand-held ARM kept disarming after 1 to 2 s with "lost the web page". The 21:04 log showed /state reaching BB1 only every 0.5 to 2.5 s although the page asks 20 times a second
+- Cause: the WebServer library serves one connection at a time and, after answering, waits up to 5 s for the browser to close it. One connection left open froze every other request (measured: 4.8 s)
+- Fix: web.h `route()` closes the connection after every answer. Re-measured: no more 5 s freeze. A long `/log` answer (Record) can still delay /state by a few hundred ms
+
 ## 2026-10-21 - bb1 step 7: save settings + step test
 
 - settings.h: balance settings saved in flash at EEPROM offset 128 (Wi-Fi uses 0..127), loaded at startup; `save`, `defaults`, page Save to flash / Defaults, `POST /gains/save`, `/gains/defaults`. Disarmed only
