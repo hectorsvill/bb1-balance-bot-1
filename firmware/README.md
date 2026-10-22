@@ -30,7 +30,9 @@ Why not the page: arming from the page ties the motors to Wi-Fi (no `/state` for
 arduino-cli monitor -p /dev/cu.usbmodem21401 -c baudrate=115200
 ```
 
-Type `gains` and check: kp 15, kd 0.5, trim about −3.98, cap 80. (`wifi` shows the IP if `bb1.local` doesn't work below.)
+Type `quiet` first: it pauses the 10 Hz readout so the screen only shows answers and ARMED / DISARMED (type `quiet` again to bring it back). Then `gains` and check: kp 15, kd 0.5, trim about −3.98, cap 80.
+
+The Arduino IDE 2 Serial Monitor works just as well instead: set **115200 baud** and **New Line**, close any other monitor first (only one program can hold the port), and type the same commands in its box. (`wifi` shows the IP if `bb1.local` doesn't work below.)
 
 **Terminal 2: the logger** (from the repo folder). Start it just before you arm; it stops by itself after 30 s.
 
