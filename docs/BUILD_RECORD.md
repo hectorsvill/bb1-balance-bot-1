@@ -10,7 +10,7 @@ Built 2026-10-20 by hectorsvill. What was actually built, the exact STL files pr
 |---|---|
 | Chassis | WHEELTEC 2-wheel chassis, 2x MG310P20 7.4 V Hall-encoder gear motors (20:1), original motor bracket, 4x 40 mm brass hex columns |
 | Bottom plate | Printed replacement plate (chassis_bottom_plate.stl) |
-| Battery | 2S LiPo flat on the bottom plate between the columns, strapped (capacity: add) |
+| Battery | 2S 1300 mAh LiPo, wrapped in tape, lying across the top of the WHEELTEC chassis plate between the brass columns (under the printed frame), held by a printed strap and a velcro strap; yellow XT power plug plus the white balance lead. Motors hang under the plate. Photos 2026-10-21 (IMG_1535 to 1537, not in git) |
 | Top frame | Short frame v1.1, 84 tall, wire windows (reverse_t_frame_short.stl) |
 | Motor driver | D153C on one face, M2.5 screw carrier, 66.6 pin hole; Dupont sockets on its header pins |
 | Controller | Pico W sideways on the other face, M2 screw carrier, 66.6 pin hole (pocket 39 to 63.6 above base), USB toward the back |
