@@ -12,6 +12,8 @@ Newest first.
 
 ## 2026-10-21 - first floor attempts
 
+- Run 4: cap 150 applied, longest try 7.2 s; rolls up to 2.6 wheel turns, so floor only (not a desk). Hector takes over the PID tuning from here
+
 - Run 3: cap still 80 (the `:` command didn't reach BB1 twice). All 4 tries fell backward at the cap. handheld.py now takes `--kp --kd --cap --trim` at start and shows kp / kd / cap in the status line
 - handheld.py: status line cut to the window width and redrawn only on change (a wrapped line was printing a new line every refresh)
 

@@ -91,3 +91,12 @@ Meant to test cap 150, but the cap **stayed at 80** the whole run (gains_ver 2 i
 
 Cap again **still 80** (max PWM 80; gains_ver 3 throughout, from Claude's `cap 80` check, so the `:` → `cap 150` didn't reach BB1 again). Four tries, all fell **backward** within 1.2 to 2.2 s: it leans back slowly (about 10 to 15 deg/s), the PWM ramps, hits 80 at about −5 deg and it's gone. Fix in the tool: `--cap` etc. on the command line, and the status line now shows kp / kd / cap live.
 
+## Floor attempts 4 (2026-10-21, file `logs/bb1_2026-10-21_22-55-15_floor-cap150.csv`)
+
+Cap 150 really applied this time (max PWM 150; the file's `# gains` line still says 80 because it was written just before `--cap` was sent). Kp 15, kd 0.5. Run on a desk: Hector had to catch it each time before it rolled off.
+
+- 3 tries: 1.6 s, 2.1 s and **7.2 s**. Two fell backward, one forward. All three spent time at the new cap (64 to 124 ticks).
+- It rolls a long way while balancing (up to about 1,400 counts, about 2.6 wheel turns, mostly backward): nothing holds its position yet (speed loop, step 8). **Test on the floor from now on, not a desk.**
+
+From here Hector tunes the PID himself (the point of the project); Claude explains the logs and the theory but doesn't pick gains unless asked.
+
