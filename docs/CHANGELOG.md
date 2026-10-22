@@ -12,6 +12,7 @@ Newest first.
 
 ## 2026-10-22 - Hector's tuning, floor run 5
 
+- Run 8, same gains: 3 of 8 tries stood 10 s; rolls backward then falls. Likely the battery; drift needs step 8 (BUILD_RECORD, floor attempts 8)
 - P 10 / D 0.75 to 0.85: **all 6 tries stood the full 10 s**. Left: slow ±10 deg swing while drifting (needs the step 8 speed loop) (BUILD_RECORD, floor attempts 7)
 - P 10 / D 0.5 / trim −0.01: jitter gone, about 9.4 s up, slow growing overshoot (D term about 1/4 of P; deadband likely about PWM 30) (BUILD_RECORD, floor attempts 6)
 - P 10 / D 5 / trim −0.58 / cap 150: about 3 s, overshoot and jitter. D term about 3x P and pinning the PWM at ±cap (BUILD_RECORD, floor attempts 5)

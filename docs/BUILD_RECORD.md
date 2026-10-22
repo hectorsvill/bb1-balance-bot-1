@@ -132,3 +132,7 @@ Hector's own tuning, gains set on the /tune page. Note says "P15 D0.5" but the `
 
 - No jitter, almost never at the cap. Remaining: slow swing, about ±10 deg every 2 to 5 s while rolling 1 to 2 wheel turns. That's the missing speed loop (step 8): the angle loop alone can't stop the drift. Deadband (about PWM 30, unmeasured) adds to it.
 - Later tries noisier: maybe the battery getting lower.
+
+## Floor attempts 8 (2026-10-22, file `logs/bb1_2026-10-22_00-31-54_p15-d0-5.csv`)
+
+P 10, D 0.74 to 0.76, trim −0.01, cap 150. 8 tries: 3 stood 10 s (best ±3.4 deg), 5 fell (3 back, 2 forward). Most tries start rolling **backward** after about 1 s (up to 3.8 wheel turns), then fall. Same gains stood 6/6 in run 7: likely the battery getting low (no voltage sensing yet). Next: check the battery, trim slightly forward, then the speed loop (step 8).
