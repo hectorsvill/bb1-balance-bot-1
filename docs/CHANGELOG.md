@@ -8,11 +8,11 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- Hand-held test: fall cut-out (past 45 deg) still to check; measure the motor deadband
+- Measure the motor deadband
 
 ## 2026-10-21 - hand-held arm test: directions correct
 
-- First full hand-held run (`tools/handheld.py`): armed 5 s with no Wi-Fi cut-out; leaning forward drove both wheels forward, leaning back drove them backward. Numbers in BUILD_RECORD.md. Fall cut-out not tested yet
+- First full hand-held run (`tools/handheld.py`): armed 5 s with no Wi-Fi cut-out; leaning forward drove both wheels forward, leaning back drove them backward. Fall cut-out checked both ways (22:21 run). Numbers in BUILD_RECORD.md. Hand-held test passed: next is the floor
 
 ## 2026-10-21 - web server: close each connection (fix "lost the web page")
 

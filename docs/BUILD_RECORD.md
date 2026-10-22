@@ -68,5 +68,5 @@ Run with `tools/handheld.py` (serial arm, Wi-Fi log), kp 15, kd 0.5, trim −3.9
 | Stayed armed for the full arm time | 5.00 s, then "arm time finished" |
 | Lean forward (error > +3 deg) | PWM +66 both, wheel speed +215 / +289 counts/s: **forward, correct** |
 | Lean back (error < −3 deg) | PWM −60 both, wheel speed −243 / −237 counts/s: **backward, correct** |
-| Fall cut-out (past 45 deg) | not tested yet (largest error 25 deg) |
+| Fall cut-out (past 45 deg) | **works both ways** (`logs/bb1_2026-10-21_22-21-22_handheld.csv`): forward cut at error +45.5 deg, back at −45.5 deg, PWM 0 the same tick, FALLEN |
 
