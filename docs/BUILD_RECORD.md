@@ -57,3 +57,16 @@ Rebuild example: `openscad -o reverse_t_frame_short.stl -D 'layout="short"' -D '
 | At rest | accel z about 0.94 g (flat, face up), total about 0.95 g |
 | Gyro bias | y about +2.5 deg/s at rest |
 | Pitch | tilt X; 30 deg forward read about -35 deg, so forward lean reads negative. **Corrected 2026-10-21:** bb1 step 1 shows forward lean (hectorsvill side down) reads positive, gyro X shares the sign |
+
+## Hand-held arm test (2026-10-21, bb1 step 7)
+
+Run with `tools/handheld.py` (serial arm, Wi-Fi log), kp 15, kd 0.5, trim −3.98, cap 80. File: `logs/bb1_2026-10-21_22-17-57_handheld.csv` (22.9 s, 0 missing ticks, 0 overruns, 0 IMU errors).
+
+| Check | Result |
+|---|---|
+| Arm refused when not near the trim | yes (reason "not upright" in the 22:12 runs) |
+| Stayed armed for the full arm time | 5.00 s, then "arm time finished" |
+| Lean forward (error > +3 deg) | PWM +66 both, wheel speed +215 / +289 counts/s: **forward, correct** |
+| Lean back (error < −3 deg) | PWM −60 both, wheel speed −243 / −237 counts/s: **backward, correct** |
+| Fall cut-out (past 45 deg) | not tested yet (largest error 25 deg) |
+
