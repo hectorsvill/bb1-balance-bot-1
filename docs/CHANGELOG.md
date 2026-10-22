@@ -12,6 +12,8 @@ Newest first.
 
 ## 2026-10-21 - first floor attempts
 
+- Run 3: cap still 80 (the `:` command didn't reach BB1 twice). All 4 tries fell backward at the cap. handheld.py now takes `--kp --kd --cap --trim` at start and shows kp / kd / cap in the status line
+
 - Run 2 (cap150 file, cap actually still 80): **first full 10 s standing**, then 6 short tries falling mostly backward at the cap. Average pitch suggests trim about −4.6. Next: cap 150 for real
 
 - 3 tries at kp 15 / kd 0.5 / cap 80: about 2 s upright each, then fell backward once the PWM hit the cap (80). Details in BUILD_RECORD.md. Next: cap 150

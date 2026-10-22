@@ -44,7 +44,7 @@ A *thread* is a second line of work in the same program. Python lets them share 
 
 1. **Find BB1.** `socket.gethostbyname("bb1.local")` once, then always the IP (looking up `.local` names can be slow every time).
 2. **Open both links.** Serial: the first `/dev/cu.usbmodem*` at 115200 (from `serial_log.py`). Wi-Fi: `/log/meta` for the `# setting` lines, `/state` for the current tick, so the recording starts "now".
-3. **Ask for `gains`**, so you see the settings, and the script learns the trim (to show "from trim").
+3. **Send any `--kp/--kd/--cap/--trim` you gave, then ask for `gains`**, so you see the settings. The script reads the trim (to show "from trim") and kp, kd, cap (shown in the status line) from that answer, so the screen always shows what BB1 is really using.
 4. **Keys without Enter.** `tty.setcbreak()` puts the terminal in *cbreak* mode: each key arrives immediately and isn't echoed. `select()` waits up to 0.2 s for a key, so the status line refreshes 5 times a second even when you press nothing.
 5. **Keys:** `a` sends `arm 5` (BB1 disarms itself after 5 s), Enter or space sends `disarm`, `g` sends `gains`, `:` switches back to normal typing for one line and sends what you type (`kp 20`, `save`...).
 6. **The status line** is redrawn in place: `\r` goes back to the start of the line and `ESC[K` clears it. Full lines from BB1 are printed above it the same way (`say()`).

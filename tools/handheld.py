@@ -6,6 +6,7 @@ Usage (from the repo folder, USB plugged in, BB1 on the home network):
     tools/venv/bin/python tools/handheld.py                    # arm 5 s per press of "a"
     tools/venv/bin/python tools/handheld.py -s 3 -n "tilt"     # 3 s per arm, note "tilt"
     tools/venv/bin/python tools/handheld.py --host 192.168.1.240
+    tools/venv/bin/python tools/handheld.py --cap 150 --kp 18  # set these first (not saved in flash)
 
 Keys (no Enter needed):
     a        arm for a few seconds (default 5), it disarms by itself after that
@@ -81,6 +82,7 @@ class SerialLink(threading.Thread):
         self.ser = serial.Serial(port, 115200, timeout=0.2)
         self.readout = ""
         self.trim = None                          # from the "gains" answer, to show the lean from the trim
+        self.gains = ""                           # "kp 15 kd 0.5 cap 80", shown in the status line
         self.running = True
 
     def send(self, cmd):
@@ -99,6 +101,9 @@ class SerialLink(threading.Thread):
             else:
                 if line.startswith("gains") and " trim " in line:   # "gains v2: kp 15.00 ... trim -3.98 deg ..."
                     self.trim = float(line.split(" trim ")[1].split()[0])
+                    w = line.split()
+                    pick = lambda key: f"{float(w[w.index(key) + 1]):g}"    # the number after a word
+                    self.gains = f"kp {pick('kp')} kd {pick('kd')} cap {pick('cap')}"
                 say(f"BB1: {line}")
 
 
@@ -116,6 +121,11 @@ def main():
     ap.add_argument("-p", "--port", help="serial port (default: first /dev/cu.usbmodem*)")
     ap.add_argument("-s", "--seconds", type=float, default=5, help="arm time per press of 'a' (default 5, max 10 here)")
     ap.add_argument("-n", "--note", default="handheld", help="a note saved in the file and its name (default handheld)")
+    # Settings sent at the start, so the file name and the run match what you asked for.
+    ap.add_argument("--kp", type=float, help="set kp before the test")
+    ap.add_argument("--kd", type=float, help="set kd before the test")
+    ap.add_argument("--cap", type=float, help="set the PWM cap before the test (of 255)")
+    ap.add_argument("--trim", help="set the trim before the test (a number, or here)")
     args = ap.parse_args()
     arm_s = min(max(args.seconds, 1), 10)            # a short timer: every motor run stops by itself
 
@@ -134,6 +144,11 @@ def main():
     print(f"Recording from {args.host} ({ip}). Log will be saved to {out.name}")
     print(f"Keys: a = arm {arm_s:g} s   Enter/space = disarm   g = gains   : = type a command   q = save and quit")
     print("Hold BB1 in the air, wheels free, fingers clear.")
+    for name in ("kp", "kd", "cap", "trim"):         # only the ones you gave
+        value = getattr(args, name)
+        if value is not None:
+            link.send(f"{name} {value:g}" if isinstance(value, float) else f"{name} {value}")
+            time.sleep(0.1)                            # one command at a time
     link.send("gains")
 
     # cbreak: each key arrives at once, without waiting for Enter, and isn't echoed.
@@ -162,7 +177,7 @@ def main():
                         link.send(cmd)
                 elif key == "q":
                     break
-            status = f"{link.readout or 'waiting for serial'}  | log {len(rec.rows) / 200:.1f} s"
+            status = f"{link.readout or 'waiting for serial'}  | {link.gains}  | log {len(rec.rows) / 200:.1f} s"
             if rec.lost:
                 status += f", {rec.lost} lost"
             if rec.problem:

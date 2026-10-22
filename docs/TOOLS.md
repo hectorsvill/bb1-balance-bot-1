@@ -133,6 +133,7 @@ For the hand-held (and later floor) tests without the web page. Needs USB plugge
 | Option | Meaning |
 |---|---|
 | `-s 3` | arm time per press of a (default 5, 1 to 10 s) |
+| `--cap 150 --kp 18 --kd 0.6 --trim -4.6` | set these before the test (any of them; RAM only, `save` with **:** to keep). The status line always shows the kp, kd and cap BB1 is really using |
 | `-n "tilt"` | note in the file and its name (default handheld) |
 | `--host 192.168.1.240` | robot address, if `bb1.local` is slow (type `wifi` on serial) |
 | `-p /dev/cu.usbmodemXXXX` | serial port, if more than one Pico is plugged in |

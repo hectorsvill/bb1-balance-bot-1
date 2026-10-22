@@ -87,3 +87,7 @@ Meant to test cap 150, but the cap **stayed at 80** the whole run (gains_ver 2 i
 - The robot drifted backward over the run (encoders about −4,000 counts on each side): it only fights the lean, nothing holds its position yet (that's the speed loop, step 8).
 - Next: really set cap 150 (check with `g` before arming).
 
+## Floor attempts 3 (2026-10-21, file `logs/bb1_2026-10-21_22-47-49_floor-cap150.csv`)
+
+Cap again **still 80** (max PWM 80; gains_ver 3 throughout, from Claude's `cap 80` check, so the `:` → `cap 150` didn't reach BB1 again). Four tries, all fell **backward** within 1.2 to 2.2 s: it leans back slowly (about 10 to 15 deg/s), the PWM ramps, hits 80 at about −5 deg and it's gone. Fix in the tool: `--cap` etc. on the command line, and the status line now shows kp / kd / cap live.
+
