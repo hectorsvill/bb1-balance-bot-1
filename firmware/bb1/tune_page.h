@@ -106,14 +106,31 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
 <!-- Notes: the method, short. Full guide: docs/PID_TUNING.md -->
 <div class="panel">
   <h2>How to use this page</h2>
+  <p style="margin:0"><b>Start (once)</b></p>
   <ol>
-    <li>Battery on first, then USB. BB1 on the floor, clear space front and back.</li>
-    <li>In the terminal: <code>tools/venv/bin/python tools/handheld.py -s 10 -n "P15 D0.5"</code> (no <code>--kp</code> / <code>--kd</code>: they would overwrite this page).</li>
-    <li>Change <b>one</b> box here, press <b>Apply</b>. The terminal prints <code>BB1: gains vN ...</code> with the new numbers.</li>
-    <li>Stand BB1 up, press <b>a</b> in the terminal, let go, catch it. 3 tries per setting. Watch <b>PWM out</b> and the chart.</li>
-    <li>Order: P first (I = 0), then D, then a little I only if it keeps drifting one way. Same as tuning a quad.</li>
-    <li>Happy with it: disarm, <b>Save to flash</b>. Press <b>q</b> in the terminal to save the log (it records every gains version you tried).</li>
+    <li>Battery on <b>first</b>, then USB.</li>
+    <li>Terminal: <code>tools/venv/bin/python tools/handheld.py -s 10 -n "P15 D0.5"</code></li>
+    <li>Open this page. Put it and the Terminal side by side.</li>
   </ol>
+  <p style="margin:0"><b>Change a gain</b></p>
+  <ol>
+    <li>Change <b>one</b> box, click <b>Apply</b>.</li>
+    <li>Expect: Terminal prints <code>BB1: gains vN: kp ...</code></li>
+  </ol>
+  <p style="margin:0"><b>Run a try</b></p>
+  <ol>
+    <li>Stand BB1 upright on the floor. Terminal <code>(trim ...)</code> within &plusmn;10.</li>
+    <li><b>Click the Terminal window</b> (keys don't work here).</li>
+    <li>Press <b>a</b>. Expect: <code>ARMED</code>.</li>
+    <li>Let go. Stops by itself after 10 s or past 45&deg;. <b>Enter</b> stops early.</li>
+    <li>Catch it. 3 tries, then change a gain again.</li>
+  </ol>
+  <p style="margin:0"><b>Finish</b></p>
+  <ol>
+    <li>Liked it: <b>Save to flash</b> here (disarmed).</li>
+    <li>Terminal: <b>q</b> saves the log.</li>
+  </ol>
+  <p class="muted">Order: P first (I = 0), then D, then a little I only if it keeps drifting one way.</p>
   <h2>If you fly FPV</h2>
   <p class="muted" style="margin:0 0 8px">Same PID as one axis of Betaflight's pitch loop. The stick is fixed at "stand upright" (the trim), the motors are the wheels.</p>
   <table>

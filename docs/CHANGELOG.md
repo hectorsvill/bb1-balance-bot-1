@@ -16,6 +16,7 @@ Newest first.
 - Changing gains from a page now prints the `gains` line on serial (`printGains()` moved to `settings.h`), so `handheld.py` shows it and writes `# gains_vN,...` lines into the log
 - docs/PID_TUNING.md: "Two ways to change the gains" (page, or `config.h` + `defaults` because flash overrides `config.h`)
 - Gains renamed in the code for P / I / D: `gainKp` -> `gainP` (and I, D), `DEFAULT_KP` -> `DEFAULT_P_GAIN`, `Pid.kp` -> `Pid.gainP`; comments compare each to Betaflight. Serial also takes `p N` / `i N` / `d N`. Wire names (`kp` in the gains line, JSON, logs) unchanged. Flash layout unchanged (gains loaded fine after the update)
+- /tune and PID_TUNING.md: steps split into Start / Change a gain / Run a try / Finish (click the Terminal before pressing a)
 - /tune: "How to use this page" rewritten, plus an "If you fly FPV" table
 - /tune gain boxes labelled P (Kp), I (Ki), D (Kd), with a hover / tap helper saying what each does
 - Checked on the robot: /tune loads, live data, Apply works and the gains line appears on serial

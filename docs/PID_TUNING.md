@@ -70,11 +70,27 @@ The big difference: a quad's setpoint comes from your stick; BB1's is fixed at "
 
 **A. The tuning page (live, no flashing).** Open **http://bb1.local/tune** (or `http://<ip>/tune`; type `wifi` on serial for the IP). It shows only what tuning needs: boxes for Kp, Ki, Kd, trim and cap, live pitch, error, the P / I / D terms, PWM out, a 5 s chart, and short notes.
 
-1. Battery on first, then USB. Start `tools/venv/bin/python tools/handheld.py -s 10 -n "P15 D0.5"`, **without** `--kp/--kd/--cap` (those would overwrite what the page set).
-2. Open **http://bb1.local/tune** on the Mac or phone.
-3. Type one new number, press **Apply**. **Expect:** the terminal prints `BB1: gains vN: kp ...` and the status line shows the new numbers.
-4. Arm with **a** in the terminal, try, catch it.
-5. Happy with it: disarm, then **Save to flash** on the page (or `:` → `save` in the terminal).
+**Start (once)**
+1. Battery on **first**, then USB.
+2. Terminal: `tools/venv/bin/python tools/handheld.py -s 10 -n "P15 D0.5"` (no `--kp/--kd/--cap`: they would overwrite the page).
+3. **Expect:** bottom line `pitch … (trim …) | kp 15 kd 0.5 cap 80 | log 0 s`.
+4. Browser: open **http://bb1.local/tune**. Put the browser and the Terminal side by side.
+
+**Change a gain**
+1. Page: change **one** box, click **Apply**.
+2. **Expect:** Terminal prints `BB1: gains vN: kp …` with your new number.
+
+**Run a try**
+1. Stand BB1 upright on the floor, hands close but not touching. The status line `(trim …)` must be within ±10.
+2. **Click the Terminal window** (keys only work there, not in the browser).
+3. Press **a**. **Expect:** `ARMED`.
+4. Let go and watch. It stops by itself after 10 s or when it falls past 45 deg. **Enter** stops it early.
+5. Catch it. Do steps 1 to 5 three times, then go back to "Change a gain".
+
+**Finish**
+1. Liked a setting: page **Save to flash** (disarmed only).
+2. Terminal: press **q**. **Expect:** `Saved … records … to logs/bb1_…csv`.
+3. Send the file name and what it did.
 
 The page never arms. Arming and logging stay in the terminal, so a Wi-Fi hiccup can't cut a try short (armed from serial, the page heartbeat doesn't apply). Every change prints a `gains` line on serial, and `handheld.py` writes each version into the log file as `# gains_vN,kp ... cap ...`, so the log says which gains every row used (`gains_ver` column).
 
