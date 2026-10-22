@@ -108,3 +108,11 @@ Hector's own tuning, gains set on the /tune page. Note says "P15 D0.5" but the `
 - 2 tries, 2.8 s and 3.0 s, both fell past 45 deg. Hector saw overshoot and jitter.
 - D term averaged about 430 (peak 1,850) vs P about 100 to 150; PWM at the cap 80% of the time, flipping +150 / −150 about 25 times a second. Early on the pitch moved under 1 deg while the gyro read ±130 deg/s: the wheels shaking the body, D reacting to it (D too high, like hot motors / D oscillation on a quad).
 - Mean error −2 deg on one try and +8 on the other: trim −0.58 may be off (measured about −4 before).
+
+## Floor attempts 6 (2026-10-22, file `logs/bb1_2026-10-22_00-22-56_p15-d0-5.csv`)
+
+**P 10, D 0.5, trim −0.01, cap 150** (note still says "P15 D0.5"). Jitter gone. One try, **about 9.4 s up**, mean error +0.3 deg (trim looks right now).
+
+- Slow growing swings, about 2 to 3 s each: leans to −10 deg with gentle PWM (20 to 40), then P shoves hard (up to 150) and it overshoots to +10, once +26. Rolls ±1.4 wheel turns.
+- D term averaged 13 vs P 56: too little damping (bounce-back, like low D on a quad).
+- Wheels barely respond below about PWM 30 (speed roughly doubles from PWM 20–30 to 30–40): probably the motor deadband, still unmeasured.

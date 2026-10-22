@@ -12,6 +12,7 @@ Newest first.
 
 ## 2026-10-22 - Hector's tuning, floor run 5
 
+- P 10 / D 0.5 / trim −0.01: jitter gone, about 9.4 s up, slow growing overshoot (D term about 1/4 of P; deadband likely about PWM 30) (BUILD_RECORD, floor attempts 6)
 - P 10 / D 5 / trim −0.58 / cap 150: about 3 s, overshoot and jitter. D term about 3x P and pinning the PWM at ±cap (BUILD_RECORD, floor attempts 5)
 
 ## 2026-10-21 - PID tuning page (/tune)
