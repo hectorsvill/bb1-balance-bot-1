@@ -10,6 +10,10 @@ Newest first.
 - Battery cradle (record the pack's size and capacity)
 - Measure the motor deadband
 
+## 2026-10-22 - Hector's tuning, floor run 5
+
+- P 10 / D 5 / trim −0.58 / cap 150: about 3 s, overshoot and jitter. D term about 3x P and pinning the PWM at ±cap (BUILD_RECORD, floor attempts 5)
+
 ## 2026-10-21 - PID tuning page (/tune)
 
 - New small page at http://bb1.local/tune (`tune_page.h`): Kp, Ki, Kd, trim, cap with Apply / Save to flash; live pitch, error, P / I / D, PWM out, 5 s chart; tuning notes. Never arms (arm and log with `handheld.py`). Also in `mock_bb1.py`

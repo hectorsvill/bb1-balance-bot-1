@@ -100,3 +100,11 @@ Cap 150 really applied this time (max PWM 150; the file's `# gains` line still s
 
 From here Hector tunes the PID himself (the point of the project); Claude explains the logs and the theory but doesn't pick gains unless asked.
 
+
+## Floor attempts 5 (2026-10-22, file `logs/bb1_2026-10-22_00-19-01_p15-d0-5.csv`)
+
+Hector's own tuning, gains set on the /tune page. Note says "P15 D0.5" but the `# gains_v31` line shows what ran: **P 10, D 5, trim −0.58, cap 150**.
+
+- 2 tries, 2.8 s and 3.0 s, both fell past 45 deg. Hector saw overshoot and jitter.
+- D term averaged about 430 (peak 1,850) vs P about 100 to 150; PWM at the cap 80% of the time, flipping +150 / −150 about 25 times a second. Early on the pitch moved under 1 deg while the gyro read ±130 deg/s: the wheels shaking the body, D reacting to it (D too high, like hot motors / D oscillation on a quad).
+- Mean error −2 deg on one try and +8 on the other: trim −0.58 may be off (measured about −4 before).
