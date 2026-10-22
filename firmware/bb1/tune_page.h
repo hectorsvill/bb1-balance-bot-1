@@ -148,7 +148,9 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
     <tr><td>Fast back-and-forth shaking</td><td>more D, or less P</td></tr>
     <tr><td>Buzzing, jittery motors</td><td>less D</td></tr>
     <tr><td>PWM out stuck at the cap ("at cap"), then falls</td><td>raise Cap (max 255)</td></tr>
-    <tr><td>Always falls / rolls the same way</td><td>Trim: hold it at its balance point, "Trim = current pitch"</td></tr>
+    <tr><td>Keeps leaning / rolling <b>backward</b></td><td>raise Trim (toward +), about 0.5 deg at a time</td></tr>
+    <tr><td>Keeps leaning / rolling <b>forward</b></td><td>lower Trim (toward -), about 0.5 deg at a time</td></tr>
+    <tr><td>Not sure where it balances</td><td>hold it where it feels balanced, "Trim = current pitch" (applies at once)</td></tr>
     <tr><td>Slow big rocking</td><td>less I</td></tr>
   </table>
   <p class="muted">PWM out = P term + I term + D term, limited to the cap. P term = P gain x error, D term = D gain x lean speed, I term = I gain x error added up over time. Full guide: <code>docs/PID_TUNING.md</code>.</p>

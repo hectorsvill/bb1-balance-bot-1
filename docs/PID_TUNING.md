@@ -120,7 +120,7 @@ Use the **step test** (setpoint +2 deg for 1 s) to compare gains: a good respons
 | Fast back-and-forth shaking | Kp too high, Kd too low | more Kd or less Kp |
 | Buzzing, jittery motors | Kd too high or noisy gyro | lower Kd |
 | Slow rocking, big swings | I or speed loop too strong | lower Ki / speed gain |
-| Leans steadily, rolls off | balance trim off | adjust trim, small Ki |
+| Leans steadily, rolls off | balance trim off (BB1 holds the trim angle; if that isn't the real balance point, gravity keeps pulling it that way) | rolls **backward**: raise trim (toward +); rolls **forward**: lower trim (toward −); about 0.5 deg steps. Later a small Ki |
 | Wheels spin but it still falls | PWM cap too low (saturating) | check the saturated flag, raise the cap |
 
 > Classic Ziegler-Nichols tuning (raise Kp until it oscillates steadily, then compute the gains from that) is worth reading about, but hand tuning as above is the normal way for balancing robots.
