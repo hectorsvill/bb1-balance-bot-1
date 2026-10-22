@@ -116,3 +116,19 @@ Hector's own tuning, gains set on the /tune page. Note says "P15 D0.5" but the `
 - Slow growing swings, about 2 to 3 s each: leans to −10 deg with gentle PWM (20 to 40), then P shoves hard (up to 150) and it overshoots to +10, once +26. Rolls ±1.4 wheel turns.
 - D term averaged 13 vs P 56: too little damping (bounce-back, like low D on a quad).
 - Wheels barely respond below about PWM 30 (speed roughly doubles from PWM 20–30 to 30–40): probably the motor deadband, still unmeasured.
+
+## Floor attempts 7 (2026-10-22, file `logs/bb1_2026-10-22_00-27-07_p15-d0-5.csv`)
+
+**P 10, trim −0.01, cap 150, D tried 0.75 to 0.85** (one `# gains_vN` line per setting). **All 6 tries stood the full 10 s** (arm timer).
+
+| D | error std (deg) | notes |
+|---|---|---|
+| 0.75 | 3.8 | best |
+| 0.80 | 4.2 | |
+| 0.85 | 3.9 | |
+| 0.82 | 11.6 | rolled about 12 wheel turns one way, 27% at cap |
+| 0.82 | 6.8 | |
+| 0.81 | 7.8 | |
+
+- No jitter, almost never at the cap. Remaining: slow swing, about ±10 deg every 2 to 5 s while rolling 1 to 2 wheel turns. That's the missing speed loop (step 8): the angle loop alone can't stop the drift. Deadband (about PWM 30, unmeasured) adds to it.
+- Later tries noisier: maybe the battery getting lower.
