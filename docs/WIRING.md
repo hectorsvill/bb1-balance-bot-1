@@ -2,6 +2,10 @@
 
 Pico physical pin numbers in brackets. D153C pin names follow its silkscreen.
 
+![BB1 wiring diagram](wiring.png)
+
+The picture is drawn from the tables below by `tools/make_wiring_svg.py` (`wiring.svg`, and `wiring.png` for phones). Change a wire: update the table here and the list in that script, run it, then re-save the PNG (open `wiring.svg` in Chrome and screenshot, or see `docs/TOOLS.md`).
+
 ## Power
 
 | From | To | Notes |

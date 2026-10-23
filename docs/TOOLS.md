@@ -140,6 +140,14 @@ For the hand-held (and later floor) tests without the web page. Needs USB plugge
 
 Only one program can hold the USB port: close `arduino-cli monitor` and the Arduino IDE Serial Monitor first. How it works inside (threads, keys, status line): `docs/HANDHELD_TOOL.md`.
 
+### make_wiring_svg.py: the wiring picture
+
+Draws `docs/wiring.svg` from the pin lists inside it (same as the tables in `docs/WIRING.md`). Run `tools/venv/bin/python tools/make_wiring_svg.py`. For the PNG copy (`docs/wiring.png`), with Chrome:
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --screenshot="$PWD/docs/wiring.png" --window-size=1000,836 "file://$PWD/docs/wiring.svg"
+```
+
 ### logger.py: record a run over Wi-Fi
 
 ```bash

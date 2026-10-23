@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="836" viewBox="0 0 1000 836" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#1f2328">
+<rect width="1000" height="836" fill="#ffffff"/>
+<text x="20" y="34" font-size="20" font-weight="bold">BB1 wiring: Pico W, D153C, GY-521</text>
+<text x="20" y="58" fill="#555555">Pico physical pin in brackets. Same as docs/WIRING.md. STBY must be HIGH, or both motors stay off.</text>
+<rect x="40" y="90" width="230" height="610" rx="10" fill="#eaf5ea" stroke="#2da44e" stroke-width="2"/>
+<text x="155.0" y="82" text-anchor="middle" font-weight="bold">Raspberry Pi Pico W</text>
+<rect x="620" y="90" width="340" height="430" rx="10" fill="#fdf1e3" stroke="#e69500" stroke-width="2"/>
+<text x="790.0" y="82" text-anchor="middle" font-weight="bold">D153C (TB6612) motor driver</text>
+<rect x="620" y="570" width="340" height="130" rx="10" fill="#e8f0fe" stroke="#2f81f7" stroke-width="2"/>
+<text x="790.0" y="562" text-anchor="middle" font-weight="bold">GY-521 (MPU-6050), address 0x68</text>
+<line x1="270" y1="110" x2="620" y2="110" stroke="#e5534b" stroke-width="4"/>
+<circle cx="270" cy="110" r="4" fill="#e5534b"/>
+<circle cx="620" cy="110" r="4" fill="#e5534b"/>
+<text x="260" y="115" text-anchor="end">GP9 (12)</text>
+<text x="630" y="115" font-weight="bold" fill="#e5534b">STBY</text>
+<text x="795" y="115" fill="#666666" font-size="12">HIGH = motors on</text>
+<line x1="270" y1="140" x2="620" y2="140" stroke="#555555" stroke-width="2.5"/>
+<circle cx="270" cy="140" r="4" fill="#555555"/>
+<circle cx="620" cy="140" r="4" fill="#555555"/>
+<text x="260" y="145" text-anchor="end">GND (13)</text>
+<text x="630" y="145">GND (Input_IO)</text>
+<line x1="270" y1="170" x2="620" y2="170" stroke="#e69500" stroke-width="2.5"/>
+<circle cx="270" cy="170" r="4" fill="#e69500"/>
+<circle cx="620" cy="170" r="4" fill="#e69500"/>
+<text x="260" y="175" text-anchor="end">GP10 (14)</text>
+<text x="630" y="175">PWMA</text>
+<line x1="270" y1="200" x2="620" y2="200" stroke="#e69500" stroke-width="2.5"/>
+<circle cx="270" cy="200" r="4" fill="#e69500"/>
+<circle cx="620" cy="200" r="4" fill="#e69500"/>
+<text x="260" y="205" text-anchor="end">GP11 (15)</text>
+<text x="630" y="205">PWMB</text>
+<line x1="270" y1="230" x2="620" y2="230" stroke="#2f81f7" stroke-width="2.5"/>
+<circle cx="270" cy="230" r="4" fill="#2f81f7"/>
+<circle cx="620" cy="230" r="4" fill="#2f81f7"/>
+<text x="260" y="235" text-anchor="end">GP12 (16)</text>
+<text x="630" y="235">AIN1</text>
+<line x1="270" y1="260" x2="620" y2="260" stroke="#2f81f7" stroke-width="2.5"/>
+<circle cx="270" cy="260" r="4" fill="#2f81f7"/>
+<circle cx="620" cy="260" r="4" fill="#2f81f7"/>
+<text x="260" y="265" text-anchor="end">GP13 (17)</text>
+<text x="630" y="265">AIN2</text>
+<line x1="270" y1="290" x2="620" y2="290" stroke="#8957e5" stroke-width="2.5"/>
+<circle cx="270" cy="290" r="4" fill="#8957e5"/>
+<circle cx="620" cy="290" r="4" fill="#8957e5"/>
+<text x="260" y="295" text-anchor="end">GP14 (19)</text>
+<text x="630" y="295">BIN1</text>
+<line x1="270" y1="320" x2="620" y2="320" stroke="#8957e5" stroke-width="2.5"/>
+<circle cx="270" cy="320" r="4" fill="#8957e5"/>
+<circle cx="620" cy="320" r="4" fill="#8957e5"/>
+<text x="260" y="325" text-anchor="end">GP15 (20)</text>
+<text x="630" y="325">BIN2</text>
+<line x1="270" y1="350" x2="620" y2="350" stroke="#2da44e" stroke-width="2.5"/>
+<circle cx="270" cy="350" r="4" fill="#2da44e"/>
+<circle cx="620" cy="350" r="4" fill="#2da44e"/>
+<text x="260" y="355" text-anchor="end">GP16 (21)</text>
+<text x="630" y="355">E1A (left encoder)</text>
+<line x1="270" y1="380" x2="620" y2="380" stroke="#2da44e" stroke-width="2.5"/>
+<circle cx="270" cy="380" r="4" fill="#2da44e"/>
+<circle cx="620" cy="380" r="4" fill="#2da44e"/>
+<text x="260" y="385" text-anchor="end">GP17 (22)</text>
+<text x="630" y="385">E1B (left encoder)</text>
+<line x1="270" y1="410" x2="620" y2="410" stroke="#1b7f83" stroke-width="2.5"/>
+<circle cx="270" cy="410" r="4" fill="#1b7f83"/>
+<circle cx="620" cy="410" r="4" fill="#1b7f83"/>
+<text x="260" y="415" text-anchor="end">GP18 (24)</text>
+<text x="630" y="415">E2A (right encoder)</text>
+<line x1="270" y1="440" x2="620" y2="440" stroke="#1b7f83" stroke-width="2.5"/>
+<circle cx="270" cy="440" r="4" fill="#1b7f83"/>
+<circle cx="620" cy="440" r="4" fill="#1b7f83"/>
+<text x="260" y="445" text-anchor="end">GP19 (25)</text>
+<text x="630" y="445">E2B (right encoder)</text>
+<line x1="270" y1="470" x2="620" y2="470" stroke="#555555" stroke-width="2.5"/>
+<circle cx="270" cy="470" r="4" fill="#555555"/>
+<circle cx="620" cy="470" r="4" fill="#555555"/>
+<text x="260" y="475" text-anchor="end">GND (38)</text>
+<text x="630" y="475">GND (power)</text>
+<line x1="270" y1="500" x2="620" y2="500" stroke="#d1242f" stroke-width="2.5"/>
+<circle cx="270" cy="500" r="4" fill="#d1242f"/>
+<circle cx="620" cy="500" r="4" fill="#d1242f"/>
+<text x="260" y="505" text-anchor="end">VSYS (39)</text>
+<text x="630" y="505">5V</text>
+<text x="795" y="505" fill="#666666" font-size="12">straight wire, 1N5819 planned</text>
+<line x1="270" y1="590" x2="620" y2="590" stroke="#2f81f7" stroke-width="2.5" stroke-dasharray="6 4"/>
+<circle cx="270" cy="590" r="4" fill="#2f81f7"/>
+<circle cx="620" cy="590" r="4" fill="#2f81f7"/>
+<text x="260" y="595" text-anchor="end">GP4 (6)</text>
+<text x="630" y="595">SDA</text>
+<line x1="270" y1="620" x2="620" y2="620" stroke="#e69500" stroke-width="2.5" stroke-dasharray="6 4"/>
+<circle cx="270" cy="620" r="4" fill="#e69500"/>
+<circle cx="620" cy="620" r="4" fill="#e69500"/>
+<text x="260" y="625" text-anchor="end">GP5 (7)</text>
+<text x="630" y="625">SCL</text>
+<line x1="270" y1="650" x2="620" y2="650" stroke="#555555" stroke-width="2.5" stroke-dasharray="6 4"/>
+<circle cx="270" cy="650" r="4" fill="#555555"/>
+<circle cx="620" cy="650" r="4" fill="#555555"/>
+<text x="260" y="655" text-anchor="end">GND (8)</text>
+<text x="630" y="655">GND</text>
+<line x1="270" y1="680" x2="620" y2="680" stroke="#d1242f" stroke-width="2.5" stroke-dasharray="6 4"/>
+<circle cx="270" cy="680" r="4" fill="#d1242f"/>
+<circle cx="620" cy="680" r="4" fill="#d1242f"/>
+<text x="260" y="685" text-anchor="end">3V3(OUT) (36)</text>
+<text x="630" y="685">VCC</text>
+<text x="20" y="750">Power: 2S LiPo + / - to the D153C Vin+ / Vin- (blue terminal). The D153C switch turns the robot on.</text>
+<text x="20" y="772">Motors: left = socket A, right = socket B (XH cables). The encoder wires come back through the D153C header.</text>
+<text x="20" y="794">Power rule (no diode yet): D153C on BEFORE plugging in USB; unplug USB BEFORE switching the D153C off.</text>
+</svg>

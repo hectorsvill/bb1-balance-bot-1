@@ -12,6 +12,7 @@ Newest first.
 
 ## 2026-10-23 - handheld.py picks the Pico's port
 
+- Wiring diagram: `docs/wiring.svg` / `wiring.png`, drawn by `tools/make_wiring_svg.py`, shown at the top of WIRING.md
 - Both motors dead: STBY wire (GP9) came unsoldered, re-soldered (BUILD_RECORD, Repair)
 - `find_port()` in `serial_log.py` (used by handheld.py) picks the port with the Raspberry Pi USB vendor ID instead of the first `/dev/cu.usbmodem*`. An Anker dock had taken the first slot, so `a` went to the dock (`ERR: unknown cmd`)
 
