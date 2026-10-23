@@ -10,7 +10,8 @@ term looks too big or too small, never a number: you pick the gains.
 
 What the columns mean (all from the armed part of the try only):
     secs     how long it stayed armed (10 = the arm timer ran out, it never fell)
-    end      timer / FELL fwd / FELL back / you (disarmed by you)
+    end      timer / FELL fwd / FELL back / you (STOP, Enter) / Wi-Fi lost (no /state
+             for 1 s while armed over Wi-Fi) / tab hidden / IMU error / loop late
     wobble   standard deviation of the error, deg. Smaller = calmer
     lean     average error, deg. Far from 0 = trim is off (+ = leans forward)
     |P| |I| |D|  average size of each term, in PWM. Who is doing the work?
@@ -29,7 +30,10 @@ from check_dump import find_file, load_dump
 
 REPO = Path(__file__).resolve().parent.parent
 MODE_ARMED, MODE_FALLEN = 4, 5            # telemetry.h
-REASON_FELL, REASON_TIMER = 2, 11         # control.h (DisarmReason order)
+# Why it disarmed, by the number in the log's "reason" column (control.h, DisarmReason order)
+END_NAMES = {1: "you", 2: "FELL", 3: "IMU error", 4: "Wi-Fi lost", 5: "loop late",
+             9: "calibrate", 10: "tab hidden", 11: "timer"}
+REASON_FELL = 2
 COUNTS_PER_REV = 520
 SAT_FLAG = 8                              # FLAG_SATURATED in telemetry.h
 
@@ -41,15 +45,15 @@ def tries(df):
     for _, g in df[armed].groupby(group[armed]):
         # The disarm reason shows up a tick or two after the last armed row.
         after = df.loc[g.index[-1] + 1:].head(5)
-        reasons = set(after.reason.astype(int))
+        reasons = set(after.reason.astype(int)) - {0}
         if after.empty:
             end = "log ended"
         elif MODE_FALLEN in set(after["mode"]) or REASON_FELL in reasons:
             end = "FELL fwd" if g.pitch.iloc[-1] > g.setpoint.iloc[-1] else "FELL back"
-        elif REASON_TIMER in reasons:
-            end = "timer"
+        elif reasons:
+            end = END_NAMES.get(min(reasons), f"reason {min(reasons)}")
         else:
-            end = "you"
+            end = "?"
         yield g, end
 
 
@@ -93,6 +97,8 @@ def hints(t):
         out.append("I term bigger than P -> I is doing the steering; too much I gives slow, growing rocking.")
     if (t.turns.abs() > 2).any():
         out.append("Rolls more than 2 wheel turns -> drift. PD can't hold position; that's the speed loop's job (step 8).")
+    if (t.end == "Wi-Fi lost").any():
+        out.append("Some tries were cut by Wi-Fi (no /state for 1 s), not by the PID: leave them out when comparing.")
     if (t.end == "timer").all():
         out.append("Every try lasted until the timer: this setting balances. Compare wobble to pick the best.")
     return out or ["Nothing stands out. Compare wobble between settings: smaller is better."]

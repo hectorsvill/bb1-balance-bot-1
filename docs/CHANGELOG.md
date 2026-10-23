@@ -12,6 +12,8 @@ Newest first.
 
 ## 2026-10-23 - handheld.py picks the Pico's port
 
+- docs/TUNING_LOG.md: every tuning round, and what we do with the log data. Round 10 (no cable): never fell, 2 tries cut by Wi-Fi, wobble about 6 vs 3 with the cable
+- pid_report.py names every disarm reason (Wi-Fi lost, tab hidden...) instead of "you"
 - /tune: **Run a try** panel (seconds, ARM, STOP, countdown; space = STOP; hidden tab disarms), so BB1 can run with no USB cable
 - handheld.py `--wifi`: no USB cable, arm / disarm / gains over Wi-Fi, heartbeat from its `/state` polling (0.2 s worst latency measured while logging)
 - New `tools/pid_report.py`: one row per try (secs, end, wobble, lean, |P| |I| |D|, cap%, flips/s, turns) plus hints
