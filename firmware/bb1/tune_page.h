@@ -4,12 +4,14 @@
 // error, P / I / D terms and motor PWM, a 5 s chart of error and PWM, and
 // short notes on how to tune.
 //
-// It never arms. You arm from the terminal (tools/handheld.py, key a), so a
-// Wi-Fi hiccup can't disarm BB1 in the middle of a try (armed from serial, the
-// page heartbeat doesn't apply). Logs are recorded by handheld.py too.
+// Arm panel: ARM for N seconds (stops by itself), STOP (or the space bar). Armed
+// from here, the firmware's heartbeat applies: this page's /state polling (10 a
+// second) keeps BB1 armed, and 1 s without it disarms ("lost the web page").
+// Hiding the tab disarms at once. You can still arm from tools/handheld.py
+// instead (key a, USB or --wifi). Logs: run handheld.py --wifi or logger.py.
 //
 // It talks to the same endpoints as the full page (web.h): GET /state ten
-// times a second, POST /gains, POST /gains/save. The full page is still at /.
+// times a second, POST /arm, /disarm, /gains, /gains/save. The full page is still at /.
 //
 // To change it without the robot: tools/mock_bb1.py serves it at
 // http://localhost:8080/tune.
@@ -46,6 +48,10 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
   .buttons { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
   button { border:none; border-radius:8px; padding:9px 14px; cursor:pointer; background:var(--panel2); color:var(--text); font-weight:600; font-size:14px; }
   button.go { background:var(--green); color:#06210f; font-weight:800; }
+  button.stop { background:var(--red); color:#fff; font-weight:800; font-size:18px; padding:12px 26px; }
+  button.arm { background:var(--green); color:#06210f; font-weight:800; font-size:18px; padding:12px 26px; }
+  .bar { height:6px; border-radius:3px; background:var(--panel2); margin-top:10px; overflow:hidden; }
+  .bar div { height:100%; width:0; background:var(--green); }
   .warn { color:var(--orange); }
   canvas { width:100%; height:160px; display:block; }
   .legend span { margin-right:12px; font-size:13px; }
@@ -59,13 +65,26 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
 <body>
 <main>
 
-<!-- Status: connection and armed state (read only: arm from the terminal) -->
+<!-- Status: connection and armed state -->
 <div class="panel top">
   <span class="dot" id="dot"></span>
   <h1>BB1 PID tuning</h1>
   <span class="chip" id="mode">--</span>
   <span class="muted" id="why"></span>
   <span class="muted" style="margin-left:auto"><a href="/" style="color:var(--blue)">full page</a></span>
+</div>
+
+<!-- Arm: N seconds, then it disarms by itself. STOP or the space bar any time. -->
+<div class="panel">
+  <h2>Run a try</h2>
+  <div class="top">
+    <label class="muted">seconds <input id="armSecs" value="10" inputmode="numeric" style="width:70px"></label>
+    <button class="arm" id="armBtn">ARM</button>
+    <button class="stop" id="stopBtn">STOP</button>
+    <span class="val" id="left" style="font-size:22px; font-weight:700"></span>
+  </div>
+  <div class="bar"><div id="leftBar"></div></div>
+  <div class="muted" id="armMsg" style="margin-top:8px">Stand BB1 up within 10 deg of the trim ("from trim" below), press ARM, let go. Space bar = STOP. Keep this tab in front: hiding it disarms.</div>
 </div>
 
 <!-- Gains: type, Apply. Save to flash keeps them after a restart (disarmed only). -->
@@ -93,7 +112,7 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
   <h2>Live</h2>
   <div class="grid">
     <div class="box"><div class="name">Pitch (deg)</div><div class="val" id="pitch">--</div></div>
-    <div class="box"><div class="name">Error = pitch - trim</div><div class="val" id="err">--</div></div>
+    <div class="box"><div class="name">From trim (arm within 10)</div><div class="val" id="err">--</div></div>
     <div class="box"><div class="name">P term</div><div class="val" id="p">--</div></div>
     <div class="box"><div class="name">I term</div><div class="val" id="i">--</div></div>
     <div class="box"><div class="name">D term</div><div class="val" id="d">--</div></div>
@@ -109,20 +128,17 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
   <p style="margin:0"><b>Start (once)</b></p>
   <ol>
     <li>Battery on (D153C switch). <b>No USB cable</b>: it tugs on BB1.</li>
-    <li>Terminal: <code>tools/venv/bin/python tools/handheld.py --wifi -s 10 -n "P10 D0.74"</code> (with USB: leave out <code>--wifi</code>, battery on first, then USB).</li>
-    <li>Open this page. Put it and the Terminal side by side.</li>
+    <li>For a log: Terminal <code>tools/venv/bin/python tools/handheld.py --wifi -s 10 -n "P10 D0.74"</code></li>
   </ol>
   <p style="margin:0"><b>Change a gain</b></p>
   <ol>
     <li>Change <b>one</b> box, click <b>Apply</b>.</li>
-    <li>Expect: Terminal prints <code>BB1: gains vN: kp ...</code></li>
   </ol>
   <p style="margin:0"><b>Run a try</b></p>
   <ol>
-    <li>Stand BB1 upright on the floor. Terminal <code>(trim ...)</code> within &plusmn;10.</li>
-    <li><b>Click the Terminal window</b> (keys don't work here).</li>
-    <li>Press <b>a</b>. Expect: <code>ARMED</code>.</li>
-    <li>Let go. Stops by itself after 10 s or past 45&deg;. <b>Enter</b> stops early.</li>
+    <li>Stand BB1 upright on the floor. <b>From trim</b> within &plusmn;10.</li>
+    <li>Click <b>ARM</b> (here, or <b>a</b> in the Terminal). Expect: ARMED and the countdown.</li>
+    <li>Let go. Stops after the seconds you set, past 45&deg;, or on <b>STOP</b> / space bar.</li>
     <li>Catch it. 3 tries, then change a gain again.</li>
   </ol>
   <p style="margin:0"><b>Finish</b></p>
@@ -207,6 +223,36 @@ el('trimHere').onclick = async () => { await post('/gains', { trim: 'here' }); f
 el('save').onclick = () => post('/gains/save', {});
 el('reload').onclick = () => { filledVer = -1; };
 
+// ---------- arm / stop ----------
+// ARM asks BB1 to balance for N s (it refuses if not within 10 deg of the trim;
+// the reason shows next to the mode). STOP and the space bar disarm at once.
+async function postTo(url, body, msgId) {
+  try {
+    const res = await fetch(url, { method: 'POST', body: body ? new URLSearchParams(body) : null });
+    el(msgId).textContent = await res.text();
+  } catch (e) {
+    el(msgId).textContent = 'no answer from BB1';
+  }
+}
+const stopNow = () => postTo('/disarm', null, 'armMsg');
+el('armBtn').onclick = () => {
+  const secs = Math.min(Math.max(+el('armSecs').value || 10, 1), 30);   // always a timer: every run stops by itself
+  el('armSecs').value = secs;
+  postTo('/arm', { seconds: secs }, 'armMsg');
+};
+el('stopBtn').onclick = stopNow;
+document.addEventListener('keydown', e => {
+  // Space = STOP, except while typing in a box. preventDefault stops the space
+  // bar from "clicking" the button that has focus (it could be ARM).
+  if (e.code === 'Space' && e.target.tagName !== 'INPUT') { e.preventDefault(); stopNow(); }
+});
+// A hidden tab is slowed to about one /state a second, which would trip the
+// 1 s heartbeat anyway: disarm straight away instead, with a clear reason.
+let armedNow = false;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && armedNow) navigator.sendBeacon('/disarm?why=hidden');
+});
+
 // Hover helper: hovering (Mac) or tapping (phone) P, I or D shows what it does
 // under the boxes. The text lives in each label's data-tip.
 for (const t of document.querySelectorAll('.tip')) {
@@ -244,7 +290,11 @@ async function poll() {
     const fallen = s.mode === 5;
     el('mode').textContent = s.armed ? 'ARMED' : fallen ? 'FALLEN' : 'DISARMED';
     el('mode').className = 'chip' + (s.armed ? ' armed' : fallen ? ' fallen' : '');
-    el('why').textContent = s.armed ? '' : (s.reason || '') + ' · arm with a in handheld.py';
+    el('why').textContent = s.armed ? '' : (s.reason || '');
+    armedNow = s.armed;
+    const timed = s.armed && s.arm_left_ms >= 0 && s.arm_ms > 0;
+    el('left').textContent = timed ? (s.arm_left_ms / 1000).toFixed(1) + ' s' : '';
+    el('leftBar').style.width = timed ? (100 * s.arm_left_ms / s.arm_ms) + '%' : '0';
     const err = s.pitch - gains.trim, out = s.armed ? s.pwm_l : 0;
     el('pitch').textContent = s.pitch.toFixed(1);
     el('err').textContent = (err >= 0 ? '+' : '') + err.toFixed(1);

@@ -94,7 +94,7 @@ The big difference: a quad's setpoint comes from your stick; BB1's is fixed at "
 2. Terminal: press **q**. **Expect:** `Saved … records … to logs/bb1_…csv`.
 3. Send the file name and what it did.
 
-The page never arms. Arming and logging stay in the terminal, so a Wi-Fi hiccup can't cut a try short (armed from serial, the page heartbeat doesn't apply). Every change prints a `gains` line on serial, and `handheld.py` writes each version into the log file as `# gains_vN,kp ... cap ...`, so the log says which gains every row used (`gains_ver` column).
+You can arm from the page (**Run a try**: seconds, **ARM**, **STOP** / space bar) or from the terminal (**a**). Armed over Wi-Fi (page or `--wifi`), BB1 disarms if Wi-Fi goes quiet for 1 s; armed over USB it doesn't. Every change prints a `gains` line on serial, and `handheld.py` writes each version into the log file as `# gains_vN,kp ... cap ...`, so the log says which gains every row used (`gains_ver` column).
 
 **B. In the code (`config.h`).** The starting values are `DEFAULT_P_GAIN`, `DEFAULT_I_GAIN`, `DEFAULT_D_GAIN`, `DEFAULT_TRIM`, `DEFAULT_PWM_CAP` in `firmware/bb1/config.h`.
 

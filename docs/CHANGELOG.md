@@ -12,6 +12,7 @@ Newest first.
 
 ## 2026-10-23 - handheld.py picks the Pico's port
 
+- /tune: **Run a try** panel (seconds, ARM, STOP, countdown; space = STOP; hidden tab disarms), so BB1 can run with no USB cable
 - handheld.py `--wifi`: no USB cable, arm / disarm / gains over Wi-Fi, heartbeat from its `/state` polling (0.2 s worst latency measured while logging)
 - New `tools/pid_report.py`: one row per try (secs, end, wobble, lean, |P| |I| |D|, cap%, flips/s, turns) plus hints
 - /tune: "Logs: record and read" section (needs a reflash to show)
