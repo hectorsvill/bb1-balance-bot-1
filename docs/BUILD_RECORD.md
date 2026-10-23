@@ -136,3 +136,7 @@ Hector's own tuning, gains set on the /tune page. Note says "P15 D0.5" but the `
 ## Floor attempts 8 (2026-10-22, file `logs/bb1_2026-10-22_00-31-54_p15-d0-5.csv`)
 
 P 10, D 0.74 to 0.76, trim −0.01, cap 150. 8 tries: 3 stood 10 s (best ±3.4 deg), 5 fell (3 back, 2 forward). Most tries start rolling **backward** after about 1 s (up to 3.8 wheel turns), then fall. Same gains stood 6/6 in run 7: likely the battery getting low (no voltage sensing yet). Next: check the battery, trim slightly forward, then the speed loop (step 8).
+
+## Repair: STBY wire came loose (2026-10-23)
+
+Motors stopped turning (bb1 and `motor_test.ino`) while PWM was being sent; battery 8.16 V, VM and 5 V correct. Cause: the **STBY wire (GP9, Pico pin 12) came unsoldered**, so the TB6612 stayed in standby. Hector re-soldered it. Lesson: when both motors die at once, check what they share first (STBY, VM, GND).
