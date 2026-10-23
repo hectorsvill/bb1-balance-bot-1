@@ -66,7 +66,22 @@ cp build/bb1/bb1.ino.uf2 /Volumes/RPI-RP2/
 
 ## 4. Arduino IDE 2
 
-Board "Raspberry Pi Pico W", port `/dev/cu.usbmodem...`, open `firmware/bb1/bb1.ino`, press Upload. Serial Monitor at 115200, "Newline".
+**One-time setup**
+1. **Arduino IDE > Settings**, "Additional boards manager URLs": paste `https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json`, click **OK**.
+2. **Tools > Board > Boards Manager**, search `pico`, install **Raspberry Pi Pico/RP2040/RP2350** by Earle F. Philhower (6.3.0 tested).
+
+**Each upload**
+1. D153C on **first**, then USB.
+2. **File > Open** `firmware/bb1/bb1.ino` (the other `.h` files open as tabs).
+3. **Tools > Board > Raspberry Pi Pico/RP2040 > Raspberry Pi Pico W**.
+4. **Tools > Port**: pick the one that says **Raspberry Pi Pico W** (`/dev/cu.usbmodem21401` here). Not the Anker dock (`/dev/cu.usbmodem13401`).
+5. **Close the Serial Monitor tab** if it's open (it holds the port and the upload fails with `No drive to deploy`).
+6. Click **Upload** (the → arrow). **Expect:** `Wrote … bytes to /Volumes/RPI-RP2/NEW.UF2` at the bottom.
+7. **Tools > Serial Monitor**, 115200 baud, "Newline", type `gains`. **Expect:** `gains vN: kp …`.
+
+Close the Serial Monitor again before running `tools/handheld.py`: only one program can hold the port.
+
+**Saved settings survive a reflash.** Gains, trim, cap (and the home Wi-Fi) live in a separate flash area, so they come back after flashing bb1 again, even after flashing another sketch like `motor_test` in between (checked 2026-10-23). `defaults` resets them to `config.h`.
 
 ## 5. Watch it run
 
@@ -96,9 +111,11 @@ Only one program can hold the port at a time. Close the monitor before uploading
 
 | Problem | Fix |
 |---|---|
+| Two ports show up | The other one is a USB dock (Anker shows as `usbmodem13401`). The Pico is the one listed as "Raspberry Pi" by `tools/venv/bin/python -m serial.tools.list_ports -v`. |
 | `ls /dev/cu.usbmodem*` finds nothing | Use the BOOTSEL way. Try another cable (some are charge-only). |
 | Upload says the port is busy | Close the serial monitor / screen first. |
 | Nothing prints after flashing | The sketch waits up to 5 s for a monitor, then runs anyway; open the monitor and type `help`, or press Enter. |
 | Output is garbage | Baud rate isn't 115200. |
+| Upload says `No drive to deploy` and the port stays | Something holds the serial port, usually the Arduino IDE Serial Monitor (shows as `serial-monitor` in `lsof /dev/cu.usbmodem21401`). Close it and upload again. Happened 2026-10-23. |
 | Upload says `No drive to deploy` and the port disappears | The Pico rebooted into its bootloader but macOS didn't mount RPI-RP2. Look for an "Allow accessory to connect?" pop-up and allow it; otherwise unplug and replug USB (it boots the old firmware) and retry, or use the BOOTSEL way. |
 | `Operation not permitted` on `/Volumes/RPI-RP2` (uploading from Claude Code) | macOS hasn't given that app access to removable drives. The Pico is already in bootloader mode at this point, so drag the `.uf2` onto RPI-RP2 in Finder yourself. Or allow it in System Settings > Privacy & Security > Files and Folders > Removable Volumes. |
