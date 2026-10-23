@@ -50,6 +50,15 @@ A *thread* is a second line of work in the same program. Python lets them share 
 6. **The status line** is redrawn in place: `\r` goes back to the start of the line and `ESC[K` clears it. It's cut to the window width and only redrawn when it changes: a line wider than the window wraps onto two rows, `\r` can only go back to the start of the last row, and every refresh would leave a new line behind (it looks like spam). Keep the window at least about 60 characters wide to see all of it. Full lines from BB1 are printed above it the same way (`say()`).
 7. **On q or Ctrl-C** (the `finally:` block, which runs even after an error): give the terminal back its normal mode, send `disarm` (never leave it armed), wait 0.5 s for the last records, then save.
 
+## Wi-Fi mode (`--wifi`)
+
+No USB cable, so nothing tugs on BB1. `WifiLink` replaces `SerialLink` and has the same job:
+
+- **Status line:** it asks `GET /state` ten times a second and shows pitch, trim distance and gains from the answer. It prints `ARMED` / `DISARMED: why` when the armed state changes.
+- **Commands:** `a` sends `POST /arm seconds=N`, Enter sends `POST /disarm`, and `:` takes `kp/ki/kd/p/i/d/trim/cap N`, `trim here`, `save`, `defaults` (sent to `/gains`). Motor tests and other serial-only commands say so.
+- **Safety:** armed from Wi-Fi, the firmware's heartbeat applies. Those `/state` requests are the heartbeat, so if Wi-Fi stalls for 1 s BB1 disarms ("lost the web page"). With no cable that's the right failsafe. The arm timer, the 45 deg cut-out and the rest still work.
+- **Gains in the log:** taken from `/state` (`gains.ver` and values), same `# gains_vN` lines as over USB.
+
 ## The saved file
 
 Same layout as the page's Download and `logger.py`: the `# setting` lines from `log_meta.h`, `# note`, `# recorded_at`, `# records,N,lost,N`, one `# gains_vN,kp 15 ki 0 kd 0.5 trim -3.98 cap 80 deadband 0` line per gains version seen during the run (from `g`, `:` commands or the `/tune` page), the CSV header, then one row per tick. Saving is done by `save_log()` in `logger.py`, shared by both tools, so the two can never drift apart. Check any file with `tools/check_dump.py <file> --plot`.

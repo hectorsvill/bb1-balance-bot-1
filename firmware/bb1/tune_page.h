@@ -108,8 +108,8 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
   <h2>How to use this page</h2>
   <p style="margin:0"><b>Start (once)</b></p>
   <ol>
-    <li>Battery on <b>first</b>, then USB.</li>
-    <li>Terminal: <code>tools/venv/bin/python tools/handheld.py -s 10 -n "P15 D0.5"</code></li>
+    <li>Battery on (D153C switch). <b>No USB cable</b>: it tugs on BB1.</li>
+    <li>Terminal: <code>tools/venv/bin/python tools/handheld.py --wifi -s 10 -n "P10 D0.74"</code> (with USB: leave out <code>--wifi</code>, battery on first, then USB).</li>
     <li>Open this page. Put it and the Terminal side by side.</li>
   </ol>
   <p style="margin:0"><b>Change a gain</b></p>

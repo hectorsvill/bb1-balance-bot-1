@@ -4,6 +4,7 @@ How it works inside: docs/HANDHELD_TOOL.md.
 
 Usage (from the repo folder, USB plugged in, BB1 on the home network):
     tools/venv/bin/python tools/handheld.py                    # arm 5 s per press of "a"
+    tools/venv/bin/python tools/handheld.py --wifi -s 10       # no USB cable: everything over Wi-Fi
     tools/venv/bin/python tools/handheld.py -s 3 -n "tilt"     # 3 s per arm, note "tilt"
     tools/venv/bin/python tools/handheld.py --host 192.168.1.240
     tools/venv/bin/python tools/handheld.py --cap 150 --kp 18  # set these first (not saved in flash)
@@ -26,6 +27,13 @@ What it does: two helpers run side by side.
 Arming from serial means the web page heartbeat doesn't apply (keep the page
 closed). The firmware's other cut-outs still work: the arm timer, 45 deg
 (fell over), IMU errors, late loops.
+
+--wifi: no USB cable (it tugs on the robot). Commands go over HTTP instead
+(POST /arm, /disarm, /gains, the same endpoints as the web page), and the
+status line comes from GET /state ten times a second. Those /state requests
+are also the heartbeat: armed over Wi-Fi, BB1 disarms by itself if it hears
+nothing for 1 s ("lost the web page"). That's the safety net when there's no
+cable, so a Wi-Fi hiccup can cut a try short.
 """
 
 import argparse
@@ -38,6 +46,8 @@ import termios
 import threading
 import time
 import tty
+import urllib.parse
+import urllib.request
 from datetime import datetime
 
 import serial  # pyserial
@@ -113,6 +123,75 @@ class SerialLink(threading.Thread):
                 say(f"BB1: {line}")
 
 
+class WifiLink(threading.Thread):
+    """Same job as SerialLink, but over Wi-Fi (handheld.py --wifi).
+
+    Polls GET /state ten times a second: that updates the status line and
+    keeps BB1's heartbeat alive while armed. send() turns the serial-style
+    commands into the web page's POST requests."""
+
+    POLL_S = 0.1                 # /state every 100 ms; BB1 disarms after 1 s without one
+
+    def __init__(self, base):
+        super().__init__(daemon=True)
+        self.base = base
+        self.readout = ""
+        self.trim = None
+        self.gains = ""
+        self.versions = {}       # same as SerialLink: saved in the log
+        self.running = True
+        self.armed = None        # last armed state seen, to print ARMED / DISARMED once
+
+    def post(self, path, **fields):
+        data = urllib.parse.urlencode(fields).encode()
+        try:
+            with urllib.request.urlopen(f"{self.base}{path}", data=data, timeout=2) as res:
+                return res.read().decode()
+        except OSError as e:
+            return f"no answer ({e})"
+
+    def send(self, cmd):
+        """The same commands as serial, sent as web requests."""
+        words = cmd.split()
+        if not words:
+            return
+        names = {"p": "kp", "i": "ki", "d": "kd"}                 # "p 10" = "kp 10", like serial
+        key = names.get(words[0], words[0])
+        if key == "arm":
+            say("BB1: " + self.post("/arm", seconds=words[1] if len(words) > 1 else 0))
+        elif key == "disarm":
+            self.post("/disarm")
+        elif key == "gains":
+            say(f"BB1: gains: {self.versions.get(max(self.versions), '...') if self.versions else '...'}")
+        elif key in ("kp", "ki", "kd", "trim", "cap", "deadband") and len(words) == 2:
+            say("BB1: " + self.post("/gains", **{key: words[1]}))      # "trim here" works too
+        elif key == "save":
+            say("BB1: " + self.post("/gains/save"))
+        elif key == "defaults":
+            say("BB1: " + self.post("/gains/defaults"))
+        else:
+            say(f"'{cmd}' only works over USB (try: arm, disarm, gains, kp/ki/kd/trim/cap N, save, defaults)")
+
+    def run(self):
+        while self.running:
+            try:
+                s = json.loads(get(f"{self.base}/state", timeout=0.8))
+            except (OSError, ValueError):
+                self.readout = "Wi-Fi: no answer"
+                time.sleep(self.POLL_S)
+                continue
+            g = s["gains"]
+            self.trim = g["trim"]
+            self.readout = f"pitch {s['pitch']:+.1f} (trim {s['pitch'] - g['trim']:+.1f})"
+            self.gains = f"kp {g['kp']:g} kd {g['kd']:g} cap {g['cap']:g}"
+            self.versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband"))
+            if s["armed"] != self.armed:                           # print each change once
+                if self.armed is not None:
+                    say("BB1: ARMED" if s["armed"] else f"BB1: DISARMED: {s['reason']}")
+                self.armed = s["armed"]
+            time.sleep(self.POLL_S)
+
+
 def say(text):
     """Print a full line above the status line. \\r and the clear code
     (ESC[K) wipe the status line first; in cbreak mode \\n alone doesn't
@@ -124,7 +203,8 @@ def say(text):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--host", default="bb1.local", help="robot address (default bb1.local; or the IP from 'wifi' on serial)")
-    ap.add_argument("-p", "--port", help="serial port (default: first /dev/cu.usbmodem*)")
+    ap.add_argument("-p", "--port", help="serial port (default: the Pico's /dev/cu.usbmodem*)")
+    ap.add_argument("--wifi", action="store_true", help="no USB cable: arm, disarm and gains over Wi-Fi")
     ap.add_argument("-s", "--seconds", type=float, default=5, help="arm time per press of 'a' (default 5, max 10 here)")
     ap.add_argument("-n", "--note", default="handheld", help="a note saved in the file and its name (default handheld)")
     # Settings sent at the start, so the file name and the run match what you asked for.
@@ -142,13 +222,15 @@ def main():
     started = datetime.now()
     out = log_path(args.note, started)
 
-    link = SerialLink(args.port or find_port())
+    link = WifiLink(f"http://{ip}") if args.wifi else SerialLink(args.port or find_port())
     rec = WifiRecorder(f"http://{ip}")
     link.start()
     rec.start()
 
     print(f"Recording from {args.host} ({ip}). Log will be saved to {out.name}")
     print(f"Keys: a = arm {arm_s:g} s   Enter/space = disarm   g = gains   : = type a command   q = save and quit")
+    if args.wifi:
+        print("Wi-Fi mode: no USB needed. If Wi-Fi drops for 1 s while armed, BB1 disarms by itself.")
     print("Hold BB1 in the air, wheels free, fingers clear.")
     for name in ("kp", "kd", "cap", "trim"):         # only the ones you gave
         value = getattr(args, name)
@@ -185,7 +267,7 @@ def main():
                     shown = ""                         # the prompt replaced the status line: draw it again
                 elif key == "q":
                     break
-            status = f"{link.readout or 'waiting for serial'} | {link.gains} | log {len(rec.rows) / 200:.0f} s"
+            status = f"{link.readout or 'waiting for BB1'} | {link.gains} | log {len(rec.rows) / 200:.0f} s"
             if rec.lost:
                 status += f", {rec.lost} lost"
             if rec.problem:

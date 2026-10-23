@@ -73,8 +73,8 @@ The big difference: a quad's setpoint comes from your stick; BB1's is fixed at "
 **A. The tuning page (live, no flashing).** Open **http://bb1.local/tune** (or `http://<ip>/tune`; type `wifi` on serial for the IP). It shows only what tuning needs: boxes for Kp, Ki, Kd, trim and cap, live pitch, error, the P / I / D terms, PWM out, a 5 s chart, and short notes.
 
 **Start (once)**
-1. Battery on **first**, then USB.
-2. Terminal: `tools/venv/bin/python tools/handheld.py -s 10 -n "P15 D0.5"` (no `--kp/--kd/--cap`: they would overwrite the page).
+1. Battery on (D153C switch). **No USB cable**: it tugs on BB1 and changes the result.
+2. Terminal: `tools/venv/bin/python tools/handheld.py --wifi -s 10 -n "P10 D0.74"` (no `--kp/--kd/--cap`: they would overwrite the page). With USB instead: leave out `--wifi`, battery on first, then USB.
 3. **Expect:** bottom line `pitch … (trim …) | kp 15 kd 0.5 cap 80 | log 0 s`.
 4. Browser: open **http://bb1.local/tune**. Put the browser and the Terminal side by side.
 

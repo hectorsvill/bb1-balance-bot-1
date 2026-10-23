@@ -12,6 +12,7 @@ Newest first.
 
 ## 2026-10-23 - handheld.py picks the Pico's port
 
+- handheld.py `--wifi`: no USB cable, arm / disarm / gains over Wi-Fi, heartbeat from its `/state` polling (0.2 s worst latency measured while logging)
 - New `tools/pid_report.py`: one row per try (secs, end, wobble, lean, |P| |I| |D|, cap%, flips/s, turns) plus hints
 - /tune: "Logs: record and read" section (needs a reflash to show)
 - docs/PID_LESSON.md (PID for a balancing robot, FPV comparisons) and docs/PID_LEARNING_PROMPT.md (prompt for a separate learning chat)
