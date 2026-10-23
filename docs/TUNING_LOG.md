@@ -13,7 +13,7 @@ The running record of Hector's PID tuning on BB1: what we tried, what the data s
 
 **How we use it, each round:**
 1. Run 3 or more tries at one setting.
-2. Read the report. A try only counts for comparing gains if it ended by **timer** or **FELL**: "Wi-Fi lost", "you" and "tab hidden" ends say nothing about the PID.
+2. Read the report. A try only counts for comparing gains if it ended by **timer** or **FELL** with **no hand touching it**: "Wi-Fi lost", "you" and "tab hidden" ends say nothing about the PID. To save BB1 from a fall, press **STOP** (space) *before* catching it, so the try ends as "you" and your push isn't counted as the PID's work. Better still: soft padding around it and let it fall; the 45 deg cut-out stops the motors.
 3. Compare settings by **wobble** (smaller = calmer) among tries that reach the timer. Use `cap%`, `flips/s`, `|P|` vs `|D|`, `lean` and `turns` to see *why* (table in PID_LESSON.md, section 7).
 4. Change one thing, write the round down here (setting, report, what it means, next change).
 
@@ -33,7 +33,7 @@ The running record of Hector's PID tuning on BB1: what we tried, what the data s
 | 4 | 10.0 | timer | 5.9 | +0.3 | 51 | 20 | 0 | 3.0 | +1.0 |
 
 **What it says:**
-- It never fell. Both tries that weren't cut short reached the timer.
+- No falls in the log, but **Hector was catching it and pushing it back** when it was about to fall. So "timer" here doesn't mean it balanced alone, and the wobble includes his pushes. Tries with hand help can't be compared fairly with hands-off tries.
 - Tries 2 and 3 were **cut by Wi-Fi**: no `/state` for 1 s (`web_age_ms` hit 1000), so the heartbeat disarmed it. Not the PID. (The first report version called these "you"; `pid_report.py` now names them.) Try 1 also came close (980 ms).
 - **Wobble about 6 deg without the cable vs 2.6 to 4.2 with it** (same P and D, round 9). The cable was holding it a little, like a light tether, and damping the swing. Without it BB1 swings more, |P| doubles (about 50 vs 25): the gains now feel the real robot.
 - Motors never at the cap, little jitter: D isn't too high.
