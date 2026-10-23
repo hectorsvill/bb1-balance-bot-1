@@ -21,6 +21,23 @@ The running record of Hector's PID tuning on BB1: what we tried, what the data s
 
 ## Rounds
 
+### 2026-10-23, round 11: carpet, hands off (`bb1_2026-10-22_23-02-25_p9-85-d0-74.csv`)
+
+**Setting:** P 9.85, I 0, D 0.74, trim −2.60, cap 150. No cable, armed over Wi-Fi, **on carpet**, no hand help.
+
+| try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 2.2 | FELL back | 8.4 | −6.5 | 79 | 22 | 17 | 0.5 | −3.5 |
+| 2 | 10.0 | timer | 1.2 | +0.5 | 11 | 3 | 0 | 1.4 | 0.0 |
+| 3 | 10.0 | timer | **0.3** | −1.0 | 10 | 1 | 0 | 0.2 | 0.0 |
+
+**What it says:**
+- **Tries 2 and 3 are the best balancing so far:** ±0.3 to 1.2 deg, P doing only about 10 PWM of work, no rolling. Carpet's rolling resistance helps a lot (it damps drift, like the cable did), so these numbers are carpet-only.
+- **Try 1 started badly:** armed at about +9 deg from the trim (the limit is 10), so P shoved hard forward (PWM 93), it overshot to −7 deg and then **sat leaning back at −7 to −9 deg for about a second** while rolling backward faster and faster. At that lean P only gave about −55 PWM: not enough to drive the wheels back under it, so the lean grew until the motors hit the cap and it fell. A steady lean like that is P being too weak for a big error (or the missing speed loop letting it run away).
+- The report's hints ("more D", "drift") come from try 1 only; tries 2 and 3 need nothing.
+
+**Next:** arm closer to upright (within about ±3 deg of trim). Then either try a little more P (to recover from big leans like try 1) or move to a hard floor, where the robot is honest. Same surface for every comparison.
+
 ### 2026-10-23, round 10: first run with no USB cable (`bb1_2026-10-22_22-55-20_p9-85-d0-74.csv`)
 
 **Setting:** P 9.85, I 0, D 0.74, trim −2.60, cap 150. Armed over Wi-Fi from the /tune page, USB unplugged.
