@@ -1,5 +1,7 @@
 # PID Tuning Guide for BB1
 
+Short version, the why: [PID_LESSON.md](PID_LESSON.md). Read a log: `tools/venv/bin/python tools/pid_report.py` (newest log, `--plot` to draw). A prompt for a separate learning chat: [PID_LEARNING_PROMPT.md](PID_LEARNING_PROMPT.md).
+
 How the balance controller works, how to tune it on the real robot with the web page, and where to read more.
 
 ## 1. The idea in one paragraph

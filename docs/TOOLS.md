@@ -140,6 +140,15 @@ For the hand-held (and later floor) tests without the web page. Needs USB plugge
 
 Only one program can hold the USB port: close `arduino-cli monitor` and the Arduino IDE Serial Monitor first. How it works inside (threads, keys, status line): `docs/HANDHELD_TOOL.md`.
 
+### pid_report.py: how did each try go?
+
+Reads a balance log (handheld.py, logger.py or the page's Download) and prints one row per try: seconds up, how it ended (timer / FELL fwd / FELL back / you), wobble, lean, the average size of the P, I and D terms, time at the cap, PWM sign flips per second, wheel turns. Then plain hints (which term looks too big or small, never a number). Column meanings: `docs/PID_LESSON.md` section 7.
+
+```bash
+tools/venv/bin/python tools/pid_report.py                         # newest file in logs/
+tools/venv/bin/python tools/pid_report.py logs/bb1_....csv --plot # a file, and draw each try
+```
+
 ### make_wiring_svg.py: the wiring picture
 
 Draws `docs/wiring.svg` from the pin lists inside it (same as the tables in `docs/WIRING.md`). Run `tools/venv/bin/python tools/make_wiring_svg.py`. For the PNG copy (`docs/wiring.png`), with Chrome:

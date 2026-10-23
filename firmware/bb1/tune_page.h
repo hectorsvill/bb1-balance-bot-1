@@ -131,6 +131,24 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
     <li>Terminal: <b>q</b> saves the log.</li>
   </ol>
   <p class="muted">Order: P first (I = 0), then D, then a little I only if it keeps drifting one way.</p>
+  <h2 style="margin-top:12px">Logs: record and read</h2>
+  <ol>
+    <li><b>Record:</b> <code>handheld.py</code> records the whole time it runs. Use <code>-n "note"</code> to name the file.</li>
+    <li><b>Save:</b> press <b>q</b> in the Terminal. Expect: <code>Saved ... to logs/bb1_&lt;date&gt;_&lt;time&gt;_&lt;note&gt;.csv</code></li>
+    <li><b>Read:</b> <code>tools/venv/bin/python tools/pid_report.py</code> (newest log) or add a file name. One row per try, then hints.</li>
+    <li><b>Look:</b> add <code>--plot</code> to see error, P / I / D terms and PWM out for each try.</li>
+    <li><b>Compare:</b> each gains setting has its own <code>v</code> number. Pick the one with the smallest <b>wobble</b> that always reaches the timer.</li>
+  </ol>
+  <table>
+    <tr><th>Report column</th><th>Means</th></tr>
+    <tr><td>secs / end</td><td>how long it stayed up; timer = never fell</td></tr>
+    <tr><td>wobble</td><td>how much it rocks, deg. Smaller = better</td></tr>
+    <tr><td>lean</td><td>average lean, deg. Far from 0 = trim off</td></tr>
+    <tr><td>|P| |I| |D|</td><td>who does the work. D bigger than P = jitter</td></tr>
+    <tr><td>cap%</td><td>time with motors maxed out. High = cap too low</td></tr>
+    <tr><td>flips/s</td><td>PWM sign changes per second. Tens = jitter</td></tr>
+    <tr><td>turns</td><td>how far it rolled. More than 2 = drift (step 8)</td></tr>
+  </table>
   <h2>If you fly FPV</h2>
   <p class="muted" style="margin:0 0 8px">Same PID as one axis of Betaflight's pitch loop. The stick is fixed at "stand upright" (the trim), the motors are the wheels.</p>
   <table>

@@ -12,6 +12,10 @@ Newest first.
 
 ## 2026-10-23 - handheld.py picks the Pico's port
 
+- New `tools/pid_report.py`: one row per try (secs, end, wobble, lean, |P| |I| |D|, cap%, flips/s, turns) plus hints
+- /tune: "Logs: record and read" section (needs a reflash to show)
+- docs/PID_LESSON.md (PID for a balancing robot, FPV comparisons) and docs/PID_LEARNING_PROMPT.md (prompt for a separate learning chat)
+- Run 2026-10-22 22:20: P 9 to 9.85 / D 0.74 / I 0 / cap 150 reached the timer 7 of 7 tries (wobble 0.4 to 4.2). Cap 45 and I 2 made most tries fall
 - FLASHING.md: Arduino IDE 2 steps, the `No drive to deploy` fix (close the IDE Serial Monitor), two ports, settings survive a reflash. bb1 reflashed after `motor_test`; gains came back from flash
 - Wiring diagram: `docs/wiring.svg` / `wiring.png`, drawn by `tools/make_wiring_svg.py`, shown at the top of WIRING.md
 - Both motors dead: STBY wire (GP9) came unsoldered, re-soldered (BUILD_RECORD, Repair)
