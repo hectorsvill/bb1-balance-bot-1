@@ -16,15 +16,25 @@ import time
 from pathlib import Path
 
 import serial  # pyserial
+from serial.tools import list_ports
 
 REPO = Path(__file__).resolve().parent.parent   # the repo folder (tools/ is one level down)
 
 
+PICO_USB_VENDOR = 0x2E8A   # Raspberry Pi's USB vendor ID: every Pico reports it
+
+
 def find_port():
-    """The Pico shows up on macOS as /dev/cu.usbmodemXXXX."""
+    """The Pico's serial port. Other USB gadgets (a hub, a dock) can also show
+    up as /dev/cu.usbmodemXXXX, so pick the one whose USB vendor is Raspberry Pi
+    instead of just the first in the list."""
+    picos = [p.device for p in list_ports.comports() if p.vid == PICO_USB_VENDOR]
+    if picos:
+        return sorted(picos)[0]
     ports = sorted(glob.glob("/dev/cu.usbmodem*"))
     if not ports:
         sys.exit("No Pico found (ls /dev/cu.usbmodem* is empty). Is USB plugged in?")
+    print(f"No port says Raspberry Pi; trying {ports[0]} (use -p to pick another)")
     return ports[0]
 
 

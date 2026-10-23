@@ -186,6 +186,14 @@ python tools/summarize_serial.py logs/2026-10-22_test.txt --plot
 
 (With the venv active, `python` is enough. Battery on before USB.)
 
+### `BB1: ERR: unknown cmd` in handheld.py
+
+The tool is talking to another USB device, not the Pico (an Anker hub/dock showed up as `/dev/cu.usbmodem13401`). Since 2026-10-23 `find_port()` (`serial_log.py`) picks the port whose USB vendor is Raspberry Pi (0x2E8A). If it still happens:
+
+1. `ls /dev/cu.usbmodem*` to list the ports.
+2. Run with the Pico's port: `tools/venv/bin/python tools/handheld.py -p /dev/cu.usbmodem21401 ...`
+3. **Expect:** the status line shows `pitch ...`, not `waiting for serial`.
+
 ## Reading an error
 
 Python errors ("Traceback") are read from the **bottom up**: the last line says what went wrong.

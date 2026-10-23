@@ -10,6 +10,10 @@ Newest first.
 - Battery cradle (record the pack's size and capacity)
 - Measure the motor deadband
 
+## 2026-10-23 - handheld.py picks the Pico's port
+
+- `find_port()` in `serial_log.py` (used by handheld.py) picks the port with the Raspberry Pi USB vendor ID instead of the first `/dev/cu.usbmodem*`. An Anker dock had taken the first slot, so `a` went to the dock (`ERR: unknown cmd`)
+
 ## 2026-10-22 - Hector's tuning, floor run 5
 
 - Run 8, same gains: 3 of 8 tries stood 10 s; rolls backward then falls. Likely the battery; drift needs step 8 (BUILD_RECORD, floor attempts 8)
