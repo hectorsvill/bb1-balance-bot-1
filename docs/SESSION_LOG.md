@@ -25,7 +25,13 @@ Template:
 
 **Decided:** recommended defaults picked while Hector was away (1 s hold, lift detector on, 3 falls in 30 s). Hector can change any of them.
 
-**Open / next:** Hector to say what he disliked about the first auto-arm code. Flashed (lying down: waiting). Next: the power-on test in POWER_ON.md's cases 1, 2, 5, 8, 10.
+**Then:** flashed (lying down: `auto-arm: waiting`, gains loaded). Hector: "looks good"; no step-by-step results sent. Added `tools/wiki_sync.sh` to copy `docs/` to the GitHub wiki.
+
+**Open / next:**
+- Power-on test, step by step (POWER_ON.md cases 1, 2, 5, 8, 10), ideally with a log, to check the lift detector's 4 turns/s.
+- What Hector disliked about the first auto-arm code (if the rework didn't cover it).
+- **The repo is public and `BB1_AP_PASSWORD` is still the old default** (in `secrets.h` and early commits): change it in `secrets.h` and reflash.
+- Wiki: create the first page once on GitHub, then run `tools/wiki_sync.sh`.
 
 ## 2026-10-24 (afternoon): battery, 10 kHz, step 8, heading hold — BB1 balances
 

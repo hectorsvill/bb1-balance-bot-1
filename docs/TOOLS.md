@@ -198,6 +198,14 @@ tools/venv/bin/python tools/mock_bb1.py
 
 Open http://localhost:8080. Serves the real page from `firmware/bb1/page.h` with made-up data; edit `page.h`, reload the browser. Details: [WEB_INTERFACE.md](WEB_INTERFACE.md#offline-mock-work-on-the-page-without-the-robot). Uses only the Python standard library.
 
+### wiki_sync.sh: copy the docs to the GitHub wiki
+
+```bash
+tools/wiki_sync.sh
+```
+
+Copies every `docs/*.md` to the [GitHub wiki](https://github.com/hectorsvill/bb1-balance-bot-1/wiki) as a page, fixes the links, writes the Home index and sidebar, then commits and pushes the wiki. The repo's `docs/` stay the source of truth: edit there, then run this. Never edit wiki pages by hand (the next sync overwrites them). The wiki has to exist first: on GitHub, **Wiki** tab, **Create the first page**, **Save** (once). Needs only git.
+
 ## Typical test session
 
 ```bash
