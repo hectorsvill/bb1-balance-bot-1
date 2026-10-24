@@ -21,6 +21,20 @@ The running record of Hector's PID tuning on BB1: what we tried, what the data s
 
 ## Rounds
 
+### 2026-10-23, round 12: trim set to +6.1 (`bb1_2026-10-23_20-45-04_carpet-p9-85-d0-74.csv`)
+
+**Setting:** P 9.85, I 0, D 0.74, **trim +6.1**, **cap 100**, carpet, no cable.
+
+| try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.6 | FELL fwd | 9.4 | +8.4 | 82 | 61 | 37 | 0.0 | +0.9 |
+| 2 | 0.8 | FELL fwd | 10.2 | +5.5 | 75 | 57 | 29 | 6.1 | +0.9 |
+| 3 | 0.7 | FELL fwd | 9.9 | +7.3 | 80 | 61 | 35 | 1.5 | +0.9 |
+
+**What it says:** the trim jumped from −4.44 to **+6.1** during the round (probably "Trim = current pitch" clicked while BB1 was tilted forward). Every measured balance point so far was about −1 to −4.4. With the target 6 to 10 deg forward of where it really balances, BB1 is told to hold a forward lean, gravity takes it forward, and it falls forward in under a second every time. Says nothing about P or D. (The report's trim hint gave the wrong direction for a "+" lean; fixed: falls forward = lower the trim.)
+
+**Next:** re-set the trim at the real balance point (expect about −1 to −4), cap back to what worked (150), same gains, 3 tries.
+
 ### 2026-10-23, round 11: carpet, hands off (`bb1_2026-10-22_23-02-25_p9-85-d0-74.csv`)
 
 **Setting:** P 9.85, I 0, D 0.74, trim −2.60, cap 150. No cable, armed over Wi-Fi, **on carpet**, no hand help.

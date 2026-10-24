@@ -90,9 +90,10 @@ def hints(t):
         out.append("Big slow swings without jitter -> not enough braking: a little more D (bounce-back on a quad).")
     falls = t.end[t.end.str.startswith("FELL")]
     if len(falls) >= 2 and falls.nunique() == 1:
-        out.append(f"Every fall goes the same way ({falls.iloc[0]}) -> check the trim first.")
+        way = "falls forward: lower the trim (toward -)" if falls.iloc[0] == "FELL fwd" else "falls back: raise the trim (toward +)"
+        out.append(f"Every fall goes the same way ({falls.iloc[0]}) -> check the trim first: {way}.")
     if (t.lean.abs() > 2).mean() > 0.5:
-        out.append("Average lean far from 0 in most tries -> trim is off (+ = leans forward: raise trim; - = back: lower).")
+        out.append("Average lean far from 0 in most tries -> trim is probably off. Re-set it: hold BB1 at its balance point, 'Trim = current pitch'.")
     if (t["|I|"] > t["|P|"]).any():
         out.append("I term bigger than P -> I is doing the steering; too much I gives slow, growing rocking.")
     if (t.turns.abs() > 2).any():
