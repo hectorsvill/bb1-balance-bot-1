@@ -7,6 +7,11 @@ yet. Picks made with the recommended defaults while Hector was away
 
 ## The two main cases
 
+Nothing else is needed: no web page, no script (`handheld.py` is only for
+recording test logs) and no Wi-Fi. It stops only when you press STOP (web page
+or serial), when it falls or is laid down, or on a safety stop (IMU errors,
+lift detector).
+
 1. **Switched on standing upright** on the floor: it measures the gyro bias
    (2 s, must be still), then, once it has been within 3 deg of the trim and
    still for 1 s, it starts balancing. About 3.5 s from switch-on.

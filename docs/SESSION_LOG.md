@@ -34,6 +34,8 @@ Template:
 
 **Decided:** the repo is public; BB1's own-network password being public is fine (Hector). Only the home Wi-Fi details must stay out of git (they live in Pico flash).
 
+**Then:** Hector: power-on should just balance, no script; `handheld.py` is for testing only. Cleaned up the main page: Balance panel = status + ARM / STOP (no gains, no timer, no heartbeat; ARM sends `heartbeat=0`), developer panels folded by default. Gains and timed runs stay on /tune.
+
 ## 2026-10-24 (afternoon): battery, 10 kHz, step 8, heading hold — BB1 balances
 
 **Did:**

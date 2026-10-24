@@ -15,7 +15,8 @@
 //   GET  /sys         RAM and flash use as JSON (the page's System panel)
 //   POST /motor       args left, right, ms: timed motor test (same as serial "m L R ms")
 //   POST /motor/stop  stop the motors now (and disarm)
-//   POST /arm         start balancing (refused unless upright; see control.h). seconds=N: disarm after N s (0 = no limit)
+//   POST /arm         start balancing (refused unless upright; see control.h). seconds=N: disarm after N s (0 = no limit);
+//                     heartbeat=0: don't stop when the page goes away (main page)
 //   POST /disarm      stop balancing
 //   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband
 //   POST /gains/save  store them in flash (disarmed only);  POST /gains/defaults  back to config.h
@@ -216,7 +217,9 @@ void handleMotorStop() {
 // POST /arm: core 1 decides whether it's safe (control.h) and the page shows
 // the answer from /state ("armed" and "reason") a moment later.
 void handleArm() {
-  armedFromWeb = true;                         // armed from here: the page must keep polling /state
+  // heartbeat=0 (the main page): keep balancing even if the page closes, like
+  // auto-arm. Otherwise (/tune test runs) the page must keep polling /state.
+  armedFromWeb = server.arg("heartbeat") != "0";
   lastWebHeartbeatMs = millis();
   float seconds = server.hasArg("seconds") ? server.arg("seconds").toFloat() : 0;
   armTimeMs = (uint32_t)(constrain(seconds, 0.0f, ARM_SECONDS_MAX) * 1000);

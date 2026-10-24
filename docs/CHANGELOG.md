@@ -9,6 +9,13 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-24 - main page clean-up
+
+- Main page (`page.h`) is now for using BB1, not tuning it: the Balance panel shows Balancing / Not balancing / Fallen and what auto-arm is waiting for, with **ARM** and **STOP** and a link to /tune. Gain boxes, the arm timer, the countdown bar and the step test are gone from it (all on /tune)
+- ARM from the main page sends `heartbeat=0` (new `/arm` argument): no time limit, keeps balancing if the page closes. Hiding the main page no longer disarms. /tune keeps its timed runs with the heartbeat
+- Developer panels (PID, Pitch, Log, Live values, Motor test, Sensors, Pico memory, Network) start folded (new localStorage key `bb1.folded2`, so old fold settings reset once)
+- Docs: `handheld.py` marked as testing only (TOOLS.md, POWER_ON.md)
+
 ## 2026-10-24 - power-on behavior (auto-arm rework)
 
 - Auto-arm moved out of `control.h` into **`auto_arm.h`**, a named-state machine (off / waiting / holding / balancing). Edge cases written up in **`docs/POWER_ON.md`**

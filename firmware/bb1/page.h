@@ -14,10 +14,12 @@
 // GET /log?since=N for the recording and the log table.
 //
 // Layout, top to bottom:
-//   status bar (always visible): connection, mode, arm countdown, STOP
-//   panels in one column: Balance, PID, Pitch, Log, Live values, Motor test,
-//   Sensors, Pico memory, Network. Click a panel's title to fold it; the
-//   arrows move it. Both are remembered by this browser (localStorage).
+//   status bar (always visible): connection, battery, mode, STOP
+//   Balance: what BB1 is doing (auto-arm state), ARM, STOP. Gains are on /tune.
+//   then the developer panels, folded until you open them: PID, Pitch, Log,
+//   Live values, Motor test, Sensors, Pico memory, Network. Click a panel's
+//   title to fold it; the arrows move it. Both are remembered by this browser
+//   (localStorage).
 //
 // To change the page without the robot: run tools/mock_bb1.py, which serves
 // this exact page with made-up data (docs/WEB_INTERFACE.md, "Offline mock").
@@ -165,52 +167,29 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
     <span class="spacer"></span>
     <span class="chip" id="batt" title="battery voltage">batt --</span>
     <span class="chip" id="modeChip">--</span>
-    <span class="countdown" id="topTime"></span>
     <button class="stop" id="stopBtn" onclick="stopAll()">STOP</button>
   </div>
-  <div class="timebar"><i id="topBar"></i></div>
 </div>
 
 <div class="wrap stack" id="stack">
 
   <!-- ===================== Balance ===================== -->
+  <!-- BB1 balances by itself (auto_arm.h): this panel only says what it's doing,
+       and gives you ARM and STOP. Gains and timed test runs live on /tune. -->
   <div class="panel" id="p-balance">
     <div class="head"><span class="fold">&#9660;</span><h2>Balance</h2></div>
     <div class="body">
       <div class="armbox">
         <span class="armstate" id="armState">--</span>
-        <span class="bigtime" id="armTime"></span>
         <span class="msg" id="armReason" style="margin:0"></span>
       </div>
-      <div class="progress" id="armProgress" style="visibility:hidden"><i id="armBar"></i></div>
       <div class="row" style="margin-top:12px">
         <button class="go big" id="armBtn" onclick="arm()">ARM</button>
-        <label class="row" style="gap:6px">for <input id="armSecs" type="number" value="5" min="0" max="600" step="1" style="width:80px"> s</label>
-        <button class="stop big" id="disarmBtn" onclick="disarm()">DISARM</button>
-        <button id="stepBtn" onclick="post('/step', null, 'armReason')" disabled>Step test</button>
-      </div>
-      <div class="msg">Hold it near upright to arm. It stops by itself when the time runs out (0 = no limit), past 45 deg, or if this page stops for 2 s. Space bar = stop.</div>
-
-      <div class="sub">Gains</div>
-      <div class="fields gains">
-        <label class="field"><span class="name">Kp</span><input id="gKp" type="number" step="0.5"><span class="unit">PWM per deg</span></label>
-        <label class="field"><span class="name">Ki</span><input id="gKi" type="number" step="0.1"><span class="unit">PWM per deg&middot;s</span></label>
-        <label class="field"><span class="name">Kd</span><input id="gKd" type="number" step="0.05"><span class="unit">PWM per deg/s</span></label>
-      </div>
-      <div class="sub">Balance point and limits</div>
-      <div class="fields gains">
-        <label class="field"><span class="name">Trim</span><input id="gTrim" type="number" step="0.1"><span class="unit">deg</span></label>
-        <label class="field"><span class="name">Cap</span><input id="gCap" type="number" step="5"><span class="unit">PWM, of 255</span></label>
-        <label class="field"><span class="name">Deadband</span><input id="gDb" type="number" step="1"><span class="unit">PWM</span></label>
-      </div>
-      <div class="row" style="margin-top:12px">
-        <button id="applyBtn" onclick="applyGains()">Apply</button>
-        <button id="trimHereBtn" onclick="post('/gains', {trim: 'here'}, 'gainsMsg')">Use current pitch as trim</button>
+        <button class="stop big" id="disarmBtn" onclick="disarm()">STOP</button>
         <span class="spacer"></span>
-        <button id="saveBtn" onclick="post('/gains/save', null, 'gainsMsg')">Save to flash</button>
-        <button id="defaultsBtn" onclick="if (confirm('Go back to the config.h defaults? (Save to keep them.)')) post('/gains/defaults', null, 'gainsMsg')">Defaults</button>
+        <a href="/tune" style="color:var(--blue)">Tune gains and test runs &rarr;</a>
       </div>
-      <div class="msg" id="gainsMsg">Change a box and it turns orange: press Apply (or Enter) to send it. Save to flash keeps it after a restart.</div>
+      <div class="msg">BB1 starts balancing by itself when it's upright and still for 1 s, and again after you stand it back up from a fall. STOP turns that off until you press ARM. Laying it down stops the motors. Space bar = STOP.</div>
     </div>
   </div>
 
@@ -430,20 +409,8 @@ const HINTS = {
   stopBtn: 'Stops everything now: disarms the balance loop and ends any motor test. The space bar does the same.',
   modeChip: 'What BB1 is doing: DISARMED (motors off), ARMED (balancing), FALLEN (leaned past 45 deg, motors off), MOTOR TEST.',
   // Balance
-  armBtn: 'Start balancing: the PID drives both wheels from the lean. Only works within 10 deg of the trim, with the gyro calibrated.',
-  armSecs: 'Arm time: BB1 disarms by itself after this many seconds, with a countdown at the top. 0 = until you disarm (or a safety check stops it).',
-  disarmBtn: 'Stop balancing now: brakes both wheels and puts the motor driver to sleep.',
-  gKp: 'Kp (proportional): PWM per degree of lean past the trim. The main "fight back" strength. Too low: falls slowly. Too high: shakes fast.',
-  gKi: 'Ki (integral): pushes against a lean that lasts, to fix steady drift. Keep at 0 until Kp and Kd work.',
-  gKd: 'Kd (derivative): PWM per deg/s of falling speed, from the gyro. Brakes the swinging that Kp causes. Too high: motors buzz.',
-  gTrim: 'Trim: the pitch where BB1 really balances. The loop holds this angle, not 0. Measured -4.39 deg.',
-  gCap: 'Cap: the most PWM the balance loop may send (of 255). 80 = about 30% power, gentle for first tests. Raise it once it balances.',
-  gDb: 'Deadband: PWM added to every non-zero command, because the motors do not turn at all below a few PWM. 0 until we measure it.',
-  applyBtn: 'Send all six numbers to BB1 (Enter in any box does the same). Orange = something differs from what BB1 is using. Applies on the next 5 ms tick.',
-  trimHereBtn: 'Hold BB1 at its balance point (where it would tip neither way), then press: the current pitch becomes the trim.',
-  saveBtn: 'Store the six numbers BB1 is using now in its flash, so they survive a restart. Only while disarmed (writing flash pauses the control loop for a moment).',
-  defaultsBtn: 'Go back to the starting values in config.h. Press Save to flash afterwards to keep them.',
-  stepBtn: 'Step test (armed only): moves the balance point 2 deg forward for 1 s, then back. Record it to see how quickly and smoothly the loop follows: the way to compare gains.',
+  armBtn: 'Start balancing now if it is within 10 deg of upright, and turn auto-arm back on after a STOP. No time limit, and it keeps going if you close this page.',
+  disarmBtn: 'Stop balancing now: brakes both wheels and puts the motor driver to sleep. Auto-arm stays off until you press ARM.',
   // PID
   'h-err': 'How far past the balance point it leans, in degrees. Forward +. This is what the PID works on.',
   'h-p': 'P = Kp x error. Pushes harder the further it leans.',
@@ -526,7 +493,9 @@ window.addEventListener('scroll', hideHint, { passive: true });
 // are remembered by this browser so the page looks the same after a reload.
 
 const stack = el('stack');
-const folded = new Set(store.get('bb1.folded', []));
+// Everything but Balance is for development, so it starts folded.
+const DEV_PANELS = ['p-pid', 'p-pitch', 'p-log', 'p-values', 'p-motors', 'p-actions', 'p-sys', 'p-net'];
+const folded = new Set(store.get('bb1.folded2', DEV_PANELS));
 
 function saveOrder() { store.set('bb1.panelOrder', [...stack.children].map(p => p.id)); }
 
@@ -548,7 +517,7 @@ for (const panel of stack.children) {
   head.addEventListener('click', () => {
     panel.classList.toggle('folded');
     panel.classList.contains('folded') ? folded.add(panel.id) : folded.delete(panel.id);
-    store.set('bb1.folded', [...folded]);
+    store.set('bb1.folded2', [...folded]);
   });
   if (folded.has(panel.id)) panel.classList.add('folded');
 }
@@ -602,76 +571,22 @@ function motorTest() {
 
 // ---------- balance ----------
 
-function arm() { post('/arm', { seconds: el('armSecs').value || 0 }, 'armReason'); }
+// ARM from this page has no time limit and no heartbeat: BB1 keeps balancing
+// if you close the page (like auto-arm). Timed test runs are on /tune.
+function arm() { post('/arm', { seconds: 0, heartbeat: 0 }, 'armReason'); }
 function disarm() { post('/disarm', null, 'armReason'); }
-
-// Browsers slow a hidden tab down to about one update a second, which would
-// trip the heartbeat (HEARTBEAT_MS) anyway. Say so clearly instead: disarm when hidden.
-let armedNow = false;
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden && armedNow) navigator.sendBeacon('/disarm?why=hidden');
-});
-
-// Which box shows which of BB1's settings (the names in /state "gains").
-const GAIN_BOXES = { gKp: 'kp', gKi: 'ki', gKd: 'kd', gTrim: 'trim', gCap: 'cap', gDb: 'deadband' };
-let robotGains = null;     // what BB1 is using right now, from /state
-
-function applyGains() {
-  post('/gains', { kp: el('gKp').value, ki: el('gKi').value, kd: el('gKd').value,
-                   trim: el('gTrim').value, cap: el('gCap').value, deadband: el('gDb').value }, 'gainsMsg');
-}
-
-// Fill the boxes from the robot when the page opens and after every change,
-// but never while you're typing in one.
-let gainsVerShown = -1;
-function showGains(g) {
-  robotGains = g;
-  if (g.ver !== gainsVerShown && !(document.activeElement.closest && document.activeElement.closest('.gains'))) {
-    gainsVerShown = g.ver;
-    for (const [id, key] of Object.entries(GAIN_BOXES)) el(id).value = g[key];
-  }
-  markChanged();
-}
-
-// A box that differs from what BB1 is using turns orange, and so does Apply,
-// so it's always clear whether there's something left to send.
-function markChanged() {
-  if (!robotGains) return;
-  let any = false;
-  for (const [id, key] of Object.entries(GAIN_BOXES)) {
-    const changed = Math.abs(Number(el(id).value) - robotGains[key]) > 1e-6;
-    el(id).classList.toggle('dirty', changed);
-    any = any || changed;
-  }
-  el('applyBtn').classList.toggle('attention', any);
-  el('applyBtn').textContent = any ? 'Apply changes' : 'Apply';
-}
-
-for (const id of Object.keys(GAIN_BOXES)) {
-  el(id).addEventListener('input', markChanged);
-  el(id).addEventListener('keydown', e => { if (e.key === 'Enter') applyGains(); });   // Enter = Apply
-}
 
 // The status bar and the Balance panel: mode, countdown, reason.
 function showMode(s) {
-  armedNow = s.armed;
   const mode = s.armed ? 'ARMED' : s.test_running ? 'MOTOR TEST' : s.mode === 5 ? 'FALLEN' : 'DISARMED';
   showBattery(s);
   el('modeChip').textContent = mode;
   el('modeChip').className = 'chip' + (s.armed ? ' armed' : s.test_running ? ' test' : s.mode === 5 ? ' fallen' : '');
-  el('armState').textContent = s.armed ? 'Armed' : s.mode === 5 ? 'Fallen' : 'Disarmed';
+  el('armState').textContent = s.armed ? 'Balancing' : s.mode === 5 ? 'Fallen' : 'Not balancing';
   el('armState').className = 'armstate' + (s.armed ? ' on' : s.mode === 5 ? ' fallen' : '');
 
-  // Countdown: BB1 says how many ms are left (-1 = no timer running).
-  const timed = s.armed && s.arm_left_ms >= 0 && s.arm_ms > 0;
-  const left = timed ? (s.arm_left_ms / 1000).toFixed(1) + ' s' : '';
-  const frac = timed ? 100 * s.arm_left_ms / s.arm_ms : 0;
-  el('topTime').textContent = left;
-  el('armTime').textContent = left;
-  el('topBar').style.width = el('armBar').style.width = frac + '%';
-  el('armProgress').style.visibility = timed ? 'visible' : 'hidden';
-  el('armReason').textContent = s.armed ? (s.step ? 'step test running' : timed ? 'left, then it stops by itself' : 'balancing, no time limit') : [s.reason, s.auto_state && 'auto-arm ' + s.auto_state].filter(Boolean).join('. ');
-  el('stepBtn').disabled = !s.armed || s.step;
+  // Disarmed: why it last stopped, and what auto-arm is waiting for.
+  el('armReason').textContent = s.armed ? 'balancing' : [s.reason, s.auto_state && 'auto-arm ' + s.auto_state].filter(Boolean).join('. ');
 }
 
 // ---------- pulling log records ----------
@@ -978,7 +893,6 @@ async function poll() {
       : 'On BB1\'s own network "' + s.wifi_ssid + '". Save a home network below to join it instead.';
 
     showMode(s);
-    showGains(s.gains);
     const err = s.pitch - s.gains.trim;
     if (s.have) {
       el('pitch').textContent = s.pitch.toFixed(1);

@@ -124,6 +124,8 @@ It also reads the CSV files from the web page (Download, Save last 10 s) and fro
 
 ### handheld.py: an arm test in one window
 
+**Testing and development only.** BB1 balances by itself at power-on (auto-arm, [POWER_ON.md](POWER_ON.md)); you never need this script to make it balance. It's for recording a log of a try and arming with a timer while tuning.
+
 ```bash
 tools/venv/bin/python tools/handheld.py
 ```

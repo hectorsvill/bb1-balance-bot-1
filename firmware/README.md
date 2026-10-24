@@ -22,6 +22,7 @@ BB1 starts balancing by itself. Switched on standing up, it balances about 3.5 s
 - After a fall it re-arms when stood up, but **3 falls within 30 s** turn it off until ARM.
 - **Lift detector** (`control.h`, any arm): wheels over 4 turns/s for 0.5 s = picked up, motors off, reason "picked up". Stand it back on the floor and it re-arms.
 - It won't auto-arm with the battery under `BATTERY_LOW_V` or during a motor test.
+- No script or page needed: `handheld.py` and /tune are for testing. The main page's **ARM** / **STOP** match serial `arm` / `disarm` (ARM there sends `heartbeat=0`: no timer, keeps going if the page closes).
 - Setting `auto` (1 / 0): serial `auto 0`, /tune box **Auto-arm (1/0)**, saved in flash. Constants in `config.h` (`AUTO_ARM_*`, `AUTO_MAX_FALLS`, `AUTO_FALL_WINDOW_MS`, `LIFT_*`).
 
 ## Heading hold (2026-10-24, flashed)

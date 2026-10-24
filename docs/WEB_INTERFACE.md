@@ -33,11 +33,11 @@ Anything with a dotted underline has a hint: hover over it on the Mac and it app
 
 **Status bar** (stays at the top while you scroll): connection dot (green = BB1, orange = the offline mock, red = lost), the **battery** chip (**volts per cell**, like a LiPo charger: 4.2 full, 3.7 nominal; green, orange under 3.5, red under 3.3 = charge it; `batt --` = no wire or switch off; hover for the whole pack), the mode (DISARMED / ARMED / FALLEN / MOTOR TEST), the **arm countdown** with a shrinking green line under the bar, and a red **STOP** that ends everything. The space bar does the same as STOP from anywhere on the page.
 
-The panels sit in one column, on a phone or a Mac. Click a panel's title to fold it away; the **▲ ▼** arrows move it. Folds and order are remembered by that browser. Anything wider than a panel (the log table) scrolls sideways inside its box, never the whole page.
+The panels sit in one column, on a phone or a Mac. Since 2026-10-24 only **Balance** is open the first time; the developer panels below it start folded. Click a panel's title to fold or open it; the **▲ ▼** arrows move it. Folds and order are remembered by that browser. Anything wider than a panel (the log table) scrolls sideways inside its box, never the whole page.
 
 | Panel | Shows / does |
 |---|---|
-| Balance | state, big countdown and progress bar while armed, **ARM** for N s (0 = until you disarm), **DISARM**, **Step test** (armed only); gain boxes (Kp, Ki, Kd) and limits (trim, cap, deadband) with their units, **Apply**, **Use current pitch as trim**, **Save to flash**, **Defaults** |
+| Balance | **Balancing** / **Not balancing** / **Fallen**, why it last stopped and what auto-arm is waiting for; **ARM** (no time limit, keeps going if you close the page; turns auto-arm back on), **STOP** (auto-arm off until ARM); a link to /tune. Gains, timed runs and the step test are on /tune only |
 | PID | view only: error (pitch − trim), P, I, D and the output in tiles, and a 10 s chart of P, I, D and the output with the ±cap lines. All zero while disarmed |
 | Pitch | pitch, pitch rate, accel-only pitch, and a 10 s chart: blue = filtered pitch, orange = accelerometer only, green dashes = trim |
 | Log | note, **Record** / **Stop**, **Download**, **Save last 10 s**. While recording, a table shows the records as they arrive (armed rows tinted green); **Watch** shows it without recording, **Pause** freezes it. Every record / 10th / 40th; **all columns** shows every column, otherwise the useful ones |
@@ -47,9 +47,9 @@ The panels sit in one column, on a phone or a Mac. Click a panel's title to fold
 | Pico memory | RAM used with a bar, heap free, flash used with a bar, log buffer, page size, CPU clock. Updates every 2 s |
 | Network | which network BB1 is on; save a home network; switch back to the own network |
 
-Coming next: saving gains and a step test (step 7), drive pad (milestone 2).
+Coming next: drive pad (milestone 2).
 
-Armed from the page, BB1 disarms if the page stops polling `/state` for 2 s (1 s before 2026-10-23) (closed tab, phone screen off, Wi-Fi drop). That's on purpose.
+BB1 balances by itself (auto-arm, docs/POWER_ON.md): no page, script or Wi-Fi is needed. ARM on the main page sends `heartbeat=0`, so it keeps balancing when the page closes. Armed from **/tune** (timed test runs), BB1 disarms if the page stops polling `/state` for 2 s (closed tab, phone screen off, Wi-Fi drop). That's on purpose.
 
 The Pico's web server answers **one connection at a time**, so anything slow (a big `/log` answer while Recording) delays `/state`. Until 2026-10-21 it also waited up to 5 s for the browser to close each connection, which caused "lost the web page" disarms; `route()` in `web.h` now closes it straight away. For balance tests we arm from serial instead (no heartbeat) and record with `logger.py`: `firmware/README.md`, "Hand-held test, the current way". Later the Pi Zero W will serve the page and the Pico won't run Wi-Fi at all.
 
@@ -61,21 +61,12 @@ The Pico's web server answers **one connection at a time**, so anything slow (a 
 
 | Control | What it does | Why it's there |
 |---|---|---|
-| state line | **ARMED** (green), **disarmed** or **FALLEN**, plus the reason it last stopped or refused to arm | so you always know whether the motors can move, and why they stopped |
-| **ARM** for N s | starts the balance loop: the PID now drives both wheels from the lean. It disarms by itself after N seconds (default 5; 0 = no limit) | refused unless BB1 is within 10 deg of the trim and the gyro is calibrated, so it can't start lying down |
-| **DISARM (space)** | brakes both wheels and sleeps the driver | your stop button. The space bar does the same from anywhere on the page |
-| Kp | push per degree of lean (PWM per deg) | the main "fight back" strength |
-| Ki | push for a lean that lasts | fixes a steady drift; leave at 0 at first |
-| Kd | push per deg/s of falling speed | brakes the swinging that Kp alone causes |
-| trim | the pitch where BB1 really balances | the controller holds this angle, not 0. Measured −4.39 deg on 2026-10-21 |
-| cap | the most PWM the loop may send (of 255) | keeps the first tests gentle; raise it once it balances |
-| deadband | PWM added to every non-zero command | motors don't turn below a few PWM; this makes small corrections count. 0 until measured |
-| **Apply** | sends all six boxes to BB1 (Enter in any box does the same); applies on the next 5 ms tick | a box you changed turns **orange** and Apply says **Apply changes** until BB1 is using it. No orange = nothing left to send |
-| **Use current pitch as trim** | hold BB1 at its balance point and press: that pitch becomes the trim | the easiest way to measure the trim |
+| state line | **Balancing** (green), **Not balancing** or **Fallen**, then the reason it last stopped and what auto-arm is waiting for (`auto_state`) | so you always know whether the motors can move, and why not |
+| **ARM** | starts balancing now (within 10 deg of upright) and turns auto-arm back on. No time limit, no heartbeat | after a STOP, or to start without waiting the 1 s hold |
+| **STOP (space)** | brakes both wheels and sleeps the driver; auto-arm stays off until ARM | your stop button. The space bar does the same from anywhere on the page; the STOP in the top bar also ends a motor test |
+| Tune gains and test runs | opens /tune | gains, timed tries, step test |
 
-The boxes fill in from BB1 when the page opens. Settings go back to the `config.h` defaults at power-up until step 7 adds saving. Every change bumps `gains_ver`, which is in every log row, so a log always shows which settings were in use.
-
-Safety, always on while armed: past 45 deg from the trim it stops and shows FALLEN; it also stops on 5 IMU errors or 5 late loops in a row, and, when armed from the page, if the page stops polling for 2 s (tab closed, phone screen off, Wi-Fi drop).
+Safety, always on while armed: past 45 deg from the trim it stops and shows Fallen; it also stops on 5 IMU errors or 5 late loops in a row, if the wheels spin up in the air (lift detector), and, when armed from /tune, if the page stops polling for 2 s.
 
 ### Saving logs
 
