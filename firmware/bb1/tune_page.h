@@ -103,6 +103,7 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
     <label class="box"><span class="name tip" data-tip="Deadband: PWM added to every correction so small ones still turn the wheels (they don't move below about 15 on the floor). Too much = chatter around upright.">Deadband</span><input id="deadband" inputmode="numeric"></label>
     <label class="box"><span class="name tip" data-tip="Speed P (step 8): when BB1 rolls, lean the target back this many degrees per wheel turn per second, so it brakes instead of running away. Like position hold on a quad. 0 = off.">Speed P (sp)</span><input id="sp" inputmode="decimal"></label>
     <label class="box"><span class="name tip" data-tip="Speed I (step 8): lean the target back this many degrees per wheel turn rolled since arming. Pulls BB1 back to where it started and cancels a trim error. Too much = slow, big back-and-forth. 0 = off.">Speed I (si)</span><input id="si" inputmode="decimal"></label>
+    <label class="box"><span class="name tip" data-tip="Heading hold: keeps both wheels rolling the same distance so BB1 goes straight (the right wheel is a bit faster). PWM moved between the wheels per wheel turn of difference. Too much = it wiggles left-right. 0 = off.">Heading (th)</span><input id="th" inputmode="decimal"></label>
   </div>
   <div class="muted" id="tipText" style="margin-top:8px; min-height:1.4em">Hover over (or tap) P, I or D to see what it does.</div>
   <div class="buttons">
@@ -213,7 +214,7 @@ function showBattery(s) {
 }
 
 const el = id => document.getElementById(id);
-const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si'];
+const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si', 'th'];
 let gains = null, filledVer = -1;   // the gains BB1 last reported, and the version shown in the boxes
 
 // Put BB1's current gains in the boxes. Only when asked or when BB1's version

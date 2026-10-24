@@ -11,6 +11,9 @@ Newest first.
 
 ## 2026-10-24 - step 8: speed loop
 
+- Round 25: P 18 / I 100 / **D 0.5** / **sp 4**: wobble **0.2 deg**, no jitter, 3 of 3 to the timer, drift 2 to 4 turns. Saved to flash
+- Heading hold `th` (`balanceSteer()`): equal wheel distance so it stops curving left; /tune box, flash layout v3, `/state`, log header `turn_hold`. Default off. Compiled, not flashed yet
+
 - **First real balance on wood: P 18, I 100, D 0.7** (round 23): 3 of 3 tries to the 10 s timer, wobble about 1 deg. The key: on the floor the motors act like speed knobs, so the angle loop needs a big I term (TUNING_LOG round 22). Saved to flash. Still drives forward and veers left: speed loop next
 
 - `control.h`: outer speed loop moves the angle target: `target = trim - (sp x turns/s + si x turns since arming)`, limited to +-6 deg, wheel speed smoothed. New settings `sp` / `si` (serial, /gains, /tune boxes, flash layout v2, `/state`, log header `speed_p` / `speed_i`). Default 0 = off. Also a Deadband box on /tune. Firmware name "bb1 step 8". Flashed 2026-10-24; saved settings P 18, D 0.7, trim 0, cap 200, deadband 10, sp 1.5, si 0

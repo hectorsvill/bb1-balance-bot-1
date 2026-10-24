@@ -38,6 +38,18 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 25: D 0.5, sp 4 (`bb1_2026-10-24_16-42-17_i100-sp4-d0-5.csv`)
+
+**Setting:** P 18, I 100, **D 0.5**, **sp 4**, si 0, trim 0, cap 200, deadband 10, wood. **Saved to flash.**
+
+| try | secs | end | wobble | \|P\| | \|I\| | \|D\| | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 10.0 | timer | **0.2** | 2 | 16 | 1 | 0.2 | +4.1 |
+| 2 | 10.0 | timer | **0.2** | 2 | 11 | 1 | 0.5 | +2.3 |
+| 3 | 10.0 | timer | **0.2** | 2 | 14 | 1 | 0.7 | +2.7 |
+
+**What it says:** best yet by far. Wobble 0.2 deg, no jitter (under 1 flip a second), all three to the timer, drift down to 2 to 4 turns in 10 s. Hector: "jitter is gone ... wow amazing results". Still turns left (right wheel faster). **Next:** si 0.5 (hold position), and heading hold `th` (firmware, flash next).
+
 ### 2026-10-24, round 24: speed loop sp 2 (`bb1_2026-10-24_16-39-03_i100-sp2.csv`)
 
 **Setting:** P 18, I 100, D 0.7, **sp 2**, si 0, trim 0, cap 200, deadband 10, wood.

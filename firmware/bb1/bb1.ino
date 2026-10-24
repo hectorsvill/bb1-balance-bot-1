@@ -198,8 +198,13 @@ void loop1() {
     r.pwm_l = test.left;
     r.pwm_r = test.right;
   } else if (balance.armed) {
-    motorsDrive(pwm, pwm);
-    r.pwm_l = r.pwm_r = pwm;
+    // Same balance PWM to both wheels, plus heading hold (balanceSteer) to keep
+    // them rolling the same distance. pwm_l - pwm_r in the log = 2 x the steering.
+    int steer = balanceSteer(r);
+    int cap = (int)pwmCap;
+    r.pwm_l = constrain(pwm + steer, -cap, cap);
+    r.pwm_r = constrain(pwm - steer, -cap, cap);
+    motorsDrive(r.pwm_l, r.pwm_r);
   } else {
     r.pwm_l = r.pwm_r = 0;
   }

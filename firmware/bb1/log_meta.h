@@ -27,6 +27,6 @@ String logMetaLines() {
   m += "# battery_divider," + String(BATTERY_DIVIDER, 2) + ",battery_pin,GP" + String(BATTERY_PIN) + ",battery_cells," + String(BATTERY_CELLS) + "\n";
   m += "# gains_ver," + String(gainsVersion) + ",kp," + String(gainP, 3) + ",ki," + String(gainI, 3) +
        ",kd," + String(gainD, 3) + ",trim," + String(balanceTrim, 2) + ",pwm_cap," + String(pwmCap, 0) +
-       ",deadband," + String(motorDeadband, 0) + ",speed_p," + String(gainSpeedP, 2) + ",speed_i," + String(gainSpeedI, 2) + "\n";
+       ",deadband," + String(motorDeadband, 0) + ",speed_p," + String(gainSpeedP, 2) + ",speed_i," + String(gainSpeedI, 2) + ",turn_hold," + String(gainTurnHold, 1) + "\n";
   return m;
 }

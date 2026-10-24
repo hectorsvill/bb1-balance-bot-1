@@ -65,6 +65,7 @@ struct Balance {
   // Speed loop (step 8)
   float   speedFiltered = 0;    // wheel speed, counts/s, smoothed
   int32_t encAtArm = 0;         // average encoder count when it armed (position = since then)
+  int32_t diffAtArm = 0;        // right minus left encoder when it armed (heading hold)
   bool    newArm = false;       // first tick after arming: remember the encoders
 };
 
@@ -123,7 +124,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     float speed = (r.speed_l + r.speed_r) / 2.0f;                       // counts/s, forward +
     balance.speedFiltered += SPEED_FILTER * (speed - balance.speedFiltered);
     int32_t encNow = (r.enc_l + r.enc_r) / 2;
-    if (balance.newArm) { balance.encAtArm = encNow; balance.newArm = false; }
+    if (balance.newArm) { balance.encAtArm = encNow; balance.diffAtArm = r.enc_r - r.enc_l; balance.newArm = false; }
     float turnsPerSec = balance.speedFiltered / COUNTS_PER_REV;
     float turns       = (float)(encNow - balance.encAtArm) / COUNTS_PER_REV;
     float shift = -(gainSpeedP * turnsPerSec + gainSpeedI * turns);    // rolling forward -> lean back (negative)
@@ -175,6 +176,17 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   r.i_x10 = (int16_t)constrain(pid.i * 10, -32000.0f, 32000.0f);
   r.d_x10 = (int16_t)constrain(pid.d * 10, -32000.0f, 32000.0f);
   return (int)lroundf(out);
+}
+
+// Heading hold: how much PWM to move from the right wheel to the left (or back)
+// so both wheels roll the same distance since arming. The right wheel runs
+// about 7% faster at the same PWM, so without this BB1 curves left. If the
+// right wheel is ahead by one wheel turn, the left gets +th PWM and the right
+// -th PWM. Call after balanceTick() on the same tick; 0 when disarmed or th 0.
+int balanceSteer(const LogRecord &r) {
+  if (!balance.armed || gainTurnHold <= 0) return 0;
+  float aheadTurns = (float)((r.enc_r - r.enc_l) - balance.diffAtArm) / COUNTS_PER_REV;   // + = right wheel ahead
+  return (int)lroundf(constrain(gainTurnHold * aheadTurns, -TURN_HOLD_MAX_PWM, TURN_HOLD_MAX_PWM));
 }
 
 // Called between ticks when core 0 asks for a step test. Only while armed.

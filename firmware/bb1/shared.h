@@ -34,6 +34,7 @@ volatile float    pwmCap        = DEFAULT_PWM_CAP;
 volatile float    motorDeadband = DEFAULT_DEADBAND;
 volatile float    gainSpeedP    = DEFAULT_SPEED_P;   // speed loop (control.h), deg per wheel turn/s
 volatile float    gainSpeedI    = DEFAULT_SPEED_I;   // speed loop, deg per wheel turn rolled since arming
+volatile float    gainTurnHold  = DEFAULT_TURN_HOLD; // heading hold, PWM per wheel turn of left/right difference
 volatile uint32_t gainsVersion  = 1;
 volatile bool     requestArm    = false;
 volatile bool     requestDisarm = false;

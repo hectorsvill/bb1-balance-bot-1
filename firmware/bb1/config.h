@@ -96,6 +96,11 @@ const float DEFAULT_SPEED_P = 0;
 const float DEFAULT_SPEED_I = 0;
 const float SPEED_SHIFT_MAX = 6.0;   // deg: the speed loop never moves the target more than this
 const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about 0.1 s) so encoder steps don't kick the angle loop
+// Heading hold (2026-10-24): keeps both wheels rolling the same distance, so BB1
+// goes straight (the right wheel is about 7% faster at the same PWM). Unit: PWM
+// moved from one wheel to the other per wheel turn of difference. 0 = off.
+const float DEFAULT_TURN_HOLD = 0;
+const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
 // Limits for the settings above, wherever they're set from (serial, the pages, flash).
 const float GAIN_P_MAX = 100;
 const float GAIN_I_MAX = 100;
@@ -103,6 +108,7 @@ const float GAIN_D_MAX = 20;
 const float TRIM_MAX = 20;         // deg either way
 const float DEADBAND_MAX = 100;
 const float SPEED_GAIN_MAX = 20;
+const float TURN_HOLD_GAIN_MAX = 200;
 const float ARM_SECONDS_MAX = 600; // longest arm timer; 0 = no timer
 const float ARM_ANGLE   = 10.0;    // deg: can only arm within this of the trim
 const float FALL_ANGLE  = 45.0;    // deg: past this while armed = fallen, motors off
