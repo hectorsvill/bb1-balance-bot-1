@@ -38,6 +38,20 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 22: sp 4 (`bb1_2026-10-24_16-30-23_sp4-p18-d0-7.csv`)
+
+| try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 3.8 | FELL fwd | 6.2 | +6.1 | 110 | 22 | 8 | 5.8 | +11.9 |
+| 2 | 3.4 | FELL fwd | 6.5 | +6.2 | 114 | 36 | 9 | 9.1 | +10.6 |
+| 3 | 4.4 | FELL fwd | 6.0 | +5.2 | 96 | 9 | 7 | 0.7 | +12.1 |
+
+**What it says, and the key finding of the day:** longer (3.4 to 4.4 s) but it rolled 11 to 12 turns forward. In try 3 the body stayed at only +1 to +2 deg the whole time while the speed loop moved the target back to its −6 deg limit: the angle loop never managed to tip the body back. The wheels sped up steadily, and **wheel speed followed the PWM at about 5 counts/s per PWM**: on the floor these geared motors act like a *speed* knob, not a *push* knob.
+
+Why that matters: to hold or recover a lean the wheels must **accelerate**, and with a speed-like motor acceleration comes from how fast the PWM *changes*. PD makes PWM follow the angle, so it sets the wheel *speed* from the angle; physics wants the wheel *acceleration* to follow the angle. Worked out on paper (pendulum + speed-like motor): with only P and D one root is always unstable, whatever the gains. With an **I term on the angle**, PWM ∝ ∫angle, so acceleration ∝ angle: stable once I is big enough, roughly I > 9.81 / (0.002 m/s per PWM × 57.3) ≈ 86. P then acts as the damping. That explains why every PD round ran away the same way, and why carpet and the cable (extra damping, slower motion) let PD look OK.
+
+**Next:** **I 100**, P 18, D 0.7, speed loop off (sp 0, si 0), trim 0, cap 200, deadband 10.
+
 ### 2026-10-24, round 21: speed loop on, sp 1.5 (`bb1_2026-10-24_16-26-15_sp1-5-p18-d0-7.csv`)
 
 **Setting:** P 18, D 0.7, trim 0, cap 200, deadband 10, **sp 1.5**, si 0, wood, 3.96 V/cell.
