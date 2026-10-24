@@ -140,6 +140,15 @@ For the hand-held and floor tests. **`--wifi`** runs it with no USB cable (the c
 
 Only one program can hold the USB port: close `arduino-cli monitor` and the Arduino IDE Serial Monitor first. How it works inside (threads, keys, status line): `docs/HANDHELD_TOOL.md`.
 
+### deadband_test.py: the smallest PWM that turns the wheels
+
+Over Wi-Fi, **wheels in the air**. Runs the normal timed motor test (1 s each, the firmware stops it) at PWM 5, 10 ... 60 forward then back, reads how far each wheel moved, and prints the first PWM where both turn. Saves `logs/deadband_<date>_<time>.csv`. Ctrl-C stops the motors. Use the result for the `deadband` setting on /tune (docs/TUNING_LOG.md, round 14).
+
+```bash
+tools/venv/bin/python tools/deadband_test.py                # asks "wheels off the floor?" first
+tools/venv/bin/python tools/deadband_test.py --step 2 --max 40
+```
+
 ### pid_report.py: how did each try go?
 
 Reads a balance log (handheld.py, logger.py or the page's Download) and prints one row per try: seconds up, how it ended (timer / FELL fwd / FELL back / you), wobble, lean, the average size of the P, I and D terms, time at the cap, PWM sign flips per second, wheel turns. Then plain hints (which term looks too big or small, never a number). Column meanings: `docs/PID_LESSON.md` section 7.

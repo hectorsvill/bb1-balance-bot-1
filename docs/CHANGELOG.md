@@ -12,6 +12,7 @@ Newest first.
 
 ## 2026-10-23 - handheld.py picks the Pico's port
 
+- New `tools/deadband_test.py`: sweeps motor-test PWM over Wi-Fi and finds where both wheels turn (round 14 showed the wheels don't move below about PWM 30 on wood)
 - docs/TUNING_LOG.md: every tuning round, and what we do with the log data. Round 10 (no cable): never fell, 2 tries cut by Wi-Fi, wobble about 6 vs 3 with the cable
 - pid_report.py names every disarm reason (Wi-Fi lost, tab hidden...) instead of "you"
 - /tune: **Run a try** panel (seconds, ARM, STOP, countdown; space = STOP; hidden tab disarms), so BB1 can run with no USB cable
