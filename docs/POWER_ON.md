@@ -1,8 +1,8 @@
 # Power-on and auto-arm
 
 What BB1 does from the moment you switch it on, and every edge case around it.
-**Status (2026-10-24):** reworked into `firmware/bb1/auto_arm.h`, compiled, not
-flashed yet. Picks made with the recommended defaults while Hector was away
+**Status (2026-10-24):** reworked into `firmware/bb1/auto_arm.h`, flashed, not tested
+yet. Picks made with the recommended defaults while Hector was away
 (1 s hold, lift detector, 3 falls in 30 s); any of them can change.
 
 ## The two main cases

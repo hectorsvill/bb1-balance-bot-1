@@ -13,7 +13,7 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
-## Auto-arm (`auto_arm.h`, reworked 2026-10-24, not flashed yet)
+## Auto-arm (`auto_arm.h`, reworked and flashed 2026-10-24)
 
 BB1 starts balancing by itself. Switched on standing up, it balances about 3.5 s later (2 s gyro calibration, then 1 s held upright). Switched on lying down, it waits until you stand it up and hold it still for 1 s. Every edge case: [docs/POWER_ON.md](../docs/POWER_ON.md).
 

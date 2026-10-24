@@ -25,7 +25,7 @@ Template:
 
 **Decided:** recommended defaults picked while Hector was away (1 s hold, lift detector on, 3 falls in 30 s). Hector can change any of them.
 
-**Open / next:** Hector to say what he disliked about the first auto-arm code. Flash (BB1 lying down), then the power-on test in POWER_ON.md's cases 1, 2, 5, 8, 10.
+**Open / next:** Hector to say what he disliked about the first auto-arm code. Flashed (lying down: waiting). Next: the power-on test in POWER_ON.md's cases 1, 2, 5, 8, 10.
 
 ## 2026-10-24 (afternoon): battery, 10 kHz, step 8, heading hold — BB1 balances
 
