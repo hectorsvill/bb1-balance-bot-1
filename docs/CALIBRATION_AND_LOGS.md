@@ -203,7 +203,7 @@ Since step 4 the top lines come from `log_meta.h`:
 | `gains_ver` | count | which gains were in use; the `# gains_ver,...,kp,...` line at the top gives the values at the time of saving; `handheld.py` files also have a `# gains_vN,...` line for every version used during the run. Goes up on every change. |
 | `reason` | code | why it last disarmed or refused to arm: 0 none, 1 you, 2 fell, 3 IMU, 4 lost the page (heartbeat), 5 loop late, 6 not upright, 7 not calibrated, 8 motor test running, 9 calibrating, 10 page hidden, 11 arm time finished (log format 4) |
 | `web_age_ms` | ms | time since the page last asked for `/state` (10 ms steps, 2550 = 2.55 s or more). Normally 0 to about 100. Big values show Wi-Fi stalls; over 1000 while armed from the page = heartbeat disarm (log format 5) |
-| `batt_v` | V | battery voltage (2S LiPo), from the D153C's `ADC` pin (battery / 11) on GP26, read on core 0 every 100 ms, 16 samples averaged and smoothed (`battery.h`). 0 = no wire or the D153C switch off. Sags while the motors push. (log format 6, 2026-10-24) |
+| `batt_v` | V | battery voltage, **whole pack** (2S LiPo; the pages show it per cell), from the D153C's `ADC` pin (battery / 11) on GP26, read on core 0 every 100 ms, 16 samples averaged and smoothed (`battery.h`). 0 = no wire or the D153C switch off. Sags while the motors push. (log format 6, 2026-10-24) |
 
 Raw values are kept on purpose: a better filter, or a model, can be re-run on them later. Step 5 added the six wheel columns (log format 2), step 6 the five controller columns (log format 3); later steps add the speed loop and drive commands at the end.
 

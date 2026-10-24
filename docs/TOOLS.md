@@ -144,7 +144,7 @@ Only one program can hold the USB port: close `arduino-cli monitor` and the Ardu
 
 `handheld.py` and `logger.py` both take `--surface wood` (or carpet, air...) and `-n "note"`. The file gets `# surface,...`, `# note,...` and one `# gains_vN,...` line per gains setting used, so a log still makes sense months later (and for training a model: FIRMWARE_PLAN.md, section 6).
 
-`pid_report.py` also shows **batt**, the lowest battery voltage in each try (logs from 2026-10-24 on), and warns under 7.0 V.
+`pid_report.py` also shows **V/cell**, the lowest battery voltage per cell in each try (logs from 2026-10-24 on), and warns under 3.5 V/cell.
 
 ### deadband_test.py: the smallest PWM that turns the wheels
 
