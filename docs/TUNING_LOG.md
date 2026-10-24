@@ -21,6 +21,28 @@ The running record of Hector's PID tuning on BB1: what we tried, what the data s
 
 ## Rounds
 
+### 2026-10-23, round 14: trim search 0.5 to 0.7, wood (`bb1_2026-10-23_21-13-20_wood-trim-4.csv`)
+
+**Setting:** P 9.85, I 0, D 0.74, cap 150, wood, no cable. Trim tried 0.5, 0.7, 0.55, 0.58, 0.57 (v6 to v10).
+
+| gains | trim | secs | end | wobble | lean | \|P\| | \|D\| | cap% | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| v6 | 0.50 | 2.0 | FELL back | 7.0 | −6.3 | 62 | 19 | 11 | −3.0 |
+| v7 | 0.70 | 1.3 | FELL fwd | 7.8 | +7.9 | 78 | 34 | 18 | +2.4 |
+| v7 | 0.70 | 1.2 | FELL fwd | 7.8 | +8.5 | 83 | 33 | 19 | +2.3 |
+| v8 | 0.55 | 3.0 | FELL fwd | 7.0 | +2.1 | 41 | 14 | 8 | +2.3 |
+| v8 | 0.55 | 1.3 | FELL fwd | 8.0 | +7.4 | 73 | 31 | 18 | +2.3 |
+| v9 | 0.58 | 1.4 | FELL fwd | 7.8 | +7.6 | 75 | 31 | 16 | +2.3 |
+| v10 | 0.57 | 10.0 | timer | 6.1 | −0.1 | 47 | 19 | 1 | −0.6 |
+| v10 | 0.57 | 2.6 | FELL back | 6.6 | −8.1 | 80 | 25 | 10 | −5.1 |
+
+**What it says:**
+- The balance point is about **+0.55**. But 0.05 deg of trim can't really decide forward vs back: a trim that fine is below what the IMU and your hands can repeat. Which way it fell depends on how each try started, which means BB1 is only **just** holding itself, not that the trim is wrong.
+- **The real problem is the motor deadband.** In one try BB1 sat 1.6 deg off the trim for 1.7 s with the PWM at −15 to −19 and the **wheels not turning at all** (speed 0). When it then tipped forward, the wheels only started moving once the PWM passed about 30, and by then it was already falling at 12 deg/s. So small corrections do nothing on wood, BB1 drifts until the error is big, then it's too late. Carpet and the cable hid this by holding it still.
+- The firmware has a `deadband` setting for exactly this (`control.h`: it adds that much PWM to every correction so small ones still turn the wheels). It's 0 now.
+
+**Next:** measure the deadband (motor test at rising PWM until the wheels move), set `deadband` to it, keep trim 0.55 and the same P / D.
+
 ### 2026-10-23, round 13: trim −4.44, wood (`bb1_2026-10-23_21-04-58_wood-p9-85-d0-74-trim-fix.csv`)
 
 **Setting:** P 9.85, I 0, D 0.74, trim −4.44 (the value in flash), cap 150, wood floor, no cable.
