@@ -13,7 +13,7 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
-## Heading hold (2026-10-24, compiled, not flashed yet)
+## Heading hold (2026-10-24, flashed)
 
 BB1 curved left: the right wheel turns about 7% faster at the same PWM. `balanceSteer()` in `control.h` compares how far each wheel rolled since arming and moves PWM from the wheel that's ahead to the other: `steer = th x (right turns - left turns)`, left gets `+steer`, right `-steer`, limited to ±40 PWM. Setting `th` (serial `th 20`, /tune box **Heading (th)**, saved in flash, settings layout v3; older saved settings still load with it off). Default 0 = off. In the log, `pwm_l - pwm_r` = 2 x the steering. The same idea will steer BB1 in milestone 2 (driving).
 

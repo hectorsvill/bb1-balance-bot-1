@@ -12,7 +12,7 @@ Newest first.
 ## 2026-10-24 - step 8: speed loop
 
 - Round 25: P 18 / I 100 / **D 0.5** / **sp 4**: wobble **0.2 deg**, no jitter, 3 of 3 to the timer, drift 2 to 4 turns. Saved to flash
-- Heading hold `th` (`balanceSteer()`): equal wheel distance so it stops curving left; /tune box, flash layout v3, `/state`, log header `turn_hold`. Default off. Compiled, not flashed yet
+- Heading hold `th` (`balanceSteer()`): equal wheel distance so it stops curving left; /tune box, flash layout v3, `/state`, log header `turn_hold`. Default off. Flashed 2026-10-24 (saved v2 settings loaded fine)
 
 - **First real balance on wood: P 18, I 100, D 0.7** (round 23): 3 of 3 tries to the 10 s timer, wobble about 1 deg. The key: on the floor the motors act like speed knobs, so the angle loop needs a big I term (TUNING_LOG round 22). Saved to flash. Still drives forward and veers left: speed loop next
 
