@@ -9,6 +9,11 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-24 - tools/flash.py
+
+- `tools/flash.py`: compile, check BB1 is lying down (pitch over serial), upload, print the auto-arm state and gains after the reboot. Docs: FLASHING.md, TOOLS.md
+- First run (Claude, testing the script; BB1 was on USB lying down at +89.6 deg) flashed the bias fix and the site clean-up: `Gyro calibrated`, `auto-arm: waiting`, gains v2 loaded
+
 ## 2026-10-24 - fix: no balance after switching on standing up
 
 - **Bug:** switched on standing up (held by hand), the startup gyro calibration failed because the hand moves, and arming needed a successful calibration, so auto-arm waited forever (`waiting: keep still to calibrate`). Lying down it worked

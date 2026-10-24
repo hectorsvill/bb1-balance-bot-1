@@ -200,6 +200,14 @@ tools/venv/bin/python tools/mock_bb1.py
 
 Open http://localhost:8080. Serves the real page from `firmware/bb1/page.h` with made-up data; edit `page.h`, reload the browser. Details: [WEB_INTERFACE.md](WEB_INTERFACE.md#offline-mock-work-on-the-page-without-the-robot). Uses only the Python standard library.
 
+### flash.py: compile and flash BB1 safely
+
+```bash
+tools/venv/bin/python tools/flash.py
+```
+
+Compiles `firmware/bb1`, finds BB1's port, checks over serial that BB1 is **lying down** (auto-arm would start it balancing on the desk otherwise), uploads, then prints what BB1 says after the reboot (auto-arm state, gains). Stops before uploading if the compile fails or BB1 is upright. Step by step and errors: [FLASHING.md](FLASHING.md#flashing-with-toolsflashpy-the-easy-way). Uses pyserial and `arduino-cli`.
+
 ### wiki_sync.sh: copy the docs to the GitHub wiki
 
 ```bash

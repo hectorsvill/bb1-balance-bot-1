@@ -85,6 +85,7 @@ D153C 5V goes straight to VSYS. Switch the D153C on (battery connected) **before
 
 - Arduino C++ on the arduino-pico core by Earle Philhower (tested with 6.3.0). Board "Raspberry Pi Pico W", FQBN `rp2040:rp2040:rpipicow`.
 - Board manager URL: `https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json`
+- **Flash: `tools/venv/bin/python tools/flash.py`** (compile, lying-down check, upload, status; Hector runs it himself when Claude says "flash it"). By hand:
 - Compile: `arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/<sketch> firmware/<sketch>`
 - Upload: `arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn rp2040:rp2040:rpipicow firmware/<sketch>` (find the port with `ls /dev/cu.usbmodem*`). If the Pico doesn't show up, use BOOTSEL and copy the `.uf2` to `/Volumes/RPI-RP2`.
 - Serial: 115200 baud, newline line ending. `arduino-cli monitor` is interactive; to read output yourself, use a short pyserial script with a timeout.

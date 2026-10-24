@@ -21,6 +21,34 @@ Leaving BB1 powered on the battery while you work is fine: with the motors off (
 
 The battery voltage divider (docs/FUTURE_INTEGRATIONS.md) will let the page show and log the voltage.
 
+## Flashing with tools/flash.py (the easy way)
+
+One command does the compile, the safety check, the upload and the check afterwards:
+
+1. **Lay BB1 down** on its front.
+2. Switch the **D153C on**, then plug in **USB** (power order below).
+3. Close anything holding the port: Arduino IDE Serial Monitor, `handheld.py`, `arduino-cli monitor`.
+4. From the repo folder: `tools/venv/bin/python tools/flash.py`
+5. **Expect**, in order:
+   - `== Compiling firmware/bb1` and the `Sketch uses ...` lines
+   - `== Safety check`: `pitch +89 deg ...` and `Lying down: safe to flash.`
+   - `== Uploading to /dev/cu.usbmodem1401` and `Wrote ... bytes`
+   - `== BB1 after the reboot`: `auto-arm: waiting: stand it up and hold still` and the `gains v...` line
+   - `Done: flashed, lying down and waiting. Unplug USB to use it.`
+6. Unplug USB.
+
+**Why the lying-down check:** with auto-arm, BB1 starts balancing by itself after the reboot if it's upright, so on a desk the wheels would spin. The script reads the pitch over serial and refuses unless BB1 is more than 45 deg from upright. Nothing is uploaded if the compile fails or the check refuses.
+
+| Message | What to do |
+|---|---|
+| `BB1 is upright` | lay it down, run again |
+| `No Pico found` | USB not plugged in, or the D153C is off; check `ls /dev/cu.usbmodem*` |
+| `Couldn't read the pitch` | something else has the port open: close it. Or lay it down and add `--force` |
+| `Upload failed` | close any serial monitor and retry; else BOOTSEL (section 3) |
+| `Compile failed` | the error is printed above it |
+
+Options: `--skip-compile` (upload the last build), `--force` (skip the lying-down check), `-p PORT`.
+
 ## 1. Compile
 
 From the repo folder:
