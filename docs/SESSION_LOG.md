@@ -34,7 +34,9 @@ Template:
 
 **Then:** auto-arm (balances by itself when stood up), and a GitHub-ready clean-up (README, placeholder AP password, no personal paths, rebuilt UF2, history checked for secrets).
 
-**Open / next:** step test; milestone 2 driving (new thread); pick a license and create the GitHub repo.
+**Then:** MIT license, pushed to https://github.com/hectorsvill/bb1-balance-bot-1 (private).
+
+**Open / next:** Hector didn't like the code as it stands (auto-arm / latest changes): rework it in the milestone 2 thread. Auto-arm test (stand up, fall, stand up, STOP) not run yet. Change `BB1_AP_PASSWORD` in `secrets.h` before making the repo public. Then milestone 2: driving.
 
 ## 2026-10-24: knowledge graph, motor kit folder
 
