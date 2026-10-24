@@ -38,6 +38,18 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 21: speed loop on, sp 1.5 (`bb1_2026-10-24_16-26-15_sp1-5-p18-d0-7.csv`)
+
+**Setting:** P 18, D 0.7, trim 0, cap 200, deadband 10, **sp 1.5**, si 0, wood, 3.96 V/cell.
+
+| try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 3.1 | FELL fwd | 6.5 | +4.3 | 83 | 30 | 8 | 14.0 | +6.1 |
+| 2 | 2.4 | FELL fwd | 6.9 | +5.5 | 101 | 38 | 11 | 12.9 | +6.1 |
+| 3 | 2.6 | FELL fwd | 6.8 | +5.2 | 93 | 14 | 10 | 1.5 | +6.2 |
+
+**What it says:** the speed loop works in the intended direction: as BB1 rolled forward the target moved back (setpoint 0 -> −2.7 deg at about 2 turns/s), which adds forward push to get the wheels ahead. A little longer than round 19 (2.4 to 3.1 s vs 1.8 to 2.3) but the same forward runaway: the shift was too small and too late (only −1 deg by the time the lean was +3). Wheel acceleration on the floor was only about 1.4 turns/s², which can only hold a lean of about 2 deg, so the corrections have to come early. **Next:** sp **4** (a clearer test: better = the loop helps, worse = the sign is wrong).
+
 ### 2026-10-24, round 19: P 18, D 0.7, trim 0.4, cap 200 (`bb1_2026-10-24_16-15-14_p18-d0-7-trim0-4-cap200.csv`)
 
 | try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
