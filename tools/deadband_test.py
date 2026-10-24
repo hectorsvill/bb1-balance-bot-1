@@ -80,6 +80,12 @@ def main():
     out = REPO / "logs" / f"deadband_{datetime.now():%Y-%m-%d_%H-%M-%S}.csv"
     with open(out, "w") as f:
         f.write(f"# deadband test,host,{args.host},ms,{args.ms},min_counts,{args.min_counts},counts_per_rev,{COUNTS_PER_REV}\n")
+        # What the result depends on: the PWM frequency (from the firmware's log header) and the battery.
+        try:
+            f.writelines(l + "\n" for l in get(f"{base}/log/meta").splitlines() if "pwm_freq_hz" in l)
+            f.write(f"# batt_v,{state(base).get('batt_v', 0):.2f}\n")
+        except OSError:
+            pass
         f.write("direction,pwm,left_counts,right_counts\n")
         f.writelines(f"{d},{p},{l},{r}\n" for d, p, l, r in rows)
     print(f"Saved {out.relative_to(REPO)}")
