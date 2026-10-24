@@ -88,3 +88,7 @@ CLAUDE.md       project facts and working rules for Claude Code
 - [ ] Pi Zero W + camera
 
 History: [docs/CHANGELOG.md](docs/CHANGELOG.md) and [docs/SESSION_LOG.md](docs/SESSION_LOG.md).
+
+## License
+
+MIT, see [LICENSE](LICENSE).

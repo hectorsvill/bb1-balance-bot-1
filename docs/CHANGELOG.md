@@ -11,6 +11,8 @@ Newest first.
 
 ## 2026-10-24 - auto-arm, repo clean-up
 
+- MIT license; GitHub repo `hectorsvill/bb1-balance-bot-1` (private to start)
+
 - **Auto-arm**: starts balancing by itself when stood upright and still for 1 s (after power-up and after a fall); STOP and other disarms turn it off until the next ARM. Setting `auto` (flash layout v4), /tune box, serial help. Firmware banner "step 8". Flashed 2026-10-24 (BB1 lying down: waits, not armed)
 - GitHub-ready pass: README rewritten (status, how it balances, build, safety); `secrets.example.h` now has a placeholder AP password (`change-me-please`) and the docs no longer print one; absolute home paths replaced with `~`; `firmware/uf2/bb1.ino.uf2` rebuilt from the current firmware with the template password. Checked: no Wi-Fi password, email or keys in the files or git history (commits use the GitHub noreply address; `secrets.h` was never committed)
 
