@@ -11,7 +11,7 @@ Newest first.
 
 ## 2026-10-24 - motor kit folder reviewed
 
-- Battery calibrated against a meter (7.9 V vs 7.2 V): `BATTERY_DIVIDER` 11 -> 12.07. Pages, serial readout, handheld.py and pid_report show **volts per cell** (log column `batt_v` stays the whole pack; `# battery_cells` in the log header). Compiled, not flashed yet
+- Battery calibrated against a meter (7.9 V vs 7.2 V): `BATTERY_DIVIDER` 11 -> 12.07. Pages, serial readout, handheld.py and pid_report show **volts per cell** (log column `batt_v` stays the whole pack; `# battery_cells` in the log header). Flashed 2026-10-24; reads 8.06 V (4.03 V/cell) after flashing
 
 - Battery voltage: `battery.h` (core 0, GP26, D153C `ADC` pin = battery / 11), battery chip on `/` and `/tune` (green / orange < 7.0 V / red < 6.6 V), serial readout, `/state` fields, log column `batt_v` (LOG_FORMAT 6, LogRecord 72 bytes). Mock, handheld.py status line and pid_report (`batt` column) updated. Flashed 2026-10-24 with the clean-up and the 2 s heartbeat; RAM free 44.6 KB (heap used 13 KB). Reads 7.29 to 7.36 V running; the first reading after power-up came out wrong (5.2 V), fixed by discarding a few ADC samples at start (boot rows then read 7.7 V: to check against a meter)
 
