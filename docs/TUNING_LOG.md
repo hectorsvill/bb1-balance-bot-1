@@ -38,6 +38,16 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 19: P 18, D 0.7, trim 0.4, cap 200 (`bb1_2026-10-24_16-15-14_p18-d0-7-trim0-4-cap200.csv`)
+
+| try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 2.3 | FELL fwd | 6.4 | +4.8 | 86 | 16 | 10 | 2.6 | +5.1 |
+| 2 | 2.2 | FELL fwd | 6.7 | +4.7 | 90 | 34 | 11 | 13.3 | +4.7 |
+| 3 | 1.8 | FELL fwd | 6.9 | +5.8 | 104 | 21 | 13 | 0.0 | +4.6 |
+
+**What it says:** same shape as round 18 even with P 18: the lean grows slowly 1 -> 10 deg over 2 s while the wheels speed up steadily, until the cap. More P didn't change it. This is the angle loop's limit, not a gain problem: any small trim error is a steady lean, and a steady lean means accelerating forever (no idea it's rolling). That also explains why 0.05 deg of trim flipped the fall direction. **Decision: build step 8, the speed loop, now** (firmware README, PID_LESSON 7b). Meanwhile a trim 0.0 check (round 20).
+
 ### 2026-10-24, round 18: P 13, D 0.7 (`bb1_2026-10-24_16-11-55_p13-d0-7-db10-trim0-6.csv`)
 
 | try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
