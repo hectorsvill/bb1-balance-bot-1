@@ -13,7 +13,7 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
-## bb1, step 8: speed loop (2026-10-24, compiled, not flashed yet)
+## bb1, step 8: speed loop (2026-10-24, flashed)
 
 The angle loop alone holds BB1 at the trim angle, but any small trim error is a steady lean, and a steady lean means accelerating that way forever: it rolls faster and faster until the motors max out (TUNING_LOG rounds 16 to 20). Step 8 adds an outer loop in `control.h` that watches the wheels and moves the target angle:
 
