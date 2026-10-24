@@ -9,6 +9,11 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-24 - auto-arm, repo clean-up
+
+- **Auto-arm**: starts balancing by itself when stood upright and still for 1 s (after power-up and after a fall); STOP and other disarms turn it off until the next ARM. Setting `auto` (flash layout v4), /tune box, serial help. Firmware banner "step 8". Compiled, not flashed yet
+- GitHub-ready pass: README rewritten (status, how it balances, build, safety); `secrets.example.h` now has a placeholder AP password (`change-me-please`) and the docs no longer print one; absolute home paths replaced with `~`; `firmware/uf2/bb1.ino.uf2` rebuilt from the current firmware with the template password. Checked: no Wi-Fi password, email or keys in the files or git history (commits use the GitHub noreply address; `secrets.h` was never committed)
+
 ## 2026-10-24 - step 8: speed loop
 
 - **Milestone: BB1 balances in place on wood** (round 27): P 18, I 100, D 0.5, sp 4, si 0.5, th 20, deadband 10, cap 200, trim 0. Wobble 0.2 deg, stays between the sticky notes, no turning. Saved to flash and made the `config.h` defaults

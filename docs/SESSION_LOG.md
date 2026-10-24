@@ -32,7 +32,9 @@ Template:
 
 **Also:** 30 s arms 3 of 3, and a push test passed (repeated taps, recovers from about 8 deg).
 
-**Open / next:** step test; milestone 2 driving.
+**Then:** auto-arm (balances by itself when stood up), and a GitHub-ready clean-up (README, placeholder AP password, no personal paths, rebuilt UF2, history checked for secrets).
+
+**Open / next:** step test; milestone 2 driving (new thread); pick a license and create the GitHub repo.
 
 ## 2026-10-24: knowledge graph, motor kit folder
 

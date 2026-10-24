@@ -67,12 +67,19 @@ struct Balance {
   int32_t encAtArm = 0;         // average encoder count when it armed (position = since then)
   int32_t diffAtArm = 0;        // right minus left encoder when it armed (heading hold)
   bool    newArm = false;       // first tick after arming: remember the encoders
+  // Auto-arm
+  bool    autoAllowed = true;   // true at power-up and after a fall; any other disarm clears it
+  unsigned long uprightSinceMs = 0;  // when it was last stood upright and still (0 = not now)
 };
 
 Balance balance;                // only core 1 touches this
 
 void balanceDisarm(uint8_t reason) {
   if (balance.armed) motorsOff();
+  // A fall keeps auto-arm on (stand it up and it balances again). Anything else
+  // (STOP, the arm timer, Wi-Fi, IMU errors...) turns it off until the next ARM
+  // or power-up, so a STOP is never undone by itself.
+  if (balance.armed || reason == REASON_USER) balance.autoAllowed = (reason == REASON_FELL);
   balance.armed = false;
   balance.pid.reset();
   balance.stepUntilMs = 0;
@@ -89,6 +96,7 @@ void balanceArm(float pitch, bool motorTestOn) {
   if (!everCalibrated)                          { disarmReason = REASON_NOT_CALIBRATED; return; }
   if (fabs(pitch - balanceTrim) > ARM_ANGLE)    { disarmReason = REASON_NOT_UPRIGHT; return; }
   balance.pid.reset();
+  balance.autoAllowed = true;                   // armed on purpose: falls may auto re-arm again
   balance.imuErrorsInRow = 0;
   balance.overrunsInRow = 0;
   balance.armed = true;
@@ -99,6 +107,25 @@ void balanceArm(float pitch, bool motorTestOn) {
   robotArmed = true;
   disarmReason = REASON_NONE;
   motorsEnable(true);                           // wake the driver; balanceTick() sets the PWM
+}
+
+// Auto-arm: called every tick while disarmed. Arms once BB1 has been within
+// AUTO_ARM_ANGLE of the trim and nearly still for AUTO_ARM_HOLD_MS. Lying down
+// (about +-89 deg) it never gets close, so it just waits. No arm timer and no
+// Wi-Fi heartbeat: it balances on its own; the 45 deg cut-out still applies.
+// Returns true if it armed this tick.
+bool balanceAutoArm(const Angle &a) {
+  bool batteryLow = batteryMv > BATTERY_MIN_SENSE_V * 1000 && batteryMv < BATTERY_LOW_V * 1000;
+  bool ready = autoArm >= 0.5f && balance.autoAllowed && everCalibrated && !motorTestRunning && !batteryLow &&
+               fabs(a.pitch - balanceTrim) < AUTO_ARM_ANGLE && fabs(a.pitchRate) < AUTO_ARM_RATE;
+  if (!ready) { balance.uprightSinceMs = 0; return false; }
+  if (!balance.uprightSinceMs) balance.uprightSinceMs = millis();
+  if (millis() - balance.uprightSinceMs < AUTO_ARM_HOLD_MS) return false;
+  balance.uprightSinceMs = 0;
+  armTimeMs = 0;                                // balance until it falls or you stop it
+  armedFromWeb = false;                         // no page needed
+  balanceArm(a.pitch, motorTestRunning);
+  return balance.armed;
 }
 
 // One tick of the angle loop. Returns the PWM to send to both wheels (0 when

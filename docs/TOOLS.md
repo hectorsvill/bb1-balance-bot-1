@@ -16,7 +16,7 @@ Every terminal is "in" a folder, and relative paths like `logs/run.txt` are look
 |---|---|
 | `pwd` | print the folder you're in |
 | `ls` | list what's in it |
-| `cd "/Users/hectorstevenvillasano/Desktop/bb1 - balance bot 1"` | go to the repo folder (quotes needed: the name has spaces) |
+| `cd ~/Desktop/"bb1 - balance bot 1"` | go to the repo folder (quotes needed: the name has spaces) |
 | `cd tools` / `cd ..` | into tools/ / back up one level |
 
 `..` means "the folder above". So from `tools/`, the logs are at `../logs/`.
@@ -201,7 +201,7 @@ Open http://localhost:8080. Serves the real page from `firmware/bb1/page.h` with
 ## Typical test session
 
 ```bash
-cd "/Users/hectorstevenvillasano/Desktop/bb1 - balance bot 1"
+cd ~/Desktop/"bb1 - balance bot 1"
 ```
 
 ```bash

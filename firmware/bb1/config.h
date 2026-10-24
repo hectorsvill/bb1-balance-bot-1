@@ -102,6 +102,14 @@ const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about
 // moved from one wheel to the other per wheel turn of difference. 0 = off.
 const float DEFAULT_TURN_HOLD = 20;
 const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
+// Auto-arm (2026-10-24): after power-up, BB1 starts balancing by itself as soon
+// as it's stood upright and held still. Lying down it just waits. It also
+// re-arms after a fall once you stand it up again. STOP (or any other disarm)
+// turns auto-arm off until the next ARM or power-up, so STOP always means stop.
+const float DEFAULT_AUTO_ARM   = 1;     // 1 = on, 0 = off (setting "auto")
+const float AUTO_ARM_ANGLE     = 3.0;   // deg: within this of the trim...
+const float AUTO_ARM_RATE      = 30.0;  // deg/s: ...turning slower than this...
+const unsigned long AUTO_ARM_HOLD_MS = 1000;   // ...for this long, then it arms (no arm timer)
 // Limits for the settings above, wherever they're set from (serial, the pages, flash).
 const float GAIN_P_MAX = 100;
 const float GAIN_I_MAX = 100;

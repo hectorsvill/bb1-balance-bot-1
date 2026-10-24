@@ -13,6 +13,15 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
+## Auto-arm (2026-10-24, compiled, not flashed yet)
+
+BB1 starts balancing by itself. After power-up (once the gyro is calibrated) it waits; lying down it stays off. As soon as it's within 3 deg of the trim and turning slower than 30 deg/s for 1 s, it arms: no arm timer, no Wi-Fi needed. After a fall it does the same again when you stand it up.
+
+- **STOP always wins:** STOP / Enter / the arm timer / a Wi-Fi drop / IMU errors turn auto-arm off until the next ARM or power-up, so it never restarts by itself after you stopped it.
+- It won't auto-arm with the battery under `BATTERY_LOW_V` or during a motor test.
+- Setting `auto` (1 / 0): serial `auto 0`, /tune box **Auto-arm (1/0)**, saved in flash (settings layout v4; older settings load with auto-arm on). Constants in `config.h` (`AUTO_ARM_ANGLE`, `AUTO_ARM_RATE`, `AUTO_ARM_HOLD_MS`).
+- **Careful:** held upright and still in the air, the wheels will spin after 1 s. Carry it tilted or lying down, or set `auto 0` for bench work.
+
 ## Heading hold (2026-10-24, flashed)
 
 BB1 curved left: the right wheel turns about 7% faster at the same PWM. `balanceSteer()` in `control.h` compares how far each wheel rolled since arming and moves PWM from the wheel that's ahead to the other: `steer = th x (right turns - left turns)`, left gets `+steer`, right `-steer`, limited to ±40 PWM. Setting `th` (serial `th 20`, /tune box **Heading (th)**, saved in flash, settings layout v3; older saved settings still load with it off). Default 0 = off. In the log, `pwm_l - pwm_r` = 2 x the steering. The same idea will steer BB1 in milestone 2 (driving).
@@ -154,7 +163,7 @@ Building on a new machine needs `secrets.h`: `cp firmware/bb1/secrets.example.h 
 
 What to check:
 1. Serial shows `Wi-Fi: own network "BB1" ... open http://192.168.42.1`.
-2. Phone: join **BB1** (password `bb1robot`), open http://192.168.42.1. The page says **connected**; tilting the robot moves the number and the chart.
+2. Phone: join **BB1** (the password from your `secrets.h`), open http://192.168.42.1. The page says **connected**; tilting the robot moves the number and the chart.
 3. **Calibrate gyro** with the robot lying still: bias updates on the page.
 4. Network: save your home Wi-Fi. BB1 restarts and joins it; on your home Wi-Fi, http://bb1.local opens the page. Then **Use own network** brings back "BB1".
 5. While the page is open: `dump` still shows 0 missing ticks and 5000 us spacing (the web server mustn't disturb core 1).

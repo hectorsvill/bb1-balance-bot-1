@@ -191,6 +191,10 @@ void loop1() {
   if (test.running && millis() - test.startMs >= test.durationMs) motorTestStop();   // time's up
 
   // Balance loop (does nothing unless armed). Same PWM to both wheels: no steering yet.
+  // Auto-arm: stood upright and still while disarmed -> start balancing (control.h).
+  if (!balance.armed && !test.running && imuOk && balanceAutoArm(angle)) {
+    armAttempts = armAttempts + 1;             // core 0 prints "ARMED" when this changes
+  }
   int pwm = balanceTick(angle, imuOk, overranLastTick, dt, r);
 
   if (test.running) {
@@ -229,7 +233,7 @@ bool quiet = false;        // "quiet": pause the 10 Hz readout
 
 void printHelp() {
   Serial.println();
-  Serial.println("BB1 step 7 commands:");
+  Serial.println("BB1 step 8 commands:");
   Serial.println("  cal       measure the gyro bias again (lay the robot still first)");
   Serial.println("  alpha N   set the filter weight, 0.90 to 0.999 (now " + String(requestedAlpha, 3) + ")");
   Serial.println("  csv       switch the readout to comma-separated lines (again to switch back)");
@@ -245,6 +249,8 @@ void printHelp() {
   Serial.println("  enc       print both encoder counts (turn a wheel one turn by hand to check 520)");
   Serial.println("  arm [N]   start balancing (hold it near upright first); N = stop after N s. disarm, or Enter, stops it");
   Serial.println("  p N / i N / d N   set the P, I, D gain, same as kp / ki / kd (now " + String(gainP, 2) + " / " + String(gainI, 2) + " / " + String(gainD, 2) + ")");
+  Serial.println("  sp N / si N   speed loop P / I (now " + String(gainSpeedP, 2) + " / " + String(gainSpeedI, 2) + ");  th N  heading hold (now " + String(gainTurnHold, 1) + ")");
+  Serial.println("  auto 1 / auto 0   start balancing by itself when stood upright and still (now " + String((int)autoArm) + ")");
   Serial.println("  trim N    balance point in deg (now " + String(balanceTrim, 2) + ");  trim here = use the current pitch");
   Serial.println("  cap N     PWM limit while armed (now " + String(pwmCap, 0) + ");  deadband N  (now " + String(motorDeadband, 0) + ")");
   Serial.println("  gains     print the balance settings");
@@ -452,7 +458,7 @@ void setup() {
   while (!Serial && millis() - t0 < 5000) {}   // wait up to 5 s for a serial monitor
 
   Serial.println();
-  Serial.println("BB1 step 7: balancing with saved settings. Motors run only when armed or in a timed test.");
+  Serial.println("BB1 step 8: balancing with saved settings. Motors run only when armed (ARM, or auto-arm: stand it upright and hold still 1 s) or in a timed test.");
   wifiStart();             // up to 15 s if a home network is saved; core 1 is already running
   Serial.println(settingsLoad() ? "Balance settings loaded from flash." : "No saved balance settings: using config.h defaults.");
   webBegin();

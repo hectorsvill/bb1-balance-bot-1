@@ -6,7 +6,7 @@ BB1 serves its own web page from the Pico W. No app, no internet needed.
 
 ### Own network (default)
 
-1. On your phone or Mac, join the Wi-Fi network **BB1**. The password is in `firmware/bb1/secrets.h` (`bb1robot` unless you changed it).
+1. On your phone or Mac, join the Wi-Fi network **BB1**. The password is the one you set in `firmware/bb1/secrets.h` (`BB1_AP_PASSWORD`).
 2. Open **http://192.168.42.1**
 
 While a Mac is on BB1 it has no internet. That's normal: BB1 isn't connected to anything else.
@@ -55,7 +55,7 @@ The Pico's web server answers **one connection at a time**, so anything slow (a 
 
 ### The tuning page (/tune)
 
-**http://bb1.local/tune** is a small page for PID tuning only: **P (Kp)**, **I (Ki)**, **D (Kd)**, trim and cap boxes (hover over or tap P, I or D for what it does; text in each label's `data-tip`) with **Apply**, **Trim = current pitch**, **Save to flash** and **Reload from BB1**; live pitch, error, P / I / D terms and PWM out with a 5 s chart; and the tuning notes. Next to the mode it shows the same battery chip as the full page. **Run a try** panel: seconds (1 to 30, default 10), **ARM**, **STOP** (space bar too), countdown and bar. Armed from this page the heartbeat applies (its `/state` polling keeps BB1 armed; 2 s without = disarm) and hiding the tab disarms. You can also arm from `tools/handheld.py` (USB or `--wifi`). Logs: run `handheld.py --wifi` or `logger.py` alongside. It uses the same `/state`, `/gains` and `/gains/save` as the full page (polls `/state` 10 times a second). Source: `firmware/bb1/tune_page.h`; offline at http://localhost:8080/tune with `mock_bb1.py`. The page also explains how to record and read logs (`pid_report.py`). How to use it while tuning: `docs/PID_TUNING.md`, "Two ways to change the gains".
+**http://bb1.local/tune** is a small page for PID tuning only: **P (Kp)**, **I (Ki)**, **D (Kd)**, trim and cap boxes (hover over or tap P, I or D for what it does; text in each label's `data-tip`) with **Apply**, **Trim = current pitch**, **Save to flash** and **Reload from BB1**; live pitch, error, P / I / D terms and PWM out with a 5 s chart; and the tuning notes. Next to the mode it shows the same battery chip as the full page. The gain boxes also include **Deadband**, **Speed P (sp)**, **Speed I (si)**, **Heading (th)** and **Auto-arm (1/0)** (firmware/README.md). **Run a try** panel: seconds (1 to 30, default 10), **ARM**, **STOP** (space bar too), countdown and bar. Armed from this page the heartbeat applies (its `/state` polling keeps BB1 armed; 2 s without = disarm) and hiding the tab disarms. You can also arm from `tools/handheld.py` (USB or `--wifi`). Logs: run `handheld.py --wifi` or `logger.py` alongside. It uses the same `/state`, `/gains` and `/gains/save` as the full page (polls `/state` 10 times a second). Source: `firmware/bb1/tune_page.h`; offline at http://localhost:8080/tune with `mock_bb1.py`. The page also explains how to record and read logs (`pid_report.py`). How to use it while tuning: `docs/PID_TUNING.md`, "Two ways to change the gains".
 
 ### Balance panel, control by control
 
@@ -88,6 +88,8 @@ tools/venv/bin/python tools/check_dump.py ~/Downloads/bb1_2026-10-22_10-15-00_ti
 ```
 
 `lost` in the file counts ticks that were overwritten before the page fetched them (only if the connection stalled for more than 10 s). `check_dump.py` also reports any missing ticks.
+
+**No login.** Anyone on the same Wi-Fi can open the pages and arm the robot. Keep BB1 on your own network, and set your own `BB1_AP_PASSWORD` in `secrets.h` for its own network.
 
 ## How it works
 

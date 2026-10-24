@@ -11,4 +11,5 @@
 
 // The robot's own network (access point). WPA2 needs at least 8 characters.
 #define BB1_AP_SSID     "BB1"
-#define BB1_AP_PASSWORD "bb1robot"
+#define BB1_AP_PASSWORD "change-me-please"   // pick your own (8+ characters) in secrets.h:
+                                             // anyone who joins this network can drive the robot
