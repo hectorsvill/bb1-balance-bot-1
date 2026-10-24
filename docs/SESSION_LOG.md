@@ -30,8 +30,9 @@ Template:
 **Open / next:**
 - Power-on test, step by step (POWER_ON.md cases 1, 2, 5, 8, 10), ideally with a log, to check the lift detector's 4 turns/s.
 - What Hector disliked about the first auto-arm code (if the rework didn't cover it).
-- **The repo is public and `BB1_AP_PASSWORD` is still the old default** (in `secrets.h` and early commits): change it in `secrets.h` and reflash.
-- Wiki: create the first page once on GitHub, then run `tools/wiki_sync.sh`.
+- Wiki created and synced (`tools/wiki_sync.sh`): https://github.com/hectorsvill/bb1-balance-bot-1/wiki
+
+**Decided:** the repo is public; BB1's own-network password being public is fine (Hector). Only the home Wi-Fi details must stay out of git (they live in Pico flash).
 
 ## 2026-10-24 (afternoon): battery, 10 kHz, step 8, heading hold — BB1 balances
 
