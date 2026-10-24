@@ -38,6 +38,16 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 17: P 13, D 1.0 (`bb1_2026-10-24_16-08-52_p13-d1-0-db10-trim0-6.csv`)
+
+| try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1.2 | FELL fwd | 7.6 | +7.9 | 103 | 80 | 32 | 11.9 | +2.7 |
+| 2 | 1.5 | FELL fwd | 7.6 | +6.6 | 87 | 82 | 30 | 14.7 | +2.9 |
+| 3 | 1.7 | FELL back | 7.0 | −6.8 | 89 | 84 | 33 | 15.2 | −3.4 |
+
+**What it says:** worse. The gyro rate swings ±100 to 160 deg/s at about **13.5 Hz** while the pitch only moves a few degrees: a D-term oscillation (wheels kick, body jerks, gyro spikes, D kicks back), like round 5 but smaller. D 1.0 is past the limit here; 0.74 was under it. The deadband (±10 on every sign change) and the stronger low-PWM torque at 10 kHz both make the loop more aggressive, so the D limit is lower than on the cable runs. **Next:** keep P 13, D back to **0.7**. If D stays capped this low, a low-pass filter on the D term (firmware) is the tool to allow more.
+
 ### 2026-10-24, round 16: trim typed 0.5, deadband 10 (`bb1_2026-10-24_16-05-52_db10-trim0-5-p9-85-d0-74.csv`)
 
 **Setting:** P 9.85, I 0, D 0.74, trim 0.50 (typed), cap 150, deadband 10, 10 kHz, wood, 3.95 V/cell.
