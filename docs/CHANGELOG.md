@@ -8,7 +8,6 @@ Newest first.
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
-- Measure the motor deadband
 
 ## 2026-10-23 - handheld.py picks the Pico's port
 

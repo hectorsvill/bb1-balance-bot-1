@@ -137,6 +137,10 @@ Hector's own tuning, gains set on the /tune page. Note says "P15 D0.5" but the `
 
 P 10, D 0.74 to 0.76, trim −0.01, cap 150. 8 tries: 3 stood 10 s (best ±3.4 deg), 5 fell (3 back, 2 forward). Most tries start rolling **backward** after about 1 s (up to 3.8 wheel turns), then fall. Same gains stood 6/6 in run 7: likely the battery getting low (no voltage sensing yet). Next: check the battery, trim slightly forward, then the speed loop (step 8).
 
+## Motor deadband (2026-10-23, `tools/deadband_test.py`)
+
+Wheels in the air, 1 s per test: both wheels start between PWM 10 and 15, forward and back; above that about 18 counts per PWM. Right wheel about 7% faster than left. On wood under the robot's weight the wheels stayed still at PWM 15 to 19 and started near 30 (TUNING_LOG round 14). File: `logs/deadband_2026-10-23_21-37-35.csv`.
+
 ## Repair: STBY wire came loose (2026-10-23)
 
 Motors stopped turning (bb1 and `motor_test.ino`) while PWM was being sent; battery 8.16 V, VM and 5 V correct. Cause: the **STBY wire (GP9, Pico pin 12) came unsoldered**, so the TB6612 stayed in standby. Hector re-soldered it. Lesson: when both motors die at once, check what they share first (STBY, VM, GND).

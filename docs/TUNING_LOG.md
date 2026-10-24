@@ -43,6 +43,16 @@ The running record of Hector's PID tuning on BB1: what we tried, what the data s
 
 **Next:** measure the deadband (motor test at rising PWM until the wheels move), set `deadband` to it, keep trim 0.55 and the same P / D.
 
+**Deadband measured** (`logs/deadband_2026-10-23_21-37-35.csv`, `tools/deadband_test.py`, wheels in the air, 1 s per test):
+
+| PWM | 5 | 10 | 15 | 20 | 30 | 40 | 60 |
+|---|---|---|---|---|---|---|---|
+| left / right counts fwd | 0 / 1 | 0 / 2 | 100 / 124 | 190 / 215 | 367 / 401 | 550 / 591 | 923 / 975 |
+
+- In the air the wheels start between **PWM 10 and 15**, the same both directions. Above that, speed rises in a straight line (about 18 counts per PWM step of 1).
+- On wood, round 14 showed the wheels stuck at PWM 15 to 19 and starting near **30**: the robot's weight on the wheels and the floor add friction. So the floor deadband is somewhere around **15 to 30**.
+- The right wheel turns about 7% faster than the left at the same PWM. Doesn't matter for balancing; it will for driving straight (milestone 2).
+
 ### 2026-10-23, round 13: trim −4.44, wood (`bb1_2026-10-23_21-04-58_wood-p9-85-d0-74-trim-fix.csv`)
 
 **Setting:** P 9.85, I 0, D 0.74, trim −4.44 (the value in flash), cap 150, wood floor, no cable.

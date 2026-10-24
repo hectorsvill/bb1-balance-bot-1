@@ -1,0 +1,26 @@
+# deadband test,host,bb1.local,ms,1000,min_counts,20,counts_per_rev,520
+direction,pwm,left_counts,right_counts
+fwd,5,0,1
+fwd,10,0,2
+fwd,15,100,124
+fwd,20,190,215
+fwd,25,280,304
+fwd,30,367,401
+fwd,35,458,496
+fwd,40,550,591
+fwd,45,642,686
+fwd,50,736,779
+fwd,55,829,878
+fwd,60,923,975
+back,5,0,-1
+back,10,0,-2
+back,15,-93,-122
+back,20,-182,-220
+back,25,-274,-307
+back,30,-364,-402
+back,35,-462,-493
+back,40,-551,-587
+back,45,-647,-680
+back,50,-741,-774
+back,55,-835,-868
+back,60,-930,-960
