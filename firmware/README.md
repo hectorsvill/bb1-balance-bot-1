@@ -13,14 +13,16 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
-## Auto-arm (2026-10-24, flashed)
+## Auto-arm (`auto_arm.h`, reworked 2026-10-24, not flashed yet)
 
-BB1 starts balancing by itself. After power-up (once the gyro is calibrated) it waits; lying down it stays off. As soon as it's within 3 deg of the trim and turning slower than 30 deg/s for 1 s, it arms: no arm timer, no Wi-Fi needed. After a fall it does the same again when you stand it up.
+BB1 starts balancing by itself. Switched on standing up, it balances about 3.5 s later (2 s gyro calibration, then 1 s held upright). Switched on lying down, it waits until you stand it up and hold it still for 1 s. Every edge case: [docs/POWER_ON.md](../docs/POWER_ON.md).
 
-- **STOP always wins:** STOP / Enter / the arm timer / a Wi-Fi drop / IMU errors turn auto-arm off until the next ARM or power-up, so it never restarts by itself after you stopped it.
+- `auto_arm.h` is a small state machine: `OFF_SETTING`, `OFF_STOPPED`, `OFF_FALLS`, `WAIT_CAL`, `WAIT_UPRIGHT`, `HOLDING`, `BALANCING`. The state is printed on serial when it changes (`auto-arm: ...`), shown on both pages next to the mode, and logged every tick (`auto_state`, log format 7).
+- **STOP always wins:** STOP / Enter / the arm timer / a Wi-Fi drop / IMU errors turn auto-arm off until the next ARM or power-up.
+- After a fall it re-arms when stood up, but **3 falls within 30 s** turn it off until ARM.
+- **Lift detector** (`control.h`, any arm): wheels over 4 turns/s for 0.5 s = picked up, motors off, reason "picked up". Stand it back on the floor and it re-arms.
 - It won't auto-arm with the battery under `BATTERY_LOW_V` or during a motor test.
-- Setting `auto` (1 / 0): serial `auto 0`, /tune box **Auto-arm (1/0)**, saved in flash (settings layout v4; older settings load with auto-arm on). Constants in `config.h` (`AUTO_ARM_ANGLE`, `AUTO_ARM_RATE`, `AUTO_ARM_HOLD_MS`).
-- **Careful:** held upright and still in the air, the wheels will spin after 1 s. Carry it tilted or lying down, or set `auto 0` for bench work.
+- Setting `auto` (1 / 0): serial `auto 0`, /tune box **Auto-arm (1/0)**, saved in flash. Constants in `config.h` (`AUTO_ARM_*`, `AUTO_MAX_FALLS`, `AUTO_FALL_WINDOW_MS`, `LIFT_*`).
 
 ## Heading hold (2026-10-24, flashed)
 

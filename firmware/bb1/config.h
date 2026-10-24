@@ -102,14 +102,19 @@ const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about
 // moved from one wheel to the other per wheel turn of difference. 0 = off.
 const float DEFAULT_TURN_HOLD = 20;
 const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
-// Auto-arm (2026-10-24): after power-up, BB1 starts balancing by itself as soon
-// as it's stood upright and held still. Lying down it just waits. It also
-// re-arms after a fall once you stand it up again. STOP (or any other disarm)
-// turns auto-arm off until the next ARM or power-up, so STOP always means stop.
+// Auto-arm (auto_arm.h, docs/POWER_ON.md): after power-up or a fall, BB1 starts
+// balancing by itself once it's stood upright and held still. STOP turns it off
+// until the next ARM or power-up, so STOP always means stop.
 const float DEFAULT_AUTO_ARM   = 1;     // 1 = on, 0 = off (setting "auto")
 const float AUTO_ARM_ANGLE     = 3.0;   // deg: within this of the trim...
 const float AUTO_ARM_RATE      = 30.0;  // deg/s: ...turning slower than this...
 const unsigned long AUTO_ARM_HOLD_MS = 1000;   // ...for this long, then it arms (no arm timer)
+const int   AUTO_MAX_FALLS     = 3;     // this many falls...
+const unsigned long AUTO_FALL_WINDOW_MS = 30000;  // ...within this long: auto-arm off until ARM
+// Lift detector (control.h): wheels faster than this for this long while armed
+// = picked up or in the air, motors off. On the floor it stays under about 2.
+const float LIFT_TURNS_PER_SEC = 4.0;   // wheel turns per second, average of both wheels
+const unsigned long LIFT_MS    = 500;
 // Limits for the settings above, wherever they're set from (serial, the pages, flash).
 const float GAIN_P_MAX = 100;
 const float GAIN_I_MAX = 100;

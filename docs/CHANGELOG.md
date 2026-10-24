@@ -9,6 +9,14 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-24 - power-on behavior (auto-arm rework)
+
+- Auto-arm moved out of `control.h` into **`auto_arm.h`**, a named-state machine (off / waiting / holding / balancing). Edge cases written up in **`docs/POWER_ON.md`**
+- **Lift detector**: wheels over 4 turns/s for 0.5 s while armed = picked up, motors off (`REASON_LIFTED` = 12). Logs show under 2 turns/s on the floor
+- **Repeated falls**: 3 falls within 30 s turn auto-arm off until ARM
+- Auto-arm state on serial (`auto-arm: ...`), on both pages next to the mode, in `/state` (`auto_state`) and in the log (`auto_state`, LOG_FORMAT 7, LogRecord still 72 bytes). Mock updated
+- Compiled; not flashed yet
+
 ## 2026-10-24 - auto-arm, repo clean-up
 
 - MIT license; GitHub repo `hectorsvill/bb1-balance-bot-1` (private to start)

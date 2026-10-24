@@ -670,7 +670,7 @@ function showMode(s) {
   el('armTime').textContent = left;
   el('topBar').style.width = el('armBar').style.width = frac + '%';
   el('armProgress').style.visibility = timed ? 'visible' : 'hidden';
-  el('armReason').textContent = s.armed ? (s.step ? 'step test running' : timed ? 'left, then it stops by itself' : 'balancing, no time limit') : s.reason;
+  el('armReason').textContent = s.armed ? (s.step ? 'step test running' : timed ? 'left, then it stops by itself' : 'balancing, no time limit') : [s.reason, s.auto_state && 'auto-arm ' + s.auto_state].filter(Boolean).join('. ');
   el('stepBtn').disabled = !s.armed || s.step;
 }
 

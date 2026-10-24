@@ -12,7 +12,7 @@
 
 // Bump this when the log columns change, so old and new files can be told apart.
 const char *FIRMWARE_NAME = "bb1 step 8";
-const int   LOG_FORMAT    = 6;   // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v
+const int   LOG_FORMAT    = 7;   // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state
 
 String logMetaLines() {
   String m;

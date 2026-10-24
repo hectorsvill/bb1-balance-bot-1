@@ -13,6 +13,20 @@ Template:
 **Open / next:**
 ```
 
+## 2026-10-24 (evening): power-on behavior, auto-arm rework
+
+**Did:**
+- Wrote down what BB1 does at power-on and 21 edge cases: `docs/POWER_ON.md`.
+- Reworked auto-arm into `auto_arm.h`: named states (off / waiting / holding / balancing), shown on serial, the pages and in the log (`auto_state`, log format 7).
+- Lift detector in `control.h`: wheels over 4 turns/s for 0.5 s = picked up, motors off.
+- 3 falls within 30 s turn auto-arm off until ARM.
+
+**Learned:** on the floor BB1 never rolled faster than 2 wheel turns/s in today's logs, so fast spinning is a clean sign it's in the air.
+
+**Decided:** recommended defaults picked while Hector was away (1 s hold, lift detector on, 3 falls in 30 s). Hector can change any of them.
+
+**Open / next:** Hector to say what he disliked about the first auto-arm code. Flash (BB1 lying down), then the power-on test in POWER_ON.md's cases 1, 2, 5, 8, 10.
+
 ## 2026-10-24 (afternoon): battery, 10 kHz, step 8, heading hold — BB1 balances
 
 **Did:**
@@ -36,7 +50,7 @@ Template:
 
 **Then:** MIT license, pushed to https://github.com/hectorsvill/bb1-balance-bot-1 (private).
 
-**Open / next:** Hector didn't like the code as it stands (auto-arm / latest changes): rework it in the milestone 2 thread. Auto-arm test (stand up, fall, stand up, STOP) not run yet. Change `BB1_AP_PASSWORD` in `secrets.h` before making the repo public. Then milestone 2: driving.
+**Open / next:** Hector didn't like the code as it stands (auto-arm / latest changes): reworked in the evening session. Auto-arm test (stand up, fall, stand up, STOP) not run yet. Change `BB1_AP_PASSWORD` in `secrets.h` before making the repo public. Then milestone 2: driving.
 
 ## 2026-10-24: knowledge graph, motor kit folder
 

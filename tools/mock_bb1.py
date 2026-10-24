@@ -38,7 +38,7 @@ LOG_MAX_PER_REQUEST = 1000
 ACCEL_PER_G = 16384.0
 GYRO_PER_DPS = 65.5
 CSV_HEADER = ("tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v")
+              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state")
 MOTOR_TEST_MAX_PWM = 150
 MOTOR_TEST_MAX_MS = 3000
 COUNTS_PER_S_PER_PWM = 17.5      # measured: about 1750 counts/s at PWM 100, wheels in the air
@@ -53,7 +53,8 @@ reason = ""                       # why it last disarmed / refused, like disarmR
 arm_attempts = 0
 arm_until = None                  # tick the arm timer ends at, or None
 REASONS = {"disarmed by you": 1, "not upright: hold it near the balance point to arm": 6,
-           "the page was hidden (tab switched or screen locked)": 10, "arm time finished": 11}   # codes as in control.h
+           "the page was hidden (tab switched or screen locked)": 10, "arm time finished": 11,
+           "picked up (wheels spinning in the air)": 12}   # codes as in control.h
 
 
 def test_at(tick):
@@ -128,12 +129,12 @@ def csv_line(r):
     return (f'{r["tick"]},{r["t_us"]},{r["work_us"]},{r["mode"]},{r["flag_bits"]},{raw},'
             f'{r["pitch"]:.3f},{r["pitch_rate"]:.3f},{r["accel_pitch"]:.3f},'
             f'{r["enc"][0]},{r["enc"][1]},{r["speed"][0]},{r["speed"][1]},{r["pwm"][0]},{r["pwm"][1]},'
-            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10},{mock_battery(r["tick"]):.2f}\n')
+            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10},{mock_battery(r["tick"]):.2f},{6 if r["mode"] == 4 else 1}\n')
 
 
 def meta_lines():
     return ("# firmware,bb1 MOCK (tools/mock_bb1.py)\n"
-            "# log_format,6\n"
+            "# log_format,7\n"
             f"# gyro_bias_dps,{bias[0]:.3f},{bias[1]:.3f},{bias[2]:.3f}\n"
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
             "# accel_pitch_sign,1,gyro_pitch_sign,1\n"
@@ -179,7 +180,7 @@ class Handler(BaseHTTPRequestHandler):
                 "tests_done": len(done), "test_moved": moved, "test_ms": (last[1] - last[0]) * 5,
                 "armed": r["mode"] == 4, "reason": reason, "arm_attempts": arm_attempts,
                 "arm_ms": int((arm_until - armed_from) * 5) if arm_until and armed_from is not None else 0,
-                "step": False,
+                "step": False, "auto_state": "balancing" if r["mode"] == 4 else "off: stopped, press ARM",
                 "arm_left_ms": max(0, (arm_until - total_written()) * 5) if arm_until and armed_from is not None else -1,
                 "p": round(r["ctl"][1], 1), "i": 0.0, "d": round(r["ctl"][3], 1), "gains": gains,
                 "batt_v": mock_battery(r["tick"]), "batt_ok": True, "batt_warn_v": 7.0, "batt_low_v": 6.6, "batt_cells": 2,

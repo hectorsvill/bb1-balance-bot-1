@@ -26,6 +26,7 @@
 //   angle.h      complementary filter
 //   motors.h     D153C motor driver, encoders, wheel speed
 //   pid.h        a small PID;  control.h  arm / disarm, safety checks, the angle loop
+//   auto_arm.h   power-on: start balancing by itself when stood upright (docs/POWER_ON.md)
 //   telemetry.h  LogRecord, the ring buffer, CSV output
 //   shared.h     requests from core 0 to core 1, status back
 //   wifi_setup.h own network / home network, saved settings
@@ -39,6 +40,7 @@
 #include "angle.h"
 #include "motors.h"
 #include "control.h"
+#include "auto_arm.h"
 #include "telemetry.h"
 #include "shared.h"
 #include "wifi_setup.h"
@@ -130,10 +132,12 @@ void loop1() {
     balanceDisarm(requestDisarmReason);
     requestDisarmReason = REASON_USER;
     balance.fallen = false;
+    autoArmStop();                             // STOP always wins: no auto-arm until ARM
   }
   if (requestArm) {
     requestArm = false;
     balanceArm(angle.pitch, test.running);
+    autoArmOnManualArm();                      // ARM turns auto-arm back on
     armAttempts = armAttempts + 1;             // core 0 reports armed / refused when this changes
   }
   if (requestStep) {
@@ -190,11 +194,16 @@ void loop1() {
   r.speed_r = (int16_t)constrain(speedR.update(r.enc_r), -32000.0f, 32000.0f);
   if (test.running && millis() - test.startMs >= test.durationMs) motorTestStop();   // time's up
 
-  // Balance loop (does nothing unless armed). Same PWM to both wheels: no steering yet.
-  // Auto-arm: stood upright and still while disarmed -> start balancing (control.h).
-  if (!balance.armed && !test.running && imuOk && balanceAutoArm(angle)) {
+  // Auto-arm (auto_arm.h): stood upright and held still -> start balancing.
+  if (autoArmUpdate(angle, imuOk)) {
+    armTimeMs = 0;                             // no arm timer: it balances until it falls, is lifted or you STOP
+    armedFromWeb = false;                      // and needs no web page
+    balanceArm(angle.pitch, test.running);
     armAttempts = armAttempts + 1;             // core 0 prints "ARMED" when this changes
   }
+  r.auto_state = autoArmer.state;
+
+  // Balance loop (does nothing unless armed).
   int pwm = balanceTick(angle, imuOk, overranLastTick, dt, r);
 
   if (test.running) {
@@ -510,6 +519,13 @@ void loop() {
     Serial.println(String("DISARMED: ") + reasonText(disarmReason));
   }
   armedSeen = robotArmed;
+
+  // Report auto-arm changes ("waiting: stand it up", "holding", "off: stopped"...).
+  static uint8_t autoSeen = 255;
+  if (autoArmState != autoSeen) {
+    autoSeen = autoArmState;
+    Serial.println(String("auto-arm: ") + autoStateText(autoSeen));
+  }
 
   batteryUpdate();         // every 100 ms, a few microseconds of ADC reads
   readSerial();

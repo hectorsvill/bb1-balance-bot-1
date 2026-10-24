@@ -313,7 +313,8 @@ async function poll() {
     showBattery(s);
     el('mode').textContent = s.armed ? 'ARMED' : fallen ? 'FALLEN' : 'DISARMED';
     el('mode').className = 'chip' + (s.armed ? ' armed' : fallen ? ' fallen' : '');
-    el('why').textContent = s.armed ? '' : (s.reason || '');
+    // Disarmed: why it stopped, and what auto-arm is waiting for (auto_arm.h).
+    el('why').textContent = s.armed ? '' : [s.reason, s.auto_state && 'auto-arm ' + s.auto_state].filter(Boolean).join('. ');
     armedNow = s.armed;
     const timed = s.armed && s.arm_left_ms >= 0 && s.arm_ms > 0;
     el('left').textContent = timed ? (s.arm_left_ms / 1000).toFixed(1) + ' s' : '';
