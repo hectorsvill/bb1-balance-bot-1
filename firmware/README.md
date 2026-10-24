@@ -13,7 +13,7 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
-## Auto-arm (2026-10-24, compiled, not flashed yet)
+## Auto-arm (2026-10-24, flashed)
 
 BB1 starts balancing by itself. After power-up (once the gyro is calibrated) it waits; lying down it stays off. As soon as it's within 3 deg of the trim and turning slower than 30 deg/s for 1 s, it arms: no arm timer, no Wi-Fi needed. After a fall it does the same again when you stand it up.
 
