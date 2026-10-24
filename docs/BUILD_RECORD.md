@@ -145,6 +145,22 @@ Wheels in the air, 1 s per test: both wheels start between PWM 10 and 15, forwar
 
 Hector soldered the D153C `ADC` pin (battery / 11) to GP26 (Pico pin 31). First reading 7.2 V vs a meter's 7.9 V with the nominal factor 11, so `BATTERY_DIVIDER` = 12.07. Check after: meter 7.9 V (3.95 V/cell), page 3.9 to 4.0 V/cell. Good to about ±0.05 V/cell.
 
+## PWM frequency: 20 kHz vs 10 kHz (2026-10-24, `tools/deadband_test.py`, wheels in the air, battery 7.9 V)
+
+| PWM | 20 kHz fwd (L / R) | 10 kHz fwd | 20 kHz back | 10 kHz back |
+|---|---|---|---|---|
+| 10 | 0 / 0 | 3 / 2 | −1 / 0 | −2 / −2 |
+| 15 | 2 / 1 | **84 / 83** | −79 / −108 | −87 / −106 |
+| 20 | 63 / 0 | **177 / 175** | −170 / −205 | −182 / −212 |
+| 25 | 172 / 202 | 272 / 279 | −262 / −294 | −275 / −304 |
+| 40 | 514 / 552 | 544 / 572 | −538 / −573 | −552 / −584 |
+| 60 | 908 / 951 | 912 / 961 | −913 / −944 | −921 / −951 |
+
+- Backward: both start at PWM 15; 10 kHz turns about 3 to 7% faster at the low end.
+- Forward: 20 kHz needed 25 (one wheel still stopped at 20), 10 kHz started at 15. But the 20 kHz forward run was the first one after BB1 sat still, so part of that is static friction, not the frequency.
+- Above PWM 40 the two are within a few percent.
+- Files: `logs/deadband_2026-10-24_15-46-04.csv` (20 kHz), `logs/deadband_2026-10-24_15-55-26.csv` (10 kHz).
+
 ## Repair: STBY wire came loose (2026-10-23)
 
 Motors stopped turning (bb1 and `motor_test.ino`) while PWM was being sent; battery 8.16 V, VM and 5 V correct. Cause: the **STBY wire (GP9, Pico pin 12) came unsoldered**, so the TB6612 stayed in standby. Hector re-soldered it. Lesson: when both motors die at once, check what they share first (STBY, VM, GND).
