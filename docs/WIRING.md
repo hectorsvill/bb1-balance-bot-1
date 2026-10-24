@@ -46,6 +46,6 @@ Motors plug into the D153C sockets with their XH cables: left = A, right = B.
 | Part | Connection |
 |---|---|
 | HC-SR04 | VCC to D153C 5V, GND to GND, Trig to GP20 (26), Echo through 1k to GP21 (27) with 2k from GP21 to GND (HC-SR04P: 3V3 and no resistors) |
-| Battery sense | Battery + through 100k to GP26 (31), 33k to GND (8.4 V reads about 2.1 V) |
+| Battery sense | D153C Output_IO header `ADC` pin (H2 pin 5, already VIN / 11 on the board) to GP26 (31). No resistors needed (KIT_REFERENCE.md) |
 | OLED | I2C1 on GP6 (9) / GP7 (10) |
 | Pi Zero W | Pico GP0 TX (1) to Pi pin 10, Pico GP1 RX (2) from Pi pin 8, 5V and GND from the D153C |

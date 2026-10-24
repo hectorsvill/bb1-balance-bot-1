@@ -45,7 +45,7 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 - GY-521 (MPU-6050) in the base pocket on the Pico side
 - 2S 1300 mAh LiPo strapped to the bottom plate (no voltage sensing yet: check it by hand, never below 3.0 V per cell; see `docs/FLASHING.md`, Battery care)
 - 3D-printed reverse-T top frame (short layout, 84 tall, wire windows); sources in `cad/`
-- Not yet fitted: HC-SR04 (holder goes on the front end), SSD1306 OLED, Pi Zero W (next milestone), 1N5819 diode, battery voltage divider
+- Not yet fitted: HC-SR04 (holder goes on the front end), SSD1306 OLED, Pi Zero W (next milestone), 1N5819 diode, battery voltage wire (D153C `ADC` pin = VIN/11 to GP26; no divider needed, `docs/KIT_REFERENCE.md`)
 
 ## Pico W pins
 
@@ -90,7 +90,7 @@ D153C 5V goes straight to VSYS. Switch the D153C on (battery connected) **before
 - `firmware/bb1/` the main firmware (grown step by step), `firmware/motor_test` and `imu_test` bring-up sketches, `firmware/uf2/` prebuilt files
 - `tools/` Python helpers with their own venv (`tools/venv`, rebuilt from `tools/requirements.txt`, not committed); run them with `tools/venv/bin/python`
 - `cad/` OpenSCAD sources and `cad/stl/` the exact STLs printed
-- `docs/` BUILD_RECORD.md (as built + test results), WIRING.md, CHANGELOG.md, FIRMWARE_PLAN.md (plan and choices), PID_TUNING.md, PID_LESSON.md, TUNING_LOG.md (every tuning round and the plan), SESSION_LOG.md (one entry per work session), FLASHING.md (power order, upload, BOOTSEL, monitor), WEB_INTERFACE.md (connecting, endpoints, editing the page), TOOLS.md (every tool, venv, how to run, common errors; keep it current when a tool is added), HANDHELD_TOOL.md (how `tools/handheld.py` works inside), CALIBRATION_AND_LOGS.md (gyro bias cal, readout fields, capturing and summarizing runs; add new log columns here), FUTURE_INTEGRATIONS.md (parts not fitted yet: wiring, power, which to buy)
+- `docs/` BUILD_RECORD.md (as built + test results), WIRING.md, CHANGELOG.md, FIRMWARE_PLAN.md (plan and choices), PID_TUNING.md, PID_LESSON.md, TUNING_LOG.md (every tuning round and the plan), SESSION_LOG.md (one entry per work session), FLASHING.md (power order, upload, BOOTSEL, monitor), WEB_INTERFACE.md (connecting, endpoints, editing the page), TOOLS.md (every tool, venv, how to run, common errors; keep it current when a tool is added), HANDHELD_TOOL.md (how `tools/handheld.py` works inside), CALIBRATION_AND_LOGS.md (gyro bias cal, readout fields, capturing and summarizing runs; add new log columns here), FUTURE_INTEGRATIONS.md (parts not fitted yet: wiring, power, which to buy), KIT_REFERENCE.md (what the vendor's motor kit folder says: D153C battery pin, limits)
 
 ## Docs
 

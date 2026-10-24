@@ -4,31 +4,31 @@ Parts planned for BB1 but not fitted yet. Pins are already reserved in CLAUDE.md
 
 | Part | Pins | Status |
 |---|---|---|
-| Battery voltage divider | GP26 (ADC0), pin 31 | skipped for now |
+| Battery voltage (D153C `ADC` pin, no divider needed) | GP26 (ADC0), pin 31 | one wire to add |
 | SSD1306 OLED | I2C1: GP6 SDA / GP7 SCL, pins 9 / 10 | not fitted |
 | Raspberry Pi Zero W + camera | UART0: GP0 TX / GP1 RX, pins 1 / 2 | next big milestone |
 | HC-SR04 distance sensor | GP20 Trig / GP21 Echo, pins 26 / 27 | holder printed, not wired |
 | 1N5819 diode (D153C 5V to VSYS) | power wire | needed before the power rule can go |
 
-## Battery voltage divider (skipped for now)
+## Battery voltage (one wire: the D153C already has the divider)
 
-**Why:** a 2S LiPo is 8.4 V full and is damaged below about 6.0 V (3.0 V per cell). Today nothing watches it, so you check it by hand (FLASHING.md, Battery care). With a divider, BB1 can show the voltage on the page and OLED, log it every tick, and refuse to arm (or warn) when it's low. Battery voltage also changes how hard the motors push for the same PWM, so a model trained on the logs needs it.
+**Why:** a 2S LiPo is 8.4 V full and is damaged below about 6.0 V (3.0 V per cell). Today nothing watches it, so you check it by hand (FLASHING.md, Battery care). With it, BB1 can show the voltage on the page and OLED, log it every tick, and refuse to arm (or warn) when it's low. Battery voltage also changes how hard the motors push for the same PWM, so a model trained on the logs needs it.
 
-**Why a divider:** the Pico's ADC reads 0 to 3.3 V. Two resistors scale the pack down:
+**How (found 2026-10-24 in the D153C schematic, KIT_REFERENCE.md):** the D153C has a 10 k / 1 k divider from its VIN to a pin labelled `ADC` on the Output_IO header (H2, pin 5, between E1A and GND). So no resistors to add:
 
 ```text
-LiPo + (8.4 V max) ──[ 100 k ]──┬──[ 47 k ]── GND
-                                │
-                                └── GP26 (ADC0)   + 100 nF from GP26 to GND (smooths noise)
+D153C H2 pin 5 "ADC" (= VIN / 11) ─────── GP26 (ADC0), Pico pin 31
 
-V_adc = V_batt x 47 / (100 + 47)     8.4 V -> 2.69 V (safe under 3.3 V)
-V_batt = adc_counts / 4095 x 3.3 x 147 / 47
+V_adc = V_batt / 11            8.4 V -> 0.76 V,  6.0 V -> 0.55 V
+V_batt = adc_counts / 4095 x 3.3 x 11
 ```
 
-- 147 k total draws about 57 uA, small enough to leave connected, but it does drain a stored pack over weeks: unplug the battery for storage anyway.
-- Measure both resistors with a multimeter and put the real values in `config.h`; 1% resistors are worth it.
+- One hand-soldered wire. Optional 100 nF from GP26 to GND to smooth noise.
+- It reads VIN after the D153C power switch: 0 V when the switch is off.
+- Check the factor once against a multimeter and put it in `config.h`.
 - Don't use the Pico's built-in VSYS/3 reading: on the Pico W GP29 is shared with the Wi-Fi chip, and our VSYS is the D153C's regulated 5 V, not the battery.
 - Thresholds to start with: warn at 7.0 V, refuse to arm at 6.6 V (under load the voltage sags, so read it with the motors off).
+- (The earlier plan for an external 100 k / 47 k divider is no longer needed.)
 
 ## SSD1306 OLED (0.96", 128 x 64, I2C)
 

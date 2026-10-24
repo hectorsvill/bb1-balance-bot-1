@@ -9,6 +9,11 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-24 - motor kit folder reviewed
+
+- New docs/KIT_REFERENCE.md: the vendor folder has no balance code. The D153C schematic shows a built-in battery divider (VIN / 11 on the `ADC` header pin), so battery sensing is one wire to GP26, not a divider to build (FUTURE_INTEGRATIONS, WIRING updated; fixes the 100k/33k vs 100k/47k mismatch). Also: 65 C over-temperature cut-off on the 5 V (would reset the Pico), STBY has no pull resistor, TB6612 limits
+- Knowledge graph of the repo with graphify (`graphify-out/`, added to .gitignore). It found 3 doc mismatches, all fixed: FIRMWARE_PLAN error sign (now pitch - setpoint, as built), FIRMWARE_PLAN heartbeat (now 2 s), battery divider values (now the D153C's own pin)
+
 ## 2026-10-23 (evening) - clean-up and plans
 
 - Firmware: the balance settings' names and limits live in one place, `setBalanceSetting()` / `gainsLine()` in `settings.h`, used by serial, `/gains` and flash loading; limits as constants in `config.h`. The `/gains` answer is now the same line as serial `gains`. **Compiled, not flashed yet**

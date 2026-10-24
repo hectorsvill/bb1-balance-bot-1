@@ -13,6 +13,22 @@ Template:
 **Open / next:**
 ```
 
+## 2026-10-24: knowledge graph, motor kit folder
+
+**Did:**
+- Built a knowledge graph of the repo with graphify (`graphify-out/graph.html`, 600 nodes, 32 clusters; gitignored).
+- Reviewed the vendor kit folder (`~/Desktop/B570 balance trolley`); notes in `docs/KIT_REFERENCE.md`.
+- Fixed 3 doc mismatches the graph found (error sign and heartbeat in FIRMWARE_PLAN, battery divider values).
+
+**Learned:**
+- The kit has **no balance code**, only motor demos and a wheel speed PI loop.
+- **The D153C already has a battery divider** (VIN / 11 on its `ADC` header pin): battery voltage is one wire to GP26.
+- The D153C's 5 V shuts off at about 65 °C, which would reset the Pico. STBY has no pull resistor on the board.
+
+**Open / next:**
+- Same as before: flash the clean-up firmware, then deadband, trim, P, D on wood.
+- Solder the battery voltage wire (D153C `ADC` to GP26) when convenient, then a firmware step adds it to the log.
+
 ## 2026-10-23 (evening): wood floor, trim moved, deadband, clean-up
 
 **Did:**

@@ -34,3 +34,4 @@ __pycache__/
 
 # Recorded runs (can get big; copy the ones worth keeping into the vault Logs/ or a dataset folder)
 logs/
+graphify-out/
