@@ -38,6 +38,18 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 26: si 0.5 — holds position (`bb1_2026-10-24_16-50-19_i100-sp4-si0-5-d0-5.csv`)
+
+**Setting:** P 18, I 100, D 0.5, sp 4, **si 0.5**, trim 0, cap 200, deadband 10, wood. **Saved to flash.**
+
+| try | secs | end | wobble | \|P\| | \|I\| | \|D\| | flips/s | left / right wheel (turns) |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 10.0 | timer | 0.4 | 3 | 4 | 2 | 3.3 | +0.03 / −0.06 |
+| 2 | 10.0 | timer | 0.3 | 3 | 4 | 1 | 2.5 | +0.03 / +0.15 |
+| 3 | 10.0 | timer | 0.2 | 3 | 6 | 1 | 2.0 | +0.35 / +0.90 |
+
+**What it says:** **it holds its position**: tries 1 and 2 moved less than a fifth of a wheel turn in 10 s (Hector: stayed within the sticky notes). The I term dropped to about 5 (si now cancels the trim error, so I doesn't have to). What's left is the **turn**: the right wheel rolls more than the left (try 3: 0.9 vs 0.35 turns), so BB1 pivots left, up to about 90 deg. **Next:** flash heading hold, th **20**.
+
 ### 2026-10-24, round 25: D 0.5, sp 4 (`bb1_2026-10-24_16-42-17_i100-sp4-d0-5.csv`)
 
 **Setting:** P 18, I 100, **D 0.5**, **sp 4**, si 0, trim 0, cap 200, deadband 10, wood. **Saved to flash.**
