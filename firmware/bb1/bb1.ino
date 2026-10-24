@@ -428,9 +428,9 @@ void printStatus() {
   } else {
     char buf[180];
     snprintf(buf, sizeof(buf),
-             "pitch %+6.1f | accel only %+6.1f | rate %+7.1f deg/s | loop avg %4lu us max %4lu us | overruns %lu imu errors %lu | tick %lu | batt %.2f V",
+             "pitch %+6.1f | accel only %+6.1f | rate %+7.1f deg/s | loop avg %4lu us max %4lu us | overruns %lu imu errors %lu | tick %lu | batt %.2f V/cell",
              newest.pitch, newest.accel_pitch, newest.pitch_rate, avg, workMax, overruns, imuErrors,
-             (unsigned long)newest.tick, batteryMv / 1000.0);
+             (unsigned long)newest.tick, batteryMv / 1000.0 / BATTERY_CELLS);
     Serial.println(buf);
   }
 }

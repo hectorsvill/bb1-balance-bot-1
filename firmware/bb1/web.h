@@ -68,7 +68,7 @@ void handleState() {
            "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
            "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"step\":%s,\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
-           "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,"
+           "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,\"batt_cells\":%d,"
            "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f}}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
@@ -86,7 +86,7 @@ void handleState() {
            (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
            robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs, armLeftMs, stepActive ? "true" : "false",
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
-           batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V,
+           batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V, BATTERY_CELLS,
            (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband);
   server.send(200, "application/json", json);
 }

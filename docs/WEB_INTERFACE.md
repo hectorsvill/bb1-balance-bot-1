@@ -31,7 +31,7 @@ The password is stored as plain text on the Pico. It never goes into git.
 
 Anything with a dotted underline has a hint: hover over it on the Mac and it appears next to it, move away and it goes; on a phone, tap the word (shows for 5 s). All hint texts live in one table, `HINTS` in `page.h`, keyed by element id: edit them there.
 
-**Status bar** (stays at the top while you scroll): connection dot (green = BB1, orange = the offline mock, red = lost), the **battery** chip (volts; green, orange under 7.0 V, red under 6.6 V, `batt --` = no wire or switch off; hover for volts per cell), the mode (DISARMED / ARMED / FALLEN / MOTOR TEST), the **arm countdown** with a shrinking green line under the bar, and a red **STOP** that ends everything. The space bar does the same as STOP from anywhere on the page.
+**Status bar** (stays at the top while you scroll): connection dot (green = BB1, orange = the offline mock, red = lost), the **battery** chip (**volts per cell**, like a LiPo charger: 4.2 full, 3.7 nominal; green, orange under 3.5, red under 3.3 = charge it; `batt --` = no wire or switch off; hover for the whole pack), the mode (DISARMED / ARMED / FALLEN / MOTOR TEST), the **arm countdown** with a shrinking green line under the bar, and a red **STOP** that ends everything. The space bar does the same as STOP from anywhere on the page.
 
 The panels sit in one column, on a phone or a Mac. Click a panel's title to fold it away; the **▲ ▼** arrows move it. Folds and order are remembered by that browser. Anything wider than a panel (the log table) scrolls sideways inside its box, never the whole page.
 
@@ -107,7 +107,7 @@ You can call these yourself with `curl` (on the same network as BB1):
 |---|---|
 | `GET /` | the page |
 | `GET /tune` | the small PID tuning page (`tune_page.h`) |
-| `GET /state` | newest values as JSON (since 2026-10-24 also `batt_v`, `batt_ok`, `batt_warn_v`, `batt_low_v`) |
+| `GET /state` | newest values as JSON (since 2026-10-24 also `batt_v` (whole pack), `batt_ok`, `batt_warn_v`, `batt_low_v`, `batt_cells`) |
 | `POST /cal` | recalibrate the gyro |
 | `POST /alpha` with `value=0.98` | set the filter weight |
 | `GET /wifi` | network mode and the saved home network name (never the password) |

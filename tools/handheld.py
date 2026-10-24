@@ -182,7 +182,7 @@ class WifiLink(threading.Thread):
             self.trim = g["trim"]
             self.readout = f"pitch {s['pitch']:+.1f} (trim {s['pitch'] - g['trim']:+.1f})"
             if s.get("batt_ok"):
-                self.readout += f" | batt {s['batt_v']:.2f} V"
+                self.readout += f" | batt {s['batt_v'] / s.get('batt_cells', 2):.2f} V/cell"
             self.gains = f"kp {g['kp']:g} kd {g['kd']:g} cap {g['cap']:g}"
             self.versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband"))
             if s["armed"] != self.armed:                           # print each change once

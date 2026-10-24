@@ -45,7 +45,7 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 - GY-521 (MPU-6050) in the base pocket on the Pico side
 - 2S 1300 mAh LiPo strapped to the bottom plate (no voltage sensing yet: check it by hand, never below 3.0 V per cell; see `docs/FLASHING.md`, Battery care)
 - 3D-printed reverse-T top frame (short layout, 84 tall, wire windows); sources in `cad/`
-- Not yet fitted: HC-SR04 (holder goes on the front end), SSD1306 OLED, Pi Zero W (next milestone), 1N5819 diode. Battery voltage: D153C `ADC` pin (VIN/11) wired to GP26 2026-10-24; firmware `battery.h` reads it on core 0, logs `batt_v` (log format 6), shows it on both pages
+- Not yet fitted: HC-SR04 (holder goes on the front end), SSD1306 OLED, Pi Zero W (next milestone), 1N5819 diode. Battery voltage: D153C `ADC` pin (VIN/11) wired to GP26 2026-10-24; firmware `battery.h` reads it on core 0, logs `batt_v` (whole pack, log format 6), pages show **volts per cell** (Hector prefers per cell); calibrated factor 12.07 (`BATTERY_DIVIDER`)
 
 ## Pico W pins
 

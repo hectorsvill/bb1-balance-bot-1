@@ -196,14 +196,17 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
 
 </main>
 <script>
-// Battery chip: green, orange under batt_warn_v, red under batt_low_v (both from
+// Battery chip, volts per cell: green, orange under batt_warn_v, red under batt_low_v (both from
 // config.h, sent in /state). "--" means no battery wire or the D153C switch is off.
 function showBattery(s) {
   const b = el('batt');
   if (s.batt_v === undefined || !s.batt_ok) { b.textContent = 'batt --'; b.className = 'chip'; return; }
-  b.textContent = s.batt_v.toFixed(2) + ' V';
+  // Shown per cell (pack / cells), the way LiPo chargers show it: 4.2 full, 3.7 nominal, 3.3 charge now.
+  const cells = s.batt_cells || 2;
+  b.textContent = (s.batt_v / cells).toFixed(2) + ' V/cell';
   b.className = 'chip ' + (s.batt_v < s.batt_low_v ? 'batt-low' : s.batt_v < s.batt_warn_v ? 'batt-warn' : 'batt-ok');
-  b.title = 'battery: ' + (s.batt_v / 2).toFixed(2) + ' V per cell (2S). Charge below ' + s.batt_low_v + ' V.';
+  b.title = 'battery ' + s.batt_v.toFixed(2) + ' V (' + cells + 'S). Orange under ' + (s.batt_warn_v / cells).toFixed(2) +
+            ' V/cell, red (charge it) under ' + (s.batt_low_v / cells).toFixed(2) + ' V/cell.';
 }
 
 const el = id => document.getElementById(id);

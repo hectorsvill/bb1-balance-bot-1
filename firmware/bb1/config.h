@@ -51,10 +51,14 @@ const int LOG_BUFFER_RECORDS = LOG_SECONDS * LOOP_HZ;
 // ---------- battery (2026-10-24) ----------
 // D153C "ADC" pin (battery / 11 on the board) wired to GP26. battery.h reads it.
 const int   BATTERY_PIN         = 26;     // ADC0, Pico pin 31
-const float BATTERY_DIVIDER     = 11.0;   // D153C R13 10 k / R15 1 k. Check once against a meter.
+// D153C R13 10 k / R15 1 k = 11 on paper. Calibrated 2026-10-24 against a meter:
+// meter 7.9 V, BB1 read 7.2 V with 11, so 11 x 7.9 / 7.2 = 12.07. (The Pico's
+// ADC reads a little low, typical for the RP2040.) Re-check with a meter now and then.
+const float BATTERY_DIVIDER     = 12.07;
+const int   BATTERY_CELLS       = 2;      // 2S LiPo: the pages show volts per cell
 const unsigned long BATTERY_READ_MS = 100;
-const float BATTERY_WARN_V      = 7.0;    // 2S: 3.5 V per cell. The page turns orange.
-const float BATTERY_LOW_V       = 6.6;    // 3.3 V per cell. The page turns red: charge it.
+const float BATTERY_WARN_V      = 7.0;    // whole pack: 3.5 V per cell. The page turns orange.
+const float BATTERY_LOW_V       = 6.6;    // whole pack: 3.3 V per cell. The page turns red: charge it.
 const float BATTERY_MIN_SENSE_V = 3.0;    // below this: no wire, or the D153C switch is off
 
 // ---------- motors (step 5) ----------

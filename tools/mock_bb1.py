@@ -138,7 +138,7 @@ def meta_lines():
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
             "# accel_pitch_sign,1,gyro_pitch_sign,1\n"
             "# counts_per_rev,520,speed_window_ticks,10,pwm_max,255,pwm_freq_hz,20000\n"
-            "# battery_divider,11.00,battery_pin,GP26\n"
+            "# battery_divider,12.07,battery_pin,GP26,battery_cells,2\n"
             "# gains_ver,{ver},kp,{kp:.3f},ki,{ki:.3f},kd,{kd:.3f},trim,{trim:.2f},pwm_cap,{cap:.0f},deadband,{deadband:.0f}\n"
             .format(**gains))
 
@@ -182,7 +182,7 @@ class Handler(BaseHTTPRequestHandler):
                 "step": False,
                 "arm_left_ms": max(0, (arm_until - total_written()) * 5) if arm_until and armed_from is not None else -1,
                 "p": round(r["ctl"][1], 1), "i": 0.0, "d": round(r["ctl"][3], 1), "gains": gains,
-                "batt_v": mock_battery(r["tick"]), "batt_ok": True, "batt_warn_v": 7.0, "batt_low_v": 6.6,
+                "batt_v": mock_battery(r["tick"]), "batt_ok": True, "batt_warn_v": 7.0, "batt_low_v": 6.6, "batt_cells": 2,
             }
             self.reply(json.dumps(state), "application/json")
         elif url.path == "/log/meta":
