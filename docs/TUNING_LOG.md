@@ -38,6 +38,17 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 18: P 13, D 0.7 (`bb1_2026-10-24_16-11-55_p13-d0-7-db10-trim0-6.csv`)
+
+| try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1.5 | FELL fwd | 7.4 | +6.5 | 84 | 32 | 15 | 6.7 | +3.1 |
+| 2 | 2.1 | FELL fwd | 7.0 | +4.5 | 62 | 20 | 11 | 5.2 | +3.1 |
+| 3 | 1.9 | FELL fwd | 7.0 | +5.1 | 67 | 20 | 13 | 3.2 | +3.1 |
+| 4 | 1.9 | FELL fwd | 7.1 | +4.6 | 66 | 42 | 11 | 15.1 | +2.9 |
+
+**What it says:** jitter mostly gone. Every try did the same thing: a slow, steady forward lean (about 2 to 5 deg/s) while the wheels sped up forward, PWM rising with the lean, but the lean never stopped growing; at about 10 deg the PWM hit the cap and it fell. To stop a lean the wheels must *accelerate* under it, and a motor's PWM sets roughly its speed, not its push: as the wheels speed up, less of the PWM is left to accelerate them. So the push per degree (P) is still too small, and near the end the cap ran out. All 4 fell forward, so the trim is a bit forward too. **Next:** P **18**, D 0.7, trim **0.4**, cap **200**.
+
 ### 2026-10-24, round 17: P 13, D 1.0 (`bb1_2026-10-24_16-08-52_p13-d1-0-db10-trim0-6.csv`)
 
 | try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
