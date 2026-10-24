@@ -27,7 +27,8 @@ Template:
 
 **Open / next:**
 - Same as before: flash the clean-up firmware, then deadband, trim, P, D on wood.
-- Solder the battery voltage wire (D153C `ADC` to GP26) when convenient, then a firmware step adds it to the log.
+- Hector is soldering the battery wire (D153C `ADC` to GP26). Firmware for it is written (`battery.h`, pages, log column `batt_v`), compiled, not flashed.
+- Then test the PWM at 10 kHz vs 20 kHz with `deadband_test.py` (does the deadband shrink?).
 
 ## 2026-10-23 (evening): wood floor, trim moved, deadband, clean-up
 

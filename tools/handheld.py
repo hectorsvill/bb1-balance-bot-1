@@ -108,6 +108,8 @@ class SerialLink(threading.Thread):
                 self.readout = f"pitch {pitch:+.1f}"
                 if self.trim is not None:            # how far from the balance point: arming needs within 10
                     self.readout += f" (trim {pitch - self.trim:+.1f})"
+                if "| batt " in line:                # "... | batt 7.92 V" (firmware from 2026-10-24)
+                    self.readout += " | batt " + line.split("| batt ")[1].strip()
             else:
                 if line.startswith("gains") and " trim " in line:   # "gains v2: kp 15.00 ... trim -3.98 deg ..."
                     self.trim = float(line.split(" trim ")[1].split()[0])
@@ -179,6 +181,8 @@ class WifiLink(threading.Thread):
             g = s["gains"]
             self.trim = g["trim"]
             self.readout = f"pitch {s['pitch']:+.1f} (trim {s['pitch'] - g['trim']:+.1f})"
+            if s.get("batt_ok"):
+                self.readout += f" | batt {s['batt_v']:.2f} V"
             self.gains = f"kp {g['kp']:g} kd {g['kd']:g} cap {g['cap']:g}"
             self.versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband"))
             if s["armed"] != self.armed:                           # print each change once

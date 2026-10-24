@@ -44,6 +44,7 @@
 #include "wifi_setup.h"
 #include "log_meta.h"
 #include "settings.h"
+#include "battery.h"
 #include "web.h"
 
 // Give core 1 its own 8 KB stack instead of splitting one 8 KB stack between the
@@ -203,6 +204,7 @@ void loop1() {
     r.pwm_l = r.pwm_r = 0;
   }
   r.mode = test.running ? MODE_MOTOR_TEST : balanceMode();
+  r.batt_mv = batteryMv;   // measured on core 0 (battery.h); one 16-bit copy, never half-written
   // ------------------------------
 
   unsigned long work = micros() - now;
@@ -424,11 +426,11 @@ void printStatus() {
     Serial.print(avg);                         Serial.print(',');
     Serial.println(workMax);
   } else {
-    char buf[160];
+    char buf[180];
     snprintf(buf, sizeof(buf),
-             "pitch %+6.1f | accel only %+6.1f | rate %+7.1f deg/s | loop avg %4lu us max %4lu us | overruns %lu imu errors %lu | tick %lu",
+             "pitch %+6.1f | accel only %+6.1f | rate %+7.1f deg/s | loop avg %4lu us max %4lu us | overruns %lu imu errors %lu | tick %lu | batt %.2f V",
              newest.pitch, newest.accel_pitch, newest.pitch_rate, avg, workMax, overruns, imuErrors,
-             (unsigned long)newest.tick);
+             (unsigned long)newest.tick, batteryMv / 1000.0);
     Serial.println(buf);
   }
 }
@@ -438,6 +440,7 @@ void setup() {
   pinMode(PIN_STBY, OUTPUT);
   digitalWrite(PIN_STBY, LOW);
 
+  batteryBegin();          // GP26 as an analog input (battery.h)
   Serial.begin(115200);
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 5000) {}   // wait up to 5 s for a serial monitor
@@ -496,6 +499,7 @@ void loop() {
   }
   armedSeen = robotArmed;
 
+  batteryUpdate();         // every 100 ms, a few microseconds of ADC reads
   readSerial();
   wifiLoop();
   webLoop();

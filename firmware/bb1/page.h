@@ -57,6 +57,9 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
   .chip.armed { background:rgba(63,185,122,0.18); color:var(--green); }
   .chip.fallen { background:rgba(240,82,82,0.18); color:var(--red); }
   .chip.test { background:rgba(240,160,60,0.18); color:var(--orange); }
+  .chip.batt-ok { background:rgba(63,185,122,0.18); color:var(--green); }
+  .chip.batt-warn { background:rgba(240,160,60,0.18); color:var(--orange); }
+  .chip.batt-low { background:rgba(240,82,82,0.18); color:var(--red); }
   .countdown { font-weight:800; font-size:20px; color:var(--green); min-width:4.5ch; text-align:right; }
   .timebar { height:3px; background:transparent; }
   .timebar i { display:block; height:100%; width:0; background:var(--green); transition:width 0.1s linear; }
@@ -160,6 +163,7 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
     <span class="brand">BB1</span>
     <span class="conn"><span class="dot" id="connDot"></span><span id="conn">connecting...</span></span>
     <span class="spacer"></span>
+    <span class="chip" id="batt" title="battery voltage">batt --</span>
     <span class="chip" id="modeChip">--</span>
     <span class="countdown" id="topTime"></span>
     <button class="stop" id="stopBtn" onclick="stopAll()">STOP</button>
@@ -394,6 +398,16 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
 <div id="hintBox"></div>
 
 <script>
+// Battery chip: green, orange under batt_warn_v, red under batt_low_v (both from
+// config.h, sent in /state). "--" means no battery wire or the D153C switch is off.
+function showBattery(s) {
+  const b = el('batt');
+  if (s.batt_v === undefined || !s.batt_ok) { b.textContent = 'batt --'; b.className = 'chip'; return; }
+  b.textContent = s.batt_v.toFixed(2) + ' V';
+  b.className = 'chip ' + (s.batt_v < s.batt_low_v ? 'batt-low' : s.batt_v < s.batt_warn_v ? 'batt-warn' : 'batt-ok');
+  b.title = 'battery: ' + (s.batt_v / 2).toFixed(2) + ' V per cell (2S). Charge below ' + s.batt_low_v + ' V.';
+}
+
 const el = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const store = {                                  // localStorage can be blocked: never let that break the page
@@ -639,6 +653,7 @@ for (const id of Object.keys(GAIN_BOXES)) {
 function showMode(s) {
   armedNow = s.armed;
   const mode = s.armed ? 'ARMED' : s.test_running ? 'MOTOR TEST' : s.mode === 5 ? 'FALLEN' : 'DISARMED';
+  showBattery(s);
   el('modeChip').textContent = mode;
   el('modeChip').className = 'chip' + (s.armed ? ' armed' : s.test_running ? ' test' : s.mode === 5 ? ' fallen' : '');
   el('armState').textContent = s.armed ? 'Armed' : s.mode === 5 ? 'Fallen' : 'Disarmed';
@@ -788,7 +803,7 @@ async function saveLast() {
 
 const LIVE_ROWS = 120;
 const SHORT_COLUMNS = ['tick', 'mode', 'pitch', 'pitch_rate', 'p_term', 'i_term', 'd_term', 'pwm_l', 'pwm_r',
-                       'speed_l', 'speed_r', 'reason', 'web_age_ms'];
+                       'speed_l', 'speed_r', 'reason', 'web_age_ms', 'batt_v'];
 const live = { on: false, byRecord: false, rows: [], total: 0, lost: 0 };
 
 function liveAdd(rows, lost) {

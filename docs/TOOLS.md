@@ -144,6 +144,8 @@ Only one program can hold the USB port: close `arduino-cli monitor` and the Ardu
 
 `handheld.py` and `logger.py` both take `--surface wood` (or carpet, air...) and `-n "note"`. The file gets `# surface,...`, `# note,...` and one `# gains_vN,...` line per gains setting used, so a log still makes sense months later (and for training a model: FIRMWARE_PLAN.md, section 6).
 
+`pid_report.py` also shows **batt**, the lowest battery voltage in each try (logs from 2026-10-24 on), and warns under 7.0 V.
+
 ### deadband_test.py: the smallest PWM that turns the wheels
 
 Over Wi-Fi, **wheels in the air**. Runs the normal timed motor test (1 s each, the firmware stops it) at PWM 5, 10 ... 60 forward then back, reads how far each wheel moved, and prints the first PWM where both turn. Saves `logs/deadband_<date>_<time>.csv`. Ctrl-C stops the motors. Use the result for the `deadband` setting on /tune (docs/TUNING_LOG.md, round 14).

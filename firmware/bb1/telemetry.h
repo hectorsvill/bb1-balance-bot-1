@@ -31,7 +31,7 @@ const uint8_t FLAG_OVERRUN   = 1 << 1;   // the previous tick's work took longer
 const uint8_t FLAG_NO_BIAS   = 1 << 2;   // no successful gyro calibration yet: pitch_rate includes the bias
 const uint8_t FLAG_SATURATED = 1 << 3;   // armed and the PID output hit the PWM cap
 
-// One control tick. 68 bytes; 2000 of them (10 s) use 136 KB of the 264 KB RAM.
+// One control tick. 72 bytes; 2000 of them (10 s) use 144 KB of the 264 KB RAM.
 // (Step 5 added 16 bytes: encoders, wheel speeds, motor commands. Step 6 added
 // 12: the controller. Its terms are stored x10 as whole numbers, 2 bytes each
 // instead of 4 for a float, to keep the 10 s buffer within RAM.)
@@ -62,6 +62,8 @@ struct LogRecord {
                           // Fits in what used to be padding, so the record stays 68 bytes.
   uint8_t  web_age;       // time since the page last asked for /state, in 10 ms steps (255 = 2.55 s or more).
                           // Shows Wi-Fi stalls; the last padding byte.
+  // 2026-10-24: battery (log format 6). Makes the record 72 bytes (2 bytes of padding left).
+  uint16_t batt_mv;       // battery voltage in mV (battery.h; 0 = no wire / switch off)
 };
 
 // ---------- the ring buffer ----------
@@ -115,7 +117,7 @@ uint32_t logOldest() {
 
 const char *CSV_HEADER =
   "tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms";
+  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v";
 
 void csvHeader(Print &p) {
   p.println(CSV_HEADER);
@@ -123,12 +125,12 @@ void csvHeader(Print &p) {
 
 // Write one record as a CSV line (with "\n") into buf. Returns the length.
 int formatCsv(char *buf, size_t size, const LogRecord &r) {
-  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u\n",
+  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u,%.2f\n",
                   (unsigned long)r.tick, (unsigned long)r.t_us, r.work_us, r.mode, r.flags,
                   r.raw[0], r.raw[1], r.raw[2], r.raw[3], r.raw[4], r.raw[5], r.raw[6],
                   r.pitch, r.pitch_rate, r.accel_pitch,
                   (long)r.enc_l, (long)r.enc_r, r.speed_l, r.speed_r, r.pwm_l, r.pwm_r,
-                  r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10);
+                  r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10, r.batt_mv / 1000.0);
 }
 
 void printCsv(Print &p, const LogRecord &r) {

@@ -34,6 +34,7 @@
 #include "settings.h"
 #include "page.h"
 #include "tune_page.h"
+#include "battery.h"
 
 WebServer server(80);
 
@@ -58,7 +59,7 @@ void handleState() {
   uint32_t total = totalWritten;
   bool have = total > 0 && logGet(total - 1, r);
 
-  char json[1024];
+  char json[1200];
   snprintf(json, sizeof(json),
            "{\"have\":%s,\"tick\":%lu,\"t_us\":%lu,\"mode\":%u,\"flag_bits\":%u,"
            "\"pitch\":%.2f,\"accel_pitch\":%.2f,\"pitch_rate\":%.2f,\"work_us\":%u,"
@@ -67,6 +68,7 @@ void handleState() {
            "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
            "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"step\":%s,\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
+           "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,"
            "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f}}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
@@ -84,6 +86,7 @@ void handleState() {
            (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
            robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs, armLeftMs, stepActive ? "true" : "false",
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
+           batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V,
            (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband);
   server.send(200, "application/json", json);
 }

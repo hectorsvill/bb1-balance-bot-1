@@ -18,6 +18,7 @@ What the columns mean (all from the armed part of the try only):
     cap%     share of ticks where the output hit the cap (motors maxed out)
     flips/s  how often the PWM changes sign. Tens per second = jitter (D)
     turns    wheel turns from start to end (+ = rolled forward)
+    batt     lowest battery voltage during the try (blank in logs before 2026-10-24)
 """
 
 import argparse
@@ -74,6 +75,8 @@ def summary(g, end):
         "cap%": round(100 * ((g.flag_bits & SAT_FLAG) > 0).mean()),
         "flips/s": round(flips / secs, 1),
         "turns": round((g.enc_l.iloc[-1] - g.enc_l.iloc[0]) / COUNTS_PER_REV, 1),
+        # Lowest battery during the try (sags under load). Logs before 2026-10-24 have no column.
+        "batt": round(g.batt_v.min(), 2) if "batt_v" in g and g.batt_v.max() > 3 else None,
     }
 
 
@@ -98,6 +101,8 @@ def hints(t):
         out.append("I term bigger than P -> I is doing the steering; too much I gives slow, growing rocking.")
     if (t.turns.abs() > 2).any():
         out.append("Rolls more than 2 wheel turns -> drift. PD can't hold position; that's the speed loop's job (step 8).")
+    if "batt" in t and t.batt.notna().any() and t.batt.min() < 7.0:
+        out.append(f"Battery got down to {t.batt.min():.2f} V: under 7.0 V the motors push noticeably less. Charge before comparing gains.")
     if (t.end == "Wi-Fi lost").any():
         out.append("Some tries were cut by Wi-Fi (no /state for 2 s), not by the PID: leave them out when comparing.")
     if (t.end == "timer").all():
@@ -139,6 +144,8 @@ def main():
         print("No armed tries in this log.")
         return
     table = pd.DataFrame(rows)
+    if table.batt.isna().all():
+        table = table.drop(columns="batt")      # older log: no battery column
     print(table.to_string(index=False))
     print()
     for h in hints(table):

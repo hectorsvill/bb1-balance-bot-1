@@ -41,6 +41,7 @@ volatile uint32_t armTimeMs     = 0;         // disarm by itself after this long
 volatile bool     requestStep   = false;     // step test: core 1 moves the setpoint for STEP_TEST_MS
 volatile bool     stepActive    = false;     // status: a step test is running
 volatile uint32_t lastWebHeartbeatMs = 0;    // millis() of the page's latest /state request
+volatile uint16_t batteryMv     = 0;         // battery voltage in mV, from core 0 (battery.h); core 1 logs it
 
 // Status from core 1 to core 0
 volatile bool     imuFound       = false;

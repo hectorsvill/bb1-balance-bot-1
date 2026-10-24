@@ -176,7 +176,7 @@ What a model needs, and where it is in our logs:
 | What it was trying to do | partly | `setpoint` (trim) now; operator throttle / turn columns come with milestone 2 (driving) |
 | Which controller made the action | yes | `gains_ver` per row + one `# gains_vN,...` line per version (handheld.py and logger.py; the page's Download only has the gains at the start) |
 | Outcome of each try | yes | `mode` (armed / fallen), `reason` (timer, fell, you, Wi-Fi lost...) |
-| Conditions | partly | `# surface` and `# note` lines (use `--surface` and `-n`); battery voltage not measured yet (one wire: the D153C's `ADC` pin to GP26, FUTURE_INTEGRATIONS.md) |
+| Conditions | partly | `# surface` and `# note` lines (use `--surface` and `-n`); `batt_v` every row (log format 6, 2026-10-24; D153C `ADC` pin to GP26) |
 | Clean vs hand-helped tries | by rule only | press STOP before touching it, so hand help ends the try as "you" |
 | Gaps / Wi-Fi trouble | yes | `tick` gaps, `# records,...,lost`, `web_age_ms` |
 
@@ -187,7 +187,7 @@ What a model needs, and where it is in our logs:
 4. Never mix mock logs (`firmware,bb1 MOCK`) into real data.
 5. When firmware adds a column: new field at the end of `LogRecord`, bump `LOG_FORMAT`, add it to `docs/CALIBRATION_AND_LOGS.md`.
 
-**Still to do:** a backup of `logs/` (gitignored, about 113 MB on one laptop so far; decided 2026-10-23: its own git repo once BB1 balances); battery voltage column (D153C `ADC` pin, one wire); operator command columns (milestone 2); maybe a "hand touched" event key in handheld.py.
+**Still to do:** a backup of `logs/` (gitignored, about 113 MB on one laptop so far; decided 2026-10-23: its own git repo once BB1 balances);  operator command columns (milestone 2); maybe a "hand touched" event key in handheld.py.
 
 ## 7. Steps (one at a time, tested on the bot between each)
 

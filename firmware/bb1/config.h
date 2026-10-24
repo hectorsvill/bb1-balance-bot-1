@@ -48,6 +48,15 @@ const int PRINT_HZ = 10;                          // how often the serial readou
 const int LOG_SECONDS = 10;
 const int LOG_BUFFER_RECORDS = LOG_SECONDS * LOOP_HZ;
 
+// ---------- battery (2026-10-24) ----------
+// D153C "ADC" pin (battery / 11 on the board) wired to GP26. battery.h reads it.
+const int   BATTERY_PIN         = 26;     // ADC0, Pico pin 31
+const float BATTERY_DIVIDER     = 11.0;   // D153C R13 10 k / R15 1 k. Check once against a meter.
+const unsigned long BATTERY_READ_MS = 100;
+const float BATTERY_WARN_V      = 7.0;    // 2S: 3.5 V per cell. The page turns orange.
+const float BATTERY_LOW_V       = 6.6;    // 3.3 V per cell. The page turns red: charge it.
+const float BATTERY_MIN_SENSE_V = 3.0;    // below this: no wire, or the D153C switch is off
+
 // ---------- motors (step 5) ----------
 const int PWM_FREQ = 20000;          // 20 kHz: above hearing, so the motors don't whine
 const int PWM_MAX  = 255;            // analogWriteRange: 0 = off, 255 = full battery voltage

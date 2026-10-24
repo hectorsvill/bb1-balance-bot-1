@@ -38,6 +38,9 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
   .chip { padding:3px 10px; border-radius:999px; font-weight:700; font-size:13px; background:var(--panel2); color:var(--muted); }
   .chip.armed { background:rgba(63,185,122,.18); color:var(--green); }
   .chip.fallen { background:rgba(240,82,82,.18); color:var(--red); }
+  .chip.batt-ok { background:rgba(63,185,122,0.18); color:var(--green); }
+  .chip.batt-warn { background:rgba(240,160,60,0.18); color:var(--orange); }
+  .chip.batt-low { background:rgba(240,82,82,0.18); color:var(--red); }
   .muted { color:var(--muted); font-size:13px; }
   .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:8px; }
   .box { background:var(--panel2); border-radius:10px; padding:8px 10px; min-width:0; }
@@ -70,6 +73,7 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
   <span class="dot" id="dot"></span>
   <h1>BB1 PID tuning</h1>
   <span class="chip" id="mode">--</span>
+  <span class="chip" id="batt" title="battery voltage">batt --</span>
   <span class="muted" id="why"></span>
   <span class="muted" style="margin-left:auto"><a href="/" style="color:var(--blue)">full page</a></span>
 </div>
@@ -192,6 +196,16 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
 
 </main>
 <script>
+// Battery chip: green, orange under batt_warn_v, red under batt_low_v (both from
+// config.h, sent in /state). "--" means no battery wire or the D153C switch is off.
+function showBattery(s) {
+  const b = el('batt');
+  if (s.batt_v === undefined || !s.batt_ok) { b.textContent = 'batt --'; b.className = 'chip'; return; }
+  b.textContent = s.batt_v.toFixed(2) + ' V';
+  b.className = 'chip ' + (s.batt_v < s.batt_low_v ? 'batt-low' : s.batt_v < s.batt_warn_v ? 'batt-warn' : 'batt-ok');
+  b.title = 'battery: ' + (s.batt_v / 2).toFixed(2) + ' V per cell (2S). Charge below ' + s.batt_low_v + ' V.';
+}
+
 const el = id => document.getElementById(id);
 const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap'];
 let gains = null, filledVer = -1;   // the gains BB1 last reported, and the version shown in the boxes
@@ -288,6 +302,7 @@ async function poll() {
     el('dot').className = 'dot ' + (s.mock ? 'mock' : 'ok');
     el('ver').textContent = 'v' + gains.ver;
     const fallen = s.mode === 5;
+    showBattery(s);
     el('mode').textContent = s.armed ? 'ARMED' : fallen ? 'FALLEN' : 'DISARMED';
     el('mode').className = 'chip' + (s.armed ? ' armed' : fallen ? ' fallen' : '');
     el('why').textContent = s.armed ? '' : (s.reason || '');

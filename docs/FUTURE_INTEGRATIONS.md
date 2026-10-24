@@ -4,7 +4,7 @@ Parts planned for BB1 but not fitted yet. Pins are already reserved in CLAUDE.md
 
 | Part | Pins | Status |
 |---|---|---|
-| Battery voltage (D153C `ADC` pin, no divider needed) | GP26 (ADC0), pin 31 | one wire to add |
+| Battery voltage (D153C `ADC` pin, no divider needed) | GP26 (ADC0), pin 31 | wire being added 2026-10-24; firmware ready (`battery.h`, not flashed yet) |
 | SSD1306 OLED | I2C1: GP6 SDA / GP7 SCL, pins 9 / 10 | not fitted |
 | Raspberry Pi Zero W + camera | UART0: GP0 TX / GP1 RX, pins 1 / 2 | next big milestone |
 | HC-SR04 distance sensor | GP20 Trig / GP21 Echo, pins 26 / 27 | holder printed, not wired |
@@ -27,7 +27,8 @@ V_batt = adc_counts / 4095 x 3.3 x 11
 - It reads VIN after the D153C power switch: 0 V when the switch is off.
 - Check the factor once against a multimeter and put it in `config.h`.
 - Don't use the Pico's built-in VSYS/3 reading: on the Pico W GP29 is shared with the Wi-Fi chip, and our VSYS is the D153C's regulated 5 V, not the battery.
-- Thresholds to start with: warn at 7.0 V, refuse to arm at 6.6 V (under load the voltage sags, so read it with the motors off).
+- Thresholds to start with: warn at 7.0 V, low at 6.6 V (under load the voltage sags, so read it with the motors off).
+- **Firmware (2026-10-24):** `battery.h` reads it on core 0 every 100 ms; it shows on both pages and in the serial readout, and every log row has `batt_v`. It only warns for now (orange / red chip); refusing to arm when low is a later step.
 - (The earlier plan for an external 100 k / 47 k divider is no longer needed.)
 
 ## SSD1306 OLED (0.96", 128 x 64, I2C)
