@@ -4,7 +4,7 @@ Parts planned for BB1 but not fitted yet. Pins are already reserved in CLAUDE.md
 
 | Part | Pins | Status |
 |---|---|---|
-| Battery voltage (D153C `ADC` pin, no divider needed) | GP26 (ADC0), pin 31 | wire being added 2026-10-24; firmware ready (`battery.h`, not flashed yet) |
+| Battery voltage (D153C `ADC` pin, no divider needed) | GP26 (ADC0), pin 31 | wired and flashed 2026-10-24 (`battery.h`); check against a meter |
 | SSD1306 OLED | I2C1: GP6 SDA / GP7 SCL, pins 9 / 10 | not fitted |
 | Raspberry Pi Zero W + camera | UART0: GP0 TX / GP1 RX, pins 1 / 2 | next big milestone |
 | HC-SR04 distance sensor | GP20 Trig / GP21 Echo, pins 26 / 27 | holder printed, not wired |

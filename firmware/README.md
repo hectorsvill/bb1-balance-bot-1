@@ -13,9 +13,9 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
-Battery voltage (2026-10-24, compiled, not flashed yet): `battery.h` reads the D153C's `ADC` pin (battery / 11) on GP26 from core 0 every 100 ms. Shown as a chip on both pages, in the serial readout (`batt 7.92 V`) and `/state`; every log row gets `batt_v` (log format 6, record now 72 bytes, RAM free 44 KB).
+Battery voltage (2026-10-24, **flashed**; together with the clean-up and the 2 s heartbeat below): `battery.h` reads the D153C's `ADC` pin (battery / 11) on GP26 from core 0 every 100 ms. Shown as a chip on both pages, in the serial readout (`batt 7.92 V`) and `/state`; every log row gets `batt_v` (log format 6, record now 72 bytes, RAM free 44 KB).
 
-Clean-up (2026-10-23, compiled, not flashed yet): the balance settings' names and limits live in one place, `setBalanceSetting()` in `settings.h` (serial, `/gains` and loading from flash all use it); limits in `config.h` (`GAIN_P_MAX` etc.).
+Clean-up (2026-10-23, flashed 2026-10-24): the balance settings' names and limits live in one place, `setBalanceSetting()` in `settings.h` (serial, `/gains` and loading from flash all use it); limits in `config.h` (`GAIN_P_MAX` etc.).
 
 Tuning page (2026-10-21): **http://bb1.local/tune** changes Kp, Ki, Kd, trim and cap live and shows only pitch, error, P / I / D and PWM (`tune_page.h`). Since 2026-10-23 it also has ARM (with a timer) and STOP, for runs with no USB cable; log with `handheld.py --wifi`. A change from any page now also prints a `gains` line on serial. Both ways to change gains (page, or `config.h` + `defaults`): `docs/PID_TUNING.md`.
 

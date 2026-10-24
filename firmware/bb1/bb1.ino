@@ -441,6 +441,7 @@ void setup() {
   digitalWrite(PIN_STBY, LOW);
 
   batteryBegin();          // GP26 as an analog input (battery.h)
+  batteryUpdate();         // one reading now: loop() only starts after Wi-Fi connects (up to 15 s)
   Serial.begin(115200);
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 5000) {}   // wait up to 5 s for a serial monitor

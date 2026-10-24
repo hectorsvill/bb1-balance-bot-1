@@ -22,6 +22,10 @@
 void batteryBegin() {
   analogReadResolution(12);                    // 0..4095 for 0..3.3 V
   pinMode(BATTERY_PIN, INPUT);
+  // Right after power-up the first ADC readings came out low (5.2 V for a
+  // 7.35 V pack, 2026-10-24). Throw a few away and let the ADC settle.
+  for (int n = 0; n < 16; n++) analogRead(BATTERY_PIN);
+  delay(5);
 }
 
 // Call from loop() on core 0. Reads every BATTERY_READ_MS, averages 16
@@ -30,7 +34,7 @@ void batteryBegin() {
 void batteryUpdate() {
   static unsigned long last = 0;
   static float smoothed = -1;                  // -1 = no reading yet
-  if (millis() - last < BATTERY_READ_MS) return;
+  if (smoothed >= 0 && millis() - last < BATTERY_READ_MS) return;   // the very first call always reads
   last = millis();
 
   uint32_t sum = 0;

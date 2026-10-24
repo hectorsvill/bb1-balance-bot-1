@@ -11,7 +11,7 @@ Newest first.
 
 ## 2026-10-24 - motor kit folder reviewed
 
-- Battery voltage: `battery.h` (core 0, GP26, D153C `ADC` pin = battery / 11), battery chip on `/` and `/tune` (green / orange < 7.0 V / red < 6.6 V), serial readout, `/state` fields, log column `batt_v` (LOG_FORMAT 6, LogRecord 72 bytes). Mock, handheld.py status line and pid_report (`batt` column) updated. Compiled, checked on the mock, **not flashed yet**
+- Battery voltage: `battery.h` (core 0, GP26, D153C `ADC` pin = battery / 11), battery chip on `/` and `/tune` (green / orange < 7.0 V / red < 6.6 V), serial readout, `/state` fields, log column `batt_v` (LOG_FORMAT 6, LogRecord 72 bytes). Mock, handheld.py status line and pid_report (`batt` column) updated. Flashed 2026-10-24 with the clean-up and the 2 s heartbeat; RAM free 44.6 KB (heap used 13 KB). Reads 7.29 to 7.36 V running; the first reading after power-up came out wrong (5.2 V), fixed by discarding a few ADC samples at start (boot rows then read 7.7 V: to check against a meter)
 
 - New docs/KIT_REFERENCE.md: the vendor folder has no balance code. The D153C schematic shows a built-in battery divider (VIN / 11 on the `ADC` header pin), so battery sensing is one wire to GP26, not a divider to build (FUTURE_INTEGRATIONS, WIRING updated; fixes the 100k/33k vs 100k/47k mismatch). Also: 65 C over-temperature cut-off on the 5 V (would reset the Pico), STBY has no pull resistor, TB6612 limits
 - Knowledge graph of the repo with graphify (`graphify-out/`, added to .gitignore). It found 3 doc mismatches, all fixed: FIRMWARE_PLAN error sign (now pitch - setpoint, as built), FIRMWARE_PLAN heartbeat (now 2 s), battery divider values (now the D153C's own pin)
