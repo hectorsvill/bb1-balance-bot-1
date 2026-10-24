@@ -38,6 +38,18 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 15: deadband 15, 10 kHz PWM, wood (`bb1_2026-10-24_16-01-41_db15-p9-85-d0-74.csv`)
+
+**Setting:** P 9.85, I 0, D 0.74, cap 150, **deadband 15**, PWM 10 kHz, battery 3.92 V/cell. Trim came out **+3.46** from "Trim = current pitch" (expected about +0.5).
+
+| try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1.3 | FELL fwd | 8.4 | +6.3 | 65 | 44 | 15 | 12.9 | +2.2 |
+| 2 | 1.3 | FELL fwd | 8.6 | +5.4 | 63 | 57 | 15 | 14.2 | +2.0 |
+| 3 | 1.4 | FELL fwd | 8.6 | +5.0 | 62 | 45 | 14 | 15.4 | +2.0 |
+
+**What it says:** trim +3.46 is about 3 deg forward of the balance point, so all 3 fell forward in about 1.3 s (same as round 12). The PWM also flipped direction 13 to 15 times a second: with a deadband every tiny sign change of the output becomes a jump from +15 to −15, which is chatter. **Next:** trim typed as **0.5** (not held by hand), deadband **10**, same P / D.
+
 ### 2026-10-23, round 14: trim search 0.5 to 0.7, wood (`bb1_2026-10-23_21-13-20_wood-trim-4.csv`)
 
 **Setting:** P 9.85, I 0, D 0.74, cap 150, wood, no cable. Trim tried 0.5, 0.7, 0.55, 0.58, 0.57 (v6 to v10).
