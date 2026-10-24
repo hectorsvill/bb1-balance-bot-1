@@ -23,7 +23,7 @@ The running record of Hector's PID tuning on BB1: what we tried, what the data s
 
 ### 2026-10-23, round 12: trim set to +6.1 (`bb1_2026-10-23_20-45-04_carpet-p9-85-d0-74.csv`)
 
-**Setting:** P 9.85, I 0, D 0.74, **trim +6.1**, **cap 100**, carpet, no cable.
+**Setting:** P 9.85, I 0, D 0.74, **trim +6.1**, **cap 100**, **wood floor** (the file name says carpet, but it was wood), no cable.
 
 | try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
 |---|---|---|---|---|---|---|---|---|---|
