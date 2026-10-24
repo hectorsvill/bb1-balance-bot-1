@@ -38,6 +38,18 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 23: I 100 — first real balance on wood (`bb1_2026-10-24_16-34-05_i100-p18-d0-7.csv`)
+
+**Setting:** **P 18, I 100, D 0.7**, trim 0, cap 200, deadband 10, speed loop off, 10 kHz, wood, 3.94 V/cell. **Saved to flash** as the new baseline.
+
+| try | secs | end | wobble | lean | \|P\| | \|I\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 10.0 | timer | **0.9** | 0.0 | 9 | 51 | 16 | 0 | 8.7 | +10.7 |
+| 2 | 10.0 | timer | 1.2 | +0.1 | 17 | 55 | 43 | 0 | 12.5 | +9.1 |
+| 3 | 10.0 | timer | 1.7 | +0.1 | 18 | 68 | 34 | 1 | 8.7 | +10.4 |
+
+**What it says:** the I term was the missing piece (round 22). **3 of 3 to the timer, wobble 0.9 to 1.7 deg**, motors never at the cap, average lean 0. Hector: "best run yet, jitters just a little". It still **drives forward about 10 wheel turns in 10 s** (into the wall) and **veers left**: the I term settles at a value that keeps a steady forward speed (it's carrying the trim error), and the right wheel turns about 7% faster than the left at the same PWM (BUILD_RECORD, deadband). **Next:** speed loop back on to hold position: **sp 2**, si 0. Later: si, a left/right wheel balance, D or deadband down a little for the jitter.
+
 ### 2026-10-24, round 22: sp 4 (`bb1_2026-10-24_16-30-23_sp4-p18-d0-7.csv`)
 
 | try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
