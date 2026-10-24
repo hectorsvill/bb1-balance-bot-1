@@ -6,7 +6,7 @@
 //
 // Arm panel: ARM for N seconds (stops by itself), STOP (or the space bar). Armed
 // from here, the firmware's heartbeat applies: this page's /state polling (10 a
-// second) keeps BB1 armed, and 1 s without it disarms ("lost the web page").
+// second) keeps BB1 armed, and 2 s without it disarms ("lost the web page", HEARTBEAT_MS).
 // Hiding the tab disarms at once. You can still arm from tools/handheld.py
 // instead (key a, USB or --wifi). Logs: run handheld.py --wifi or logger.py.
 //
@@ -247,7 +247,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space' && e.target.tagName !== 'INPUT') { e.preventDefault(); stopNow(); }
 });
 // A hidden tab is slowed to about one /state a second, which would trip the
-// 1 s heartbeat anyway: disarm straight away instead, with a clear reason.
+// heartbeat anyway: disarm straight away instead, with a clear reason.
 let armedNow = false;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && armedNow) navigator.sendBeacon('/disarm?why=hidden');

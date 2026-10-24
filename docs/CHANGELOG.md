@@ -13,6 +13,7 @@ Newest first.
 
 - Firmware: the balance settings' names and limits live in one place, `setBalanceSetting()` / `gainsLine()` in `settings.h`, used by serial, `/gains` and flash loading; limits as constants in `config.h`. The `/gains` answer is now the same line as serial `gains`. **Compiled, not flashed yet**
 - Tools: one shared `post()` in `logger.py`; `logger.py` saves `# gains_vN` lines like handheld.py; `--surface` on both (`# surface,...` in the file)
+- Wi-Fi heartbeat 1 s -> **2 s** (`HEARTBEAT_MS`): ~1 s Wi-Fi gaps cut good tries (round 10). Compiled with the clean-up, not flashed yet
 - New docs/SESSION_LOG.md; TUNING_LOG "Plan"; FIRMWARE_PLAN section 6 "Data for training: status and rules"
 - Rounds 12 to 14 on wood: balance point moved to about +0.55; deadband measured (10 to 15 in the air, about 30 on wood)
 

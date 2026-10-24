@@ -185,7 +185,7 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
         <button class="stop big" id="disarmBtn" onclick="disarm()">DISARM</button>
         <button id="stepBtn" onclick="post('/step', null, 'armReason')" disabled>Step test</button>
       </div>
-      <div class="msg">Hold it near upright to arm. It stops by itself when the time runs out (0 = no limit), past 45 deg, or if this page stops for 1 s. Space bar = stop.</div>
+      <div class="msg">Hold it near upright to arm. It stops by itself when the time runs out (0 = no limit), past 45 deg, or if this page stops for 2 s. Space bar = stop.</div>
 
       <div class="sub">Gains</div>
       <div class="fields gains">
@@ -589,7 +589,7 @@ function arm() { post('/arm', { seconds: el('armSecs').value || 0 }, 'armReason'
 function disarm() { post('/disarm', null, 'armReason'); }
 
 // Browsers slow a hidden tab down to about one update a second, which would
-// trip the 1 s heartbeat anyway. Say so clearly instead: disarm when hidden.
+// trip the heartbeat (HEARTBEAT_MS) anyway. Say so clearly instead: disarm when hidden.
 let armedNow = false;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && armedNow) navigator.sendBeacon('/disarm?why=hidden');

@@ -4,7 +4,7 @@
 
 ## Why it exists
 
-- Arming from the web page ties the motors to Wi-Fi: no `/state` for 1 s and BB1 disarms ("lost the web page"). Arming from **serial** has no such check, so Wi-Fi hiccups can't cut a test short.
+- Arming from the web page ties the motors to Wi-Fi: no `/state` for 2 s (1 s until 2026-10-23) and BB1 disarms ("lost the web page"). Arming from **serial** has no such check, so Wi-Fi hiccups can't cut a test short.
 - Serial alone is hard to read: BB1 prints a status line 10 times a second.
 - Two terminals (serial monitor + `logger.py`) work but are fiddly while you're holding the robot.
 
@@ -56,7 +56,7 @@ No USB cable, so nothing tugs on BB1. `WifiLink` replaces `SerialLink` and has t
 
 - **Status line:** it asks `GET /state` ten times a second and shows pitch, trim distance and gains from the answer. It prints `ARMED` / `DISARMED: why` when the armed state changes.
 - **Commands:** `a` sends `POST /arm seconds=N`, Enter sends `POST /disarm`, and `:` takes `kp/ki/kd/p/i/d/trim/cap N`, `trim here`, `save`, `defaults` (sent to `/gains`). Motor tests and other serial-only commands say so.
-- **Safety:** armed from Wi-Fi, the firmware's heartbeat applies. Those `/state` requests are the heartbeat, so if Wi-Fi stalls for 1 s BB1 disarms ("lost the web page"). With no cable that's the right failsafe. The arm timer, the 45 deg cut-out and the rest still work.
+- **Safety:** armed from Wi-Fi, the firmware's heartbeat applies. Those `/state` requests are the heartbeat, so if Wi-Fi stalls for 2 s BB1 disarms ("lost the web page"). With no cable that's the right failsafe. The arm timer, the 45 deg cut-out and the rest still work.
 - **Gains in the log:** taken from `/state` (`gains.ver` and values), same `# gains_vN` lines as over USB.
 
 ## The saved file

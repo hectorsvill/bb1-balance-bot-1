@@ -11,7 +11,7 @@ term looks too big or too small, never a number: you pick the gains.
 What the columns mean (all from the armed part of the try only):
     secs     how long it stayed armed (10 = the arm timer ran out, it never fell)
     end      timer / FELL fwd / FELL back / you (STOP, Enter) / Wi-Fi lost (no /state
-             for 1 s while armed over Wi-Fi) / tab hidden / IMU error / loop late
+             for 2 s while armed over Wi-Fi) / tab hidden / IMU error / loop late
     wobble   standard deviation of the error, deg. Smaller = calmer
     lean     average error, deg. Far from 0 = trim is off (+ = leans forward)
     |P| |I| |D|  average size of each term, in PWM. Who is doing the work?
@@ -99,7 +99,7 @@ def hints(t):
     if (t.turns.abs() > 2).any():
         out.append("Rolls more than 2 wheel turns -> drift. PD can't hold position; that's the speed loop's job (step 8).")
     if (t.end == "Wi-Fi lost").any():
-        out.append("Some tries were cut by Wi-Fi (no /state for 1 s), not by the PID: leave them out when comparing.")
+        out.append("Some tries were cut by Wi-Fi (no /state for 2 s), not by the PID: leave them out when comparing.")
     if (t.end == "timer").all():
         out.append("Every try lasted until the timer: this setting balances. Compare wobble to pick the best.")
     return out or ["Nothing stands out. Compare wobble between settings: smaller is better."]

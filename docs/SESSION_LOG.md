@@ -29,13 +29,15 @@ Template:
 
 **Decided:**
 - Tune on **wood** from now on (honest surface); note the surface in every log.
+- Wi-Fi heartbeat 2 s instead of 1 s: Wi-Fi gaps of about 1 s were cutting good tries; the timer and the 45 deg cut-out still stop every run.
+- Logs get their own git repo once BB1 balances.
 - Every tuning round goes in TUNING_LOG; every session gets an entry here.
 
 **Open / next:**
 - Flash the clean-up firmware (needs USB once), check `gains`, `p 10`, Apply on /tune still work.
 - Set `deadband` (Hector's pick, 15 to 30), re-find the trim, then P and D on wood (TUNING_LOG, "Plan").
-- Wi-Fi heartbeat: 2 s or keep 1 s? (asked, not answered yet).
-- Back up `logs/` somewhere (not in git, 113 MB on one laptop).
+- Wi-Fi heartbeat: **2 s** (Hector left it to Claude; changed in `config.h`; goes onto BB1 with the clean-up flash).
+- Logs backup: Hector will make a git repo for the logs once BB1 balances well. Until then `logs/` is only on this laptop.
 
 ## 2026-10-23 (late night, early hours): motors, wireless, log reader
 

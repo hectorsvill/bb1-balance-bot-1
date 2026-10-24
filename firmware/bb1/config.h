@@ -84,7 +84,10 @@ const float DEADBAND_MAX = 100;
 const float ARM_SECONDS_MAX = 600; // longest arm timer; 0 = no timer
 const float ARM_ANGLE   = 10.0;    // deg: can only arm within this of the trim
 const float FALL_ANGLE  = 45.0;    // deg: past this while armed = fallen, motors off
-const unsigned long HEARTBEAT_MS = 1000;   // armed from the page: disarm if it goes quiet this long
+// Armed over Wi-Fi (a page or handheld.py --wifi): disarm if nobody asks for /state
+// this long. 2 s since 2026-10-23: home Wi-Fi has about 1 s gaps that cut good
+// tries short; the arm timer and the 45 deg cut-out still stop every run.
+const unsigned long HEARTBEAT_MS = 2000;
 // Step test (step 7): while armed, move the setpoint by STEP_TEST_DEG for
 // STEP_TEST_MS, then back. The log shows how the loop responds to a sudden change.
 const float STEP_TEST_DEG = 2.0;

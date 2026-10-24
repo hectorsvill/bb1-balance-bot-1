@@ -32,7 +32,7 @@ closed). The firmware's other cut-outs still work: the arm timer, 45 deg
 (POST /arm, /disarm, /gains, the same endpoints as the web page), and the
 status line comes from GET /state ten times a second. Those /state requests
 are also the heartbeat: armed over Wi-Fi, BB1 disarms by itself if it hears
-nothing for 1 s ("lost the web page"). That's the safety net when there's no
+nothing for 2 s ("lost the web page", HEARTBEAT_MS in config.h). That's the safety net when there's no
 cable, so a Wi-Fi hiccup can cut a try short.
 """
 
@@ -128,7 +128,7 @@ class WifiLink(threading.Thread):
     keeps BB1's heartbeat alive while armed. send() turns the serial-style
     commands into the web page's POST requests."""
 
-    POLL_S = 0.1                 # /state every 100 ms; BB1 disarms after 1 s without one
+    POLL_S = 0.1                 # /state every 100 ms; BB1 disarms after 2 s without one
 
     def __init__(self, base):
         super().__init__(daemon=True)
@@ -227,7 +227,7 @@ def main():
     print(f"Recording from {args.host} ({ip}). Log will be saved to {out.name}")
     print(f"Keys: a = arm {arm_s:g} s   Enter/space = disarm   g = gains   : = type a command   q = save and quit")
     if args.wifi:
-        print("Wi-Fi mode: no USB needed. If Wi-Fi drops for 1 s while armed, BB1 disarms by itself.")
+        print("Wi-Fi mode: no USB needed. If Wi-Fi drops for 2 s while armed, BB1 disarms by itself.")
     print("Hold BB1 in the air, wheels free, fingers clear.")
     for name in ("kp", "kd", "cap", "trim"):         # only the ones you gave
         value = getattr(args, name)

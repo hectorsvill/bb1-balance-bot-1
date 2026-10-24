@@ -49,13 +49,13 @@ The panels sit in one column, on a phone or a Mac. Click a panel's title to fold
 
 Coming next: saving gains and a step test (step 7), drive pad (milestone 2).
 
-Armed from the page, BB1 disarms if the page stops polling `/state` for 1 s (closed tab, phone screen off, Wi-Fi drop). That's on purpose.
+Armed from the page, BB1 disarms if the page stops polling `/state` for 2 s (1 s before 2026-10-23) (closed tab, phone screen off, Wi-Fi drop). That's on purpose.
 
 The Pico's web server answers **one connection at a time**, so anything slow (a big `/log` answer while Recording) delays `/state`. Until 2026-10-21 it also waited up to 5 s for the browser to close each connection, which caused "lost the web page" disarms; `route()` in `web.h` now closes it straight away. For balance tests we arm from serial instead (no heartbeat) and record with `logger.py`: `firmware/README.md`, "Hand-held test, the current way". Later the Pi Zero W will serve the page and the Pico won't run Wi-Fi at all.
 
 ### The tuning page (/tune)
 
-**http://bb1.local/tune** is a small page for PID tuning only: **P (Kp)**, **I (Ki)**, **D (Kd)**, trim and cap boxes (hover over or tap P, I or D for what it does; text in each label's `data-tip`) with **Apply**, **Trim = current pitch**, **Save to flash** and **Reload from BB1**; live pitch, error, P / I / D terms and PWM out with a 5 s chart; and the tuning notes. **Run a try** panel: seconds (1 to 30, default 10), **ARM**, **STOP** (space bar too), countdown and bar. Armed from this page the heartbeat applies (its `/state` polling keeps BB1 armed; 1 s without = disarm) and hiding the tab disarms. You can also arm from `tools/handheld.py` (USB or `--wifi`). Logs: run `handheld.py --wifi` or `logger.py` alongside. It uses the same `/state`, `/gains` and `/gains/save` as the full page (polls `/state` 10 times a second). Source: `firmware/bb1/tune_page.h`; offline at http://localhost:8080/tune with `mock_bb1.py`. The page also explains how to record and read logs (`pid_report.py`). How to use it while tuning: `docs/PID_TUNING.md`, "Two ways to change the gains".
+**http://bb1.local/tune** is a small page for PID tuning only: **P (Kp)**, **I (Ki)**, **D (Kd)**, trim and cap boxes (hover over or tap P, I or D for what it does; text in each label's `data-tip`) with **Apply**, **Trim = current pitch**, **Save to flash** and **Reload from BB1**; live pitch, error, P / I / D terms and PWM out with a 5 s chart; and the tuning notes. **Run a try** panel: seconds (1 to 30, default 10), **ARM**, **STOP** (space bar too), countdown and bar. Armed from this page the heartbeat applies (its `/state` polling keeps BB1 armed; 2 s without = disarm) and hiding the tab disarms. You can also arm from `tools/handheld.py` (USB or `--wifi`). Logs: run `handheld.py --wifi` or `logger.py` alongside. It uses the same `/state`, `/gains` and `/gains/save` as the full page (polls `/state` 10 times a second). Source: `firmware/bb1/tune_page.h`; offline at http://localhost:8080/tune with `mock_bb1.py`. The page also explains how to record and read logs (`pid_report.py`). How to use it while tuning: `docs/PID_TUNING.md`, "Two ways to change the gains".
 
 ### Balance panel, control by control
 
@@ -75,7 +75,7 @@ The Pico's web server answers **one connection at a time**, so anything slow (a 
 
 The boxes fill in from BB1 when the page opens. Settings go back to the `config.h` defaults at power-up until step 7 adds saving. Every change bumps `gains_ver`, which is in every log row, so a log always shows which settings were in use.
 
-Safety, always on while armed: past 45 deg from the trim it stops and shows FALLEN; it also stops on 5 IMU errors or 5 late loops in a row, and, when armed from the page, if the page stops polling for 1 s (tab closed, phone screen off, Wi-Fi drop).
+Safety, always on while armed: past 45 deg from the trim it stops and shows FALLEN; it also stops on 5 IMU errors or 5 late loops in a row, and, when armed from the page, if the page stops polling for 2 s (tab closed, phone screen off, Wi-Fi drop).
 
 ### Saving logs
 
