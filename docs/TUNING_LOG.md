@@ -38,6 +38,18 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 28: 30 s arms (`bb1_2026-10-24_17-08-11_i100-p18-d0-7.csv`)
+
+Same settings as round 27 (the note in the file name is old). **3 of 3 held the full 30 s.**
+
+| try | secs | end | wobble | \|P\| | \|I\| | \|D\| | flips/s | turns | biggest lean |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 30.0 | timer | 1.1 | 13 | 31 | 10 | 4.5 | +1.8 | 6.0 |
+| 2 | 30.0 | timer | 1.0 | 11 | 25 | 9 | 5.4 | −0.2 | 7.0 |
+| 3 | 30.0 | timer | 1.1 | 13 | 28 | 9 | 4.1 | +0.7 | 8.3 |
+
+**What it says:** each try had a short spell (about 2 s) leaning more than 2 deg, peaking at 6 to 8 deg with fast pitch rates (up to 326 deg/s): it recovered every time and stayed within about 2 wheel turns of the start. That raises the average wobble to about 1 deg (quiet stretches are still about 0.2). Whether those were pushes or its own disturbances: asked Hector.
+
 ### 2026-10-24, round 27: heading hold th 20 — balances in place (`bb1_2026-10-24_16-56-18_th20.csv`)
 
 **Setting (saved to flash, and now the `config.h` defaults):** P 18, I 100, D 0.5, trim 0, cap 200, deadband 10, sp 4, si 0.5, **th 20**, PWM 10 kHz, wood, 3.94 V/cell.
