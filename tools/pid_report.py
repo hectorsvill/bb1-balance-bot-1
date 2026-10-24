@@ -99,7 +99,7 @@ def hints(t):
     if (t.lean.abs() > 2).mean() > 0.5:
         out.append("Average lean far from 0 in most tries -> trim is probably off. Re-set it: hold BB1 at its balance point, 'Trim = current pitch'.")
     if (t["|I|"] > t["|P|"]).any():
-        out.append("I term bigger than P -> I is doing the steering; too much I gives slow, growing rocking.")
+        out.append("I term bigger than P: normal on BB1 (on the floor the motors act like speed knobs, so I does most of the work; TUNING_LOG round 22). Too much I = slow, growing rocking.")
     if (t.turns.abs() > 2).any():
         out.append("Rolls more than 2 wheel turns -> drift. PD can't hold position; that's the speed loop's job (step 8).")
     if "V/cell" in t and t["V/cell"].notna().any() and t["V/cell"].min() < 3.5:

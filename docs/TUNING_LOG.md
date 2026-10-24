@@ -38,6 +38,19 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 24: speed loop sp 2 (`bb1_2026-10-24_16-39-03_i100-sp2.csv`)
+
+**Setting:** P 18, I 100, D 0.7, **sp 2**, si 0, trim 0, cap 200, deadband 10, wood.
+
+| try | secs | end | wobble | \|P\| | \|I\| | \|D\| | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 3.3 | Wi-Fi lost | 1.5 | 23 | 37 | 57 | 24.1 | +2.9 |
+| 2 | 10.0 | timer | 1.1 | 17 | 25 | 49 | 25.7 | +5.5 |
+| 3 | 10.0 | timer | 1.1 | 16 | 24 | 45 | 25.5 | +5.0 |
+| 4 | 10.0 | timer | 1.1 | 16 | 25 | 48 | 25.6 | +5.6 |
+
+**What it says:** the speed loop works now: **half the drift** (about 5 turns in 10 s instead of 10), still balancing, wobble 1.1 deg. The jitter got worse: PWM flipping about 25 times a second, with the D term (about 47) now bigger than P (about 16). Try 1 was cut by Wi-Fi, not the PID. Still veers left. **Next:** D **0.5** (jitter) and sp **4** (drift).
+
 ### 2026-10-24, round 23: I 100 — first real balance on wood (`bb1_2026-10-24_16-34-05_i100-p18-d0-7.csv`)
 
 **Setting:** **P 18, I 100, D 0.7**, trim 0, cap 200, deadband 10, speed loop off, 10 kHz, wood, 3.94 V/cell. **Saved to flash** as the new baseline.
