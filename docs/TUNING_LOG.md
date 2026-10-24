@@ -48,7 +48,7 @@ Same settings as round 27 (the note in the file name is old). **3 of 3 held the 
 | 2 | 30.0 | timer | 1.0 | 11 | 25 | 9 | 5.4 | −0.2 | 7.0 |
 | 3 | 30.0 | timer | 1.1 | 13 | 28 | 9 | 4.1 | +0.7 | 8.3 |
 
-**What it says:** each try had a short spell (about 2 s) leaning more than 2 deg, peaking at 6 to 8 deg with fast pitch rates (up to 326 deg/s): it recovered every time and stayed within about 2 wheel turns of the start. That raises the average wobble to about 1 deg (quiet stretches are still about 0.2). Whether those were pushes or its own disturbances: asked Hector.
+**What it says:** each try had a short spell (about 2 s) leaning more than 2 deg, peaking at 6 to 8 deg with fast pitch rates (up to 326 deg/s): it recovered every time and stayed within about 2 wheel turns of the start. That raises the average wobble to about 1 deg (quiet stretches are still about 0.2). Hector confirmed: **he was tapping it** again after each recovery. So this is a **passed push test**: recovers from taps up to about 8 deg and comes back near its start.
 
 ### 2026-10-24, round 27: heading hold th 20 — balances in place (`bb1_2026-10-24_16-56-18_th20.csv`)
 

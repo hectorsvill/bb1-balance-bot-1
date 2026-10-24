@@ -30,7 +30,9 @@ Template:
 
 **Result:** **BB1 balances in place**: 0.2 deg wobble, stays on the sticky notes, no turning.
 
-**Open / next:** 30 s arms, step test, push test; milestone 2 driving; vault Roadmap update.
+**Also:** 30 s arms 3 of 3, and a push test passed (repeated taps, recovers from about 8 deg).
+
+**Open / next:** step test; milestone 2 driving.
 
 ## 2026-10-24: knowledge graph, motor kit folder
 
