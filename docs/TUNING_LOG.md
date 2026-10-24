@@ -21,6 +21,23 @@ The running record of Hector's PID tuning on BB1: what we tried, what the data s
 
 ## Rounds
 
+### 2026-10-23, round 13: trim −4.44, wood (`bb1_2026-10-23_21-04-58_wood-p9-85-d0-74-trim-fix.csv`)
+
+**Setting:** P 9.85, I 0, D 0.74, trim −4.44 (the value in flash), cap 150, wood floor, no cable.
+
+| try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1.0 | FELL back | 9.5 | −6.5 | 76 | 43 | 21 | 4.9 | −1.8 |
+| 2 | 0.9 | FELL back | 8.9 | −7.5 | 78 | 44 | 22 | 1.1 | −1.8 |
+| 3 | 1.3 | FELL back | 9.1 | −4.4 | 65 | 34 | 16 | 0.8 | −1.8 |
+
+**What it says:**
+- Every try was armed with BB1 held at about **+1 deg** pitch (where it looked upright), 5 deg ahead of the trim. P drove the wheels forward (PWM about 51), which tipped the body back, and it kept falling back at a steady 25 to 30 deg/s until the cap. Same story all 3 times.
+- Round 12 (trim +6.1) fell **forward**; this round (trim −4.44) fell **back**. So the real balance point is now **between −4.4 and +6.1**, and BB1's own "upright" reading of about +1 suggests near 0 to +1. It has **moved** from the −1 to −4.4 measured before: probably the battery or a wire shifted during the STBY repair (the balance point follows where the weight sits).
+- P and D can't be judged until the trim is right.
+
+**Next:** find the trim by halving: try a value in the middle, see which way it falls, move halfway toward the other side. Check the battery strap first.
+
 ### 2026-10-23, round 12: trim set to +6.1 (`bb1_2026-10-23_20-45-04_carpet-p9-85-d0-74.csv`)
 
 **Setting:** P 9.85, I 0, D 0.74, **trim +6.1**, **cap 100**, **wood floor** (the file name says carpet, but it was wood), no cable.
@@ -31,7 +48,7 @@ The running record of Hector's PID tuning on BB1: what we tried, what the data s
 | 2 | 0.8 | FELL fwd | 10.2 | +5.5 | 75 | 57 | 29 | 6.1 | +0.9 |
 | 3 | 0.7 | FELL fwd | 9.9 | +7.3 | 80 | 61 | 35 | 1.5 | +0.9 |
 
-**What it says:** the trim jumped from −4.44 to **+6.1** during the round (probably "Trim = current pitch" clicked while BB1 was tilted forward). Every measured balance point so far was about −1 to −4.4. With the target 6 to 10 deg forward of where it really balances, BB1 is told to hold a forward lean, gravity takes it forward, and it falls forward in under a second every time. Says nothing about P or D. (The report's trim hint gave the wrong direction for a "+" lean; fixed: falls forward = lower the trim.)
+**What it says:** the trim jumped from −4.44 to **+6.1** during the round (probably "Trim = current pitch" clicked while BB1 was tilted forward). With the target forward of where it really balances, BB1 is told to hold a forward lean, gravity takes it forward, and it falls forward in under a second every time. Says nothing about P or D. (The report's trim hint gave the wrong direction for a "+" lean; fixed: falls forward = lower the trim.)
 
 **Next:** re-set the trim at the real balance point (expect about −1 to −4), cap back to what worked (150), same gains, 3 tries.
 
