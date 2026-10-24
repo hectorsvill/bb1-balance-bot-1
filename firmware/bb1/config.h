@@ -62,7 +62,7 @@ const float BATTERY_LOW_V       = 6.6;    // whole pack: 3.3 V per cell. The pag
 const float BATTERY_MIN_SENSE_V = 3.0;    // below this: no wire, or the D153C switch is off
 
 // ---------- motors (step 5) ----------
-const int PWM_FREQ = 20000;          // 20 kHz: above hearing, so the motors don't whine
+const int PWM_FREQ = 10000;          // 10 kHz since 2026-10-24 (vendor examples use it): wheels start at lower PWM than at 20 kHz (BUILD_RECORD). May whine a little
 const int PWM_MAX  = 255;            // analogWriteRange: 0 = off, 255 = full battery voltage
 // Motor test limits. The test always stops by itself after the time you ask
 // for, and never runs longer than MOTOR_TEST_MAX_MS or harder than MOTOR_TEST_MAX_PWM.
