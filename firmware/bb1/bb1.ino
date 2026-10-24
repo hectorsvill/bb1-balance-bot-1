@@ -284,24 +284,11 @@ void dumpLog(float seconds) {
                  (skipped ? ", " + String(skipped) + " overwritten before they could be printed" : ""));
 }
 
-// The newest pitch, read from the log like everything else on core 0.
-float latestPitch() {
-  LogRecord r;
-  return (totalWritten && logGet(totalWritten - 1, r)) ? r.pitch : 0;
-}
-
-// "kp 15", "trim here", ... Each change bumps gainsVersion so logs show it.
+// "kp 15", "p 15", "trim here", ... (names and limits: setBalanceSetting in
+// settings.h). Each change bumps gainsVersion so logs show it.
 bool handleGainCommand(const String &cmd) {
-  float v = cmd.substring(cmd.indexOf(' ') + 1).toFloat();
-  // "p 15" or "kp 15" both work (Betaflight says P, textbooks say Kp).
-  if      (cmd.startsWith("kp ") || cmd.startsWith("p ")) gainP = constrain(v, 0.0f, 100.0f);
-  else if (cmd.startsWith("ki ") || cmd.startsWith("i ")) gainI = constrain(v, 0.0f, 100.0f);
-  else if (cmd.startsWith("kd ") || cmd.startsWith("d ")) gainD = constrain(v, 0.0f, 20.0f);
-  else if (cmd == "trim here")          balanceTrim = latestPitch();
-  else if (cmd.startsWith("trim "))     balanceTrim = constrain(v, -20.0f, 20.0f);
-  else if (cmd.startsWith("cap "))      pwmCap = constrain(v, 0.0f, (float)PWM_MAX);
-  else if (cmd.startsWith("deadband ")) motorDeadband = constrain(v, 0.0f, 100.0f);
-  else return false;
+  int space = cmd.indexOf(' ');
+  if (space < 0 || !setBalanceSetting(cmd.substring(0, space), cmd.substring(space + 1))) return false;
   gainsVersion = gainsVersion + 1;
   printGains();
   return true;
@@ -357,7 +344,7 @@ void handleCommand(String cmd) {
   } else if (cmd == "arm" || cmd.startsWith("arm ")) {
     armedFromWeb = false;                      // armed from serial: Enter is your stop button
     float seconds = cmd.length() > 4 ? cmd.substring(4).toFloat() : 0;
-    armTimeMs = (uint32_t)(constrain(seconds, 0.0f, 600.0f) * 1000);   // "arm 5" = disarm by itself after 5 s
+    armTimeMs = (uint32_t)(constrain(seconds, 0.0f, ARM_SECONDS_MAX) * 1000);   // "arm 5" = disarm by itself after 5 s
     requestArm = true;
   } else if (cmd == "disarm") {
     requestDisarm = true;

@@ -145,8 +145,8 @@ Two ways to save a run, using that same endpoint:
 
 | Way | How | Good for |
 |---|---|---|
-| **In the browser** | press Record on the page; it pulls new records every 100 ms and keeps them in memory. Press Stop, then Download: you get `bb1_<date>_<time>.csv` and a matching `.json` with the settings. Works on the Mac or a phone. | everyday tuning runs |
-| **On the Mac with `tools/logger.py`** | run it in a terminal; it pulls the same records and writes `logs/<date>_<time>/run.csv` + `meta.json` | long runs, automated test sessions, building a training set |
+| **In the browser** | press Record on the page; it pulls new records every 100 ms and keeps them in memory. Press Stop, then Download: you get `bb1_<date>_<time>.csv` with the settings as `#` lines at the top. Works on the Mac or a phone. | quick looks |
+| **On the Mac with `tools/handheld.py` or `tools/logger.py`** | they pull the same records and write `logs/bb1_<date>_<time>_<note>.csv` (handheld.py also arms and disarms) | tuning runs and building a training set |
 
 Both write the **same CSV columns**, so every analysis or training script reads either. The buffer holds about 10 s, so a short Wi-Fi hiccup loses nothing. Because the robot always keeps the last 10 s, the page also has **"Save last 10 s"**: press it right after a fall, even if you weren't recording.
 
@@ -164,6 +164,30 @@ Each record is one control tick:
 As built in step 4, the settings go in `# setting` lines at the top of the same CSV instead of a separate `.json` (one file per run, and the serial `dump` already worked that way): firmware, log format, bias, alpha, scales, signs, the note you type, the time and record count. Gains are added when the PID arrives.
 
 Why this works for training later: each row has what the robot sensed (observation), what was asked of it (operator command), and what it did (PWM). That's the standard shape for imitation learning (learn the driving from your remote-control runs in milestone 2) or for fitting a model of the robot's physics. Raw sensor values are kept, not just filtered ones, so a future model isn't stuck with today's filter. Tick numbers make any missing rows show up as gaps instead of silent errors.
+
+### Data for training: status and rules (checked 2026-10-23)
+
+What a model needs, and where it is in our logs:
+
+| Needed | In the logs? | Where |
+|---|---|---|
+| What BB1 sensed (observation) | yes | raw IMU, pitch, pitch rate, accel pitch, encoders, wheel speeds, every 5 ms |
+| What it did (action) | yes | `pwm_l`, `pwm_r` (after the cap and deadband) |
+| What it was trying to do | partly | `setpoint` (trim) now; operator throttle / turn columns come with milestone 2 (driving) |
+| Which controller made the action | yes | `gains_ver` per row + one `# gains_vN,...` line per version (handheld.py and logger.py; the page's Download only has the gains at the start) |
+| Outcome of each try | yes | `mode` (armed / fallen), `reason` (timer, fell, you, Wi-Fi lost...) |
+| Conditions | partly | `# surface` and `# note` lines (use `--surface` and `-n`); battery voltage not measured yet (needs the divider, FUTURE_INTEGRATIONS.md) |
+| Clean vs hand-helped tries | by rule only | press STOP before touching it, so hand help ends the try as "you" |
+| Gaps / Wi-Fi trouble | yes | `tick` gaps, `# records,...,lost`, `web_age_ms` |
+
+**Rules for every run** (so the data stays usable):
+1. Record with `handheld.py` or `logger.py`, always with `--surface` and a `-n` note (gains, battery voltage).
+2. Hands off while armed. To save it, **STOP first**, then catch.
+3. Keep every log, falls included: falls teach a model what not to do.
+4. Never mix mock logs (`firmware,bb1 MOCK`) into real data.
+5. When firmware adds a column: new field at the end of `LogRecord`, bump `LOG_FORMAT`, add it to `docs/CALIBRATION_AND_LOGS.md`.
+
+**Still to do:** a backup of `logs/` (gitignored, about 113 MB on one laptop so far); battery voltage column (divider); operator command columns (milestone 2); maybe a "hand touched" event key in handheld.py.
 
 ## 7. Steps (one at a time, tested on the bot between each)
 

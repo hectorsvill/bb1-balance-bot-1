@@ -74,7 +74,14 @@ const float DEFAULT_I_GAIN = 0.0;
 const float DEFAULT_D_GAIN = 0.5;
 const float DEFAULT_TRIM = -4.39;  // deg: the pitch where BB1 really balances (measured 2026-10-21; page: "Use current pitch")
 const float DEFAULT_PWM_CAP = 80;  // PWM limit while armed (of 255). Gentle for first tests; raise once it balances.
-const float DEFAULT_DEADBAND = 0;  // PWM added so small corrections still turn the wheels. Measure it.
+const float DEFAULT_DEADBAND = 0;  // PWM added so small corrections still turn the wheels (measured: wheels start at 10-15 in the air, about 30 on wood)
+// Limits for the settings above, wherever they're set from (serial, the pages, flash).
+const float GAIN_P_MAX = 100;
+const float GAIN_I_MAX = 100;
+const float GAIN_D_MAX = 20;
+const float TRIM_MAX = 20;         // deg either way
+const float DEADBAND_MAX = 100;
+const float ARM_SECONDS_MAX = 600; // longest arm timer; 0 = no timer
 const float ARM_ANGLE   = 10.0;    // deg: can only arm within this of the trim
 const float FALL_ANGLE  = 45.0;    // deg: past this while armed = fallen, motors off
 const unsigned long HEARTBEAT_MS = 1000;   // armed from the page: disarm if it goes quiet this long

@@ -215,7 +215,7 @@ void handleArm() {
   armedFromWeb = true;                         // armed from here: the page must keep polling /state
   lastWebHeartbeatMs = millis();
   float seconds = server.hasArg("seconds") ? server.arg("seconds").toFloat() : 0;
-  armTimeMs = (uint32_t)(constrain(seconds, 0.0f, 600.0f) * 1000);
+  armTimeMs = (uint32_t)(constrain(seconds, 0.0f, ARM_SECONDS_MAX) * 1000);
   requestArm = true;
   server.send(200, "text/plain", "arming...");
 }
@@ -226,28 +226,16 @@ void handleDisarm() {
   server.send(200, "text/plain", "disarmed");
 }
 
-// POST /gains kp=15&kd=0.5 ... Only the fields sent are changed. Same limits as
-// the serial commands. "trim=here" uses the current pitch.
+// POST /gains kp=15&kd=0.5 ... Only the fields sent are changed, with the same
+// names and limits as serial (setBalanceSetting in settings.h). "trim=here"
+// uses the current pitch.
 void handleGains() {
-  auto num = [](const char *name, float lo, float hi, volatile float &target) {
-    if (server.hasArg(name) && server.arg(name).length()) target = constrain(server.arg(name).toFloat(), lo, hi);
-  };
-  num("kp", 0, 100, gainP);
-  num("ki", 0, 100, gainI);
-  num("kd", 0, 20, gainD);
-  num("cap", 0, PWM_MAX, pwmCap);
-  num("deadband", 0, 100, motorDeadband);
-  if (server.arg("trim") == "here") {
-    LogRecord r;
-    if (totalWritten && logGet(totalWritten - 1, r)) balanceTrim = r.pitch;
-  } else {
-    num("trim", -20, 20, balanceTrim);
+  for (int n = 0; n < server.args(); n++) {
+    if (server.arg(n).length()) setBalanceSetting(server.argName(n), server.arg(n));   // unknown names are ignored
   }
   gainsVersion = gainsVersion + 1;
   printGains();                                // tell the terminal too (handheld.py logs it)
-  server.send(200, "text/plain", "gains v" + String(gainsVersion) + ": kp " + String(gainP, 2) + ", ki " +
-              String(gainI, 2) + ", kd " + String(gainD, 2) + ", trim " + String(balanceTrim, 2) +
-              ", cap " + String(pwmCap, 0) + ", deadband " + String(motorDeadband, 0));
+  server.send(200, "text/plain", gainsLine());
 }
 
 void handleGainsSave() {

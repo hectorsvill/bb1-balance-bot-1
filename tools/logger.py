@@ -22,6 +22,7 @@ import re
 import socket
 import sys
 import time
+import urllib.parse
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,13 @@ MAX_PER_REQUEST = 1000          # must match LOG_MAX_PER_REQUEST in firmware/bb1
 
 def get(url, timeout=5):
     with urllib.request.urlopen(url, timeout=timeout) as res:
+        return res.read().decode()
+
+
+def post(url, timeout=3, **fields):
+    """POST form fields (like the web page's buttons do) and return BB1's answer text."""
+    data = urllib.parse.urlencode(fields).encode()
+    with urllib.request.urlopen(url, data=data, timeout=timeout) as res:
         return res.read().decode()
 
 
@@ -53,10 +61,25 @@ def log_path(note, started, out=None):
     return out
 
 
-def save_log(out, meta, note, started, header, rows, lost):
-    """Write the same layout as the page's Download: settings lines, header, rows."""
+def gains_versions(state_json, versions):
+    """Remember what each gains version meant, from a /state answer.
+
+    Rows only carry gains_ver (a number), so the file needs one
+    "# gains_vN,kp ... cap ..." line per version used during the run, or a
+    model trained on it later can't tell which gains produced which rows."""
+    g = json.loads(state_json)["gains"]
+    versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband"))
+
+
+def save_log(out, meta, note, started, header, rows, lost, versions=None, surface="unknown"):
+    """Write the same layout as the page's Download: settings lines, header, rows.
+
+    surface (wood, carpet, air...) is a label for analysis and training: the
+    same gains behave differently on different floors."""
     with open(out, "w") as f:
         f.write(meta)
+        f.writelines(f"# gains_v{v},{g}\n" for v, g in sorted((versions or {}).items()))
+        f.write(f"# surface,{surface.replace(',', ';')}\n")
         f.write(f"# note,{note.replace(',', ';')}\n")
         f.write(f"# recorded_at,{started.astimezone().isoformat()}\n")
         f.write(f"# records,{len(rows)},lost,{lost}\n")
@@ -72,6 +95,7 @@ def main():
     ap.add_argument("-t", "--seconds", type=float, help="stop after this many seconds (default: Ctrl-C)")
     ap.add_argument("-n", "--note", default="", help="a note saved in the file and its name")
     ap.add_argument("-o", "--out", help="output file (default logs/bb1_<date>_<time>[_note].csv)")
+    ap.add_argument("--surface", default="unknown", help="what BB1 stands on: wood, carpet, air... (saved in the file)")
     args = ap.parse_args()
 
     # Look up bb1.local once. Some tools take seconds to resolve .local names
@@ -89,6 +113,8 @@ def main():
     meta = get(f"{base}/log/meta")
     state = get(f"{base}/state")
     next_tick = json.loads(state)["tick"] + 1                         # start from "now"
+    versions = {}
+    gains_versions(state, versions)
 
     rows, lost, header = [], 0, ""
     print(f"Recording from {args.host} ({ip}) into {out}")
@@ -107,6 +133,10 @@ def main():
             lost += info["lost"]
             next_tick = info["to"]
             if time.time() - last_print > 2:
+                try:
+                    gains_versions(get(f"{base}/state"), versions)   # catch gains changed on the page
+                except OSError:
+                    pass
                 last_print = time.time()
                 print(f"  {len(rows)} records ({len(rows) / 200:.1f} s){f', {lost} lost' if lost else ''}")
             if info["to"] - info["from"] < MAX_PER_REQUEST:
@@ -114,7 +144,7 @@ def main():
     except KeyboardInterrupt:
         pass
 
-    save_log(out, meta, args.note, started, header, rows, lost)
+    save_log(out, meta, args.note, started, header, rows, lost, versions, args.surface)
 
 
 if __name__ == "__main__":

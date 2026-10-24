@@ -19,6 +19,23 @@ The running record of Hector's PID tuning on BB1: what we tried, what the data s
 
 **Later:** every log is kept. They're the training data for the AI model that will drive BB1 (FIRMWARE_PLAN.md, section 6): good tries show what "balanced" looks like, falls show what to avoid. That's why the gains version and the disarm reason are in every row.
 
+## Plan: how we get BB1 to balance on wood
+
+Where we are (2026-10-23): wood floor, no cable. Balance point about +0.55 deg. Deadband about 15 to 30 on wood. P 9.85 / D 0.74 only *just* holds it: tries fall within 1 to 3 s, either way.
+
+Each step is one round (3+ hands-off tries, `pid_report.py`, an entry below). Hector picks the numbers; the report says which way to move.
+
+1. **Make the robot repeatable first.** Battery strapped in the same spot every time (the balance point follows it). Battery charged (write the voltage in the `-n` note until the voltage divider is fitted). Same surface, `--surface wood`.
+2. **Deadband.** Set `deadband` on /tune. Check in the report or `--plot`: small errors now move the wheels (no long stretches with PWM under 30 and speed 0). Too high = fast chatter around upright: back it off.
+3. **Trim again, with the deadband in.** Halving method: falls forward = lower, falls back = raise. Stop when it falls both ways about equally; 0.1 deg is fine enough. **Save to flash.**
+4. **P.** Raise P until it fights back hard and starts a fast shake, then come back down a bit. That gives the strongest P that doesn't oscillate on its own. Watch `|P|` and `cap%`: P maxing the motors means the cap is in the way.
+5. **D.** Raise D until the swings stop growing and die out; stop before jitter (`flips/s` in the tens, `|D|` bigger than `|P|`). Then go back to step 4 once: more D usually lets P go a bit higher.
+6. **Compare with the step test** (full page, armed): setpoint +2 deg for 1 s. A good PD settles in well under a second with one small overshoot.
+7. **Accept the drift.** PD on the angle can stand 10 s but still roll away slowly: it has no idea where the wheels are. That's not a gain problem.
+8. **Step 8: the speed loop** (cascade, like position hold on a quad). An outer loop reads the wheel speed from the encoders and tilts the angle setpoint a little to stop the rolling; the angle PD stays the inner loop. I (if any) goes there, not on the angle. This is what fixes "starts moving back, then falls".
+
+If D can't go high enough without jitter, the next tools are a low-pass filter on the D term, or checking the gyro noise; both are firmware changes we'd plan together.
+
 ## Rounds
 
 ### 2026-10-23, round 14: trim search 0.5 to 0.7, wood (`bb1_2026-10-23_21-13-20_wood-trim-4.csv`)

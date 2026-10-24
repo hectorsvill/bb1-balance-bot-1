@@ -22,19 +22,11 @@ import argparse
 import json
 import sys
 import time
-import urllib.parse
-import urllib.request
 from datetime import datetime
 
-from logger import REPO, get
+from logger import REPO, get, post
 
 COUNTS_PER_REV = 520             # config.h (assumed, not measured cleanly yet)
-
-
-def post(base, path, **fields):
-    data = urllib.parse.urlencode(fields).encode()
-    with urllib.request.urlopen(f"{base}{path}", data=data, timeout=3) as res:
-        return res.read().decode()
 
 
 def state(base):
@@ -44,14 +36,14 @@ def state(base):
 def run_test(base, pwm, ms):
     """One timed motor test at the same PWM on both wheels. Returns (left, right) counts moved."""
     done_before = state(base)["tests_done"]
-    post(base, "/motor", left=pwm, right=pwm, ms=ms)
+    post(f"{base}/motor", left=pwm, right=pwm, ms=ms)
     deadline = time.time() + ms / 1000 + 3            # the firmware stops it; this is only our own timeout
     while time.time() < deadline:
         time.sleep(0.2)
         s = state(base)
         if s["tests_done"] > done_before and not s["test_running"]:
             return s["test_moved"]
-    post(base, "/motor/stop")                         # should never be needed, but never leave it running
+    post(f"{base}/motor/stop")                         # should never be needed, but never leave it running
     raise SystemExit("The motor test didn't report back. Stopped the motors.")
 
 
@@ -97,5 +89,6 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:                          # Ctrl-C: stop the motors now, don't wait for the timer
-        post(f"http://{sys.argv[sys.argv.index('--host') + 1]}" if "--host" in sys.argv else "http://bb1.local", "/motor/stop")
+        host = sys.argv[sys.argv.index("--host") + 1] if "--host" in sys.argv else "bb1.local"
+        post(f"http://{host}/motor/stop")
         sys.exit("\nStopped.")

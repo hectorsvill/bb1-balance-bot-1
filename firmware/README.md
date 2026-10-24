@@ -13,6 +13,8 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
+Clean-up (2026-10-23, compiled, not flashed yet): the balance settings' names and limits live in one place, `setBalanceSetting()` in `settings.h` (serial, `/gains` and loading from flash all use it); limits in `config.h` (`GAIN_P_MAX` etc.).
+
 Tuning page (2026-10-21): **http://bb1.local/tune** changes Kp, Ki, Kd, trim and cap live and shows only pitch, error, P / I / D and PWM (`tune_page.h`). Since 2026-10-23 it also has ARM (with a timer) and STOP, for runs with no USB cable; log with `handheld.py --wifi`. A change from any page now also prints a `gains` line on serial. Both ways to change gains (page, or `config.h` + `defaults`): `docs/PID_TUNING.md`.
 
 Fix (2026-10-21): the web server now closes each connection after answering (`route()` in `web.h`). Before, one connection the browser left open froze the server for up to 5 s and armed runs disarmed with "lost the web page".

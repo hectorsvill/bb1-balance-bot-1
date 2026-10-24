@@ -46,13 +46,11 @@ import termios
 import threading
 import time
 import tty
-import urllib.parse
-import urllib.request
 from datetime import datetime
 
 import serial  # pyserial
 
-from logger import MAX_PER_REQUEST, fetch_log, get, log_path, save_log
+from logger import MAX_PER_REQUEST, fetch_log, get, log_path, post, save_log
 from serial_log import find_port
 
 
@@ -143,10 +141,8 @@ class WifiLink(threading.Thread):
         self.armed = None        # last armed state seen, to print ARMED / DISARMED once
 
     def post(self, path, **fields):
-        data = urllib.parse.urlencode(fields).encode()
         try:
-            with urllib.request.urlopen(f"{self.base}{path}", data=data, timeout=2) as res:
-                return res.read().decode()
+            return post(f"{self.base}{path}", timeout=2, **fields)
         except OSError as e:
             return f"no answer ({e})"
 
@@ -205,6 +201,7 @@ def main():
     ap.add_argument("--host", default="bb1.local", help="robot address (default bb1.local; or the IP from 'wifi' on serial)")
     ap.add_argument("-p", "--port", help="serial port (default: the Pico's /dev/cu.usbmodem*)")
     ap.add_argument("--wifi", action="store_true", help="no USB cable: arm, disarm and gains over Wi-Fi")
+    ap.add_argument("--surface", default="unknown", help="what BB1 stands on: wood, carpet, air... (saved in the file)")
     ap.add_argument("-s", "--seconds", type=float, default=5, help="arm time per press of 'a' (default 5, max 10 here)")
     ap.add_argument("-n", "--note", default="handheld", help="a note saved in the file and its name (default handheld)")
     # Settings sent at the start, so the file name and the run match what you asked for.
@@ -289,8 +286,7 @@ def main():
         rec.running = False
         link.running = False
         print()
-        versions = "".join(f"# gains_v{v},{g}\n" for v, g in sorted(link.versions.items()))
-        save_log(out, rec.meta + versions, args.note, started, rec.header, rec.rows, rec.lost)
+        save_log(out, rec.meta, args.note, started, rec.header, rec.rows, rec.lost, link.versions, args.surface)
 
 
 if __name__ == "__main__":

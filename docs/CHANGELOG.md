@@ -9,6 +9,13 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-23 (evening) - clean-up and plans
+
+- Firmware: the balance settings' names and limits live in one place, `setBalanceSetting()` / `gainsLine()` in `settings.h`, used by serial, `/gains` and flash loading; limits as constants in `config.h`. The `/gains` answer is now the same line as serial `gains`. **Compiled, not flashed yet**
+- Tools: one shared `post()` in `logger.py`; `logger.py` saves `# gains_vN` lines like handheld.py; `--surface` on both (`# surface,...` in the file)
+- New docs/SESSION_LOG.md; TUNING_LOG "Plan"; FIRMWARE_PLAN section 6 "Data for training: status and rules"
+- Rounds 12 to 14 on wood: balance point moved to about +0.55; deadband measured (10 to 15 in the air, about 30 on wood)
+
 ## 2026-10-23 - handheld.py picks the Pico's port
 
 - New `tools/deadband_test.py`: sweeps motor-test PWM over Wi-Fi and finds where both wheels turn (round 14 showed the wheels don't move below about PWM 30 on wood)
