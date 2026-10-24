@@ -38,6 +38,18 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 16: trim typed 0.5, deadband 10 (`bb1_2026-10-24_16-05-52_db10-trim0-5-p9-85-d0-74.csv`)
+
+**Setting:** P 9.85, I 0, D 0.74, trim 0.50 (typed), cap 150, deadband 10, 10 kHz, wood, 3.95 V/cell.
+
+| try | secs | end | wobble | lean | \|P\| | \|D\| | cap% | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 2.4 | FELL fwd | 6.9 | +4.9 | 49 | 17 | 9 | 1.2 | +2.9 |
+| 2 | 2.9 | FELL back | 6.5 | −3.4 | 36 | 15 | 7 | 3.1 | −2.8 |
+| 3 | 2.8 | FELL back | 6.6 | −3.2 | 37 | 15 | 7 | 2.1 | −2.8 |
+
+**What it says:** better: twice as long, jitter gone (1 to 3 flips/s), falls go both ways (trim about right). Try 2 in detail: it held within ±1 deg for about 1.5 s with the wheels moving (deadband works), then leaned slowly back; at −5 deg P gave only about −90 PWM, the wheels sped up backward but never got back under it, the lean grew to −10 deg and it fell. That's **P too weak** to recover a lean once it starts. **Next:** P **13**, D **1.0** (raised together, same D/P ratio about 0.075, so the damping stays similar), trim 0.6.
+
 ### 2026-10-24, round 15: deadband 15, 10 kHz PWM, wood (`bb1_2026-10-24_16-01-41_db15-p9-85-d0-74.csv`)
 
 **Setting:** P 9.85, I 0, D 0.74, cap 150, **deadband 15**, PWM 10 kHz, battery 3.92 V/cell. Trim came out **+3.46** from "Trim = current pitch" (expected about +0.5).
