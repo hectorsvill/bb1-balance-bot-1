@@ -62,6 +62,10 @@ struct Balance {
   int  overrunsInRow = 0;
   unsigned long armedAtMs = 0;  // millis() when it armed, for the arm timer
   unsigned long stepUntilMs = 0; // step test: setpoint is trim + STEP_TEST_DEG until then (0 = off)
+  // Speed loop (step 8)
+  float   speedFiltered = 0;    // wheel speed, counts/s, smoothed
+  int32_t encAtArm = 0;         // average encoder count when it armed (position = since then)
+  bool    newArm = false;       // first tick after arming: remember the encoders
 };
 
 Balance balance;                // only core 1 touches this
@@ -88,6 +92,8 @@ void balanceArm(float pitch, bool motorTestOn) {
   balance.overrunsInRow = 0;
   balance.armed = true;
   balance.armedAtMs = millis();
+  balance.speedFiltered = 0;
+  balance.newArm = true;                        // balanceTick() records the encoders on the next tick
   armedSinceMs = balance.armedAtMs;
   robotArmed = true;
   disarmReason = REASON_NONE;
@@ -100,6 +106,29 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   // The setpoint is the trim, plus STEP_TEST_DEG while a step test runs.
   if (balance.stepUntilMs && millis() >= balance.stepUntilMs) { balance.stepUntilMs = 0; stepActive = false; }
   float setpoint = balanceTrim + (balance.stepUntilMs ? STEP_TEST_DEG : 0);
+
+  // ---- the speed loop (step 8) ----
+  // The angle loop alone keeps BB1 at the trim angle, but any small trim error
+  // means a steady lean, and a steady lean means accelerating that way forever:
+  // it rolls faster and faster until the motors max out (TUNING_LOG rounds
+  // 16-20). This outer loop watches the wheels. Rolling forward -> move the
+  // target angle back a little, so the angle loop drives the wheels ahead of
+  // the body, BB1 tips back and brakes. Like position hold on a quad.
+  //   speed P (sp): degrees back per wheel turn per second
+  //   speed I (si): degrees back per wheel turn rolled since arming (the
+  //                 integral of speed = position): pulls it back home and
+  //                 cancels a trim error for good
+  // Both 0 = off. The log's setpoint column shows the result (trim + shift).
+  if (balance.armed) {
+    float speed = (r.speed_l + r.speed_r) / 2.0f;                       // counts/s, forward +
+    balance.speedFiltered += SPEED_FILTER * (speed - balance.speedFiltered);
+    int32_t encNow = (r.enc_l + r.enc_r) / 2;
+    if (balance.newArm) { balance.encAtArm = encNow; balance.newArm = false; }
+    float turnsPerSec = balance.speedFiltered / COUNTS_PER_REV;
+    float turns       = (float)(encNow - balance.encAtArm) / COUNTS_PER_REV;
+    float shift = -(gainSpeedP * turnsPerSec + gainSpeedI * turns);    // rolling forward -> lean back (negative)
+    setpoint += constrain(shift, -SPEED_SHIFT_MAX, SPEED_SHIFT_MAX);
+  }
   r.setpoint_cdeg = (int16_t)(setpoint * 100);
   r.gains_ver = (uint16_t)gainsVersion;
   r.reason = disarmReason;                      // the value before this tick's checks; next tick shows any new one

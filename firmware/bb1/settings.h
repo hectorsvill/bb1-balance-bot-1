@@ -37,6 +37,8 @@ bool setBalanceSetting(String name, const String &value) {
   else if (name == "trim")              balanceTrim = (value == "here") ? latestPitch() : constrain(v, -TRIM_MAX, TRIM_MAX);
   else if (name == "cap")               pwmCap = constrain(v, 0.0f, (float)PWM_MAX);
   else if (name == "deadband")          motorDeadband = constrain(v, 0.0f, DEADBAND_MAX);
+  else if (name == "sp")                gainSpeedP = constrain(v, 0.0f, SPEED_GAIN_MAX);   // speed loop P
+  else if (name == "si")                gainSpeedI = constrain(v, 0.0f, SPEED_GAIN_MAX);   // speed loop I (position)
   else return false;
   return true;
 }
@@ -47,7 +49,7 @@ bool setBalanceSetting(String name, const String &value) {
 String gainsLine() {
   return "gains v" + String(gainsVersion) + ": kp " + String(gainP, 2) + "  ki " + String(gainI, 2) +
          "  kd " + String(gainD, 2) + "  trim " + String(balanceTrim, 2) + " deg  cap " + String(pwmCap, 0) +
-         "  deadband " + String(motorDeadband, 0);
+         "  deadband " + String(motorDeadband, 0) + "  sp " + String(gainSpeedP, 2) + "  si " + String(gainSpeedI, 2);
 }
 
 void printGains() {
@@ -55,11 +57,13 @@ void printGains() {
 }
 
 const int      SETTINGS_ADDR  = 128;
-const uint32_t SETTINGS_MAGIC = 0xBB1C0001;   // "this really is our data", and its layout version
+const uint32_t SETTINGS_MAGIC    = 0xBB1C0002;   // "this really is our data", and its layout version
+const uint32_t SETTINGS_MAGIC_V1 = 0xBB1C0001;   // before step 8: no speed loop gains (still loads)
 
 struct SavedSettings {
   uint32_t magic;
   float gainP, gainI, gainD, trim, cap, deadband;
+  float speedP, speedI;                                  // step 8 (layout v2)
 };
 
 // Called once on core 0 after wifiStart() (which opens the EEPROM area).
@@ -67,7 +71,7 @@ struct SavedSettings {
 bool settingsLoad() {
   SavedSettings s;
   EEPROM.get(SETTINGS_ADDR, s);
-  if (s.magic != SETTINGS_MAGIC) return false;          // never saved: keep the config.h defaults
+  if (s.magic != SETTINGS_MAGIC && s.magic != SETTINGS_MAGIC_V1) return false;   // never saved: keep the config.h defaults
   // Through the same limits as serial and the page, in case the flash holds something odd.
   setBalanceSetting("kp", String(s.gainP, 4));
   setBalanceSetting("ki", String(s.gainI, 4));
@@ -75,6 +79,10 @@ bool settingsLoad() {
   setBalanceSetting("trim", String(s.trim, 4));
   setBalanceSetting("cap", String(s.cap, 4));
   setBalanceSetting("deadband", String(s.deadband, 4));
+  if (s.magic == SETTINGS_MAGIC) {                       // saved with step 8; saved before that = speed loop stays at its default (off)
+    setBalanceSetting("sp", String(s.speedP, 4));
+    setBalanceSetting("si", String(s.speedI, 4));
+  }
   gainsVersion = gainsVersion + 1;
   return true;
 }
@@ -82,7 +90,7 @@ bool settingsLoad() {
 // Save what's in use now. Returns an explanation for the page / serial.
 String settingsSave() {
   if (robotArmed || motorTestRunning) return "disarm first: saving pauses the control loop for a moment";
-  SavedSettings s = { SETTINGS_MAGIC, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband };
+  SavedSettings s = { SETTINGS_MAGIC, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI };
   EEPROM.put(SETTINGS_ADDR, s);
   EEPROM.commit();                                       // the actual flash write
   return "saved: " + gainsLine();
@@ -92,5 +100,6 @@ String settingsSave() {
 void settingsDefaults() {
   gainP = DEFAULT_P_GAIN; gainI = DEFAULT_I_GAIN; gainD = DEFAULT_D_GAIN;
   balanceTrim = DEFAULT_TRIM; pwmCap = DEFAULT_PWM_CAP; motorDeadband = DEFAULT_DEADBAND;
+  gainSpeedP = DEFAULT_SPEED_P; gainSpeedI = DEFAULT_SPEED_I;
   gainsVersion = gainsVersion + 1;
 }

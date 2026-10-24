@@ -100,6 +100,9 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
     <label class="box"><span class="name tip" data-tip="D (derivative): pushes against how fast it is leaning, like a brake. D term = Kd x lean speed (deg/s). Calms shaking; too much = buzzing, jittery motors.">D (Kd)</span><input id="kd" inputmode="decimal"></label>
     <label class="box"><span class="name">Trim (deg)</span><input id="trim" inputmode="decimal"></label>
     <label class="box"><span class="name">Cap (PWM of 255)</span><input id="cap" inputmode="numeric"></label>
+    <label class="box"><span class="name tip" data-tip="Deadband: PWM added to every correction so small ones still turn the wheels (they don't move below about 15 on the floor). Too much = chatter around upright.">Deadband</span><input id="deadband" inputmode="numeric"></label>
+    <label class="box"><span class="name tip" data-tip="Speed P (step 8): when BB1 rolls, lean the target back this many degrees per wheel turn per second, so it brakes instead of running away. Like position hold on a quad. 0 = off.">Speed P (sp)</span><input id="sp" inputmode="decimal"></label>
+    <label class="box"><span class="name tip" data-tip="Speed I (step 8): lean the target back this many degrees per wheel turn rolled since arming. Pulls BB1 back to where it started and cancels a trim error. Too much = slow, big back-and-forth. 0 = off.">Speed I (si)</span><input id="si" inputmode="decimal"></label>
   </div>
   <div class="muted" id="tipText" style="margin-top:8px; min-height:1.4em">Hover over (or tap) P, I or D to see what it does.</div>
   <div class="buttons">
@@ -210,14 +213,14 @@ function showBattery(s) {
 }
 
 const el = id => document.getElementById(id);
-const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap'];
+const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si'];
 let gains = null, filledVer = -1;   // the gains BB1 last reported, and the version shown in the boxes
 
 // Put BB1's current gains in the boxes. Only when asked or when BB1's version
 // changed (someone else changed them), so it never overwrites what you're typing.
 function fillBoxes() {
   if (!gains) return;
-  for (const f of FIELDS) el(f).value = f === 'cap' ? gains[f].toFixed(0) : +gains[f].toFixed(3);
+  for (const f of FIELDS) if (gains[f] !== undefined) el(f).value = (f === 'cap' || f === 'deadband') ? gains[f].toFixed(0) : +gains[f].toFixed(3);
   filledVer = gains.ver;
 }
 

@@ -88,12 +88,21 @@ const float DEFAULT_D_GAIN = 0.5;
 const float DEFAULT_TRIM = -4.39;  // deg: the pitch where BB1 really balances (measured 2026-10-21; page: "Use current pitch")
 const float DEFAULT_PWM_CAP = 80;  // PWM limit while armed (of 255). Gentle for first tests; raise once it balances.
 const float DEFAULT_DEADBAND = 0;  // PWM added so small corrections still turn the wheels (measured: wheels start at 10-15 in the air, about 30 on wood)
+// Speed loop (step 8): leans BB1 back when it rolls forward, so it brakes
+// instead of running away. Units: degrees of target lean per wheel turn per
+// second (speed P) and per wheel turn rolled since arming (speed I = position).
+// 0 = off, which is the angle loop alone, as before step 8.
+const float DEFAULT_SPEED_P = 0;
+const float DEFAULT_SPEED_I = 0;
+const float SPEED_SHIFT_MAX = 6.0;   // deg: the speed loop never moves the target more than this
+const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about 0.1 s) so encoder steps don't kick the angle loop
 // Limits for the settings above, wherever they're set from (serial, the pages, flash).
 const float GAIN_P_MAX = 100;
 const float GAIN_I_MAX = 100;
 const float GAIN_D_MAX = 20;
 const float TRIM_MAX = 20;         // deg either way
 const float DEADBAND_MAX = 100;
+const float SPEED_GAIN_MAX = 20;
 const float ARM_SECONDS_MAX = 600; // longest arm timer; 0 = no timer
 const float ARM_ANGLE   = 10.0;    // deg: can only arm within this of the trim
 const float FALL_ANGLE  = 45.0;    // deg: past this while armed = fallen, motors off

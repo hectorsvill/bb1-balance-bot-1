@@ -13,6 +13,20 @@
 
 Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash write caused 0 missing ticks and 0 overruns.
 
+## bb1, step 8: speed loop (2026-10-24, compiled, not flashed yet)
+
+The angle loop alone holds BB1 at the trim angle, but any small trim error is a steady lean, and a steady lean means accelerating that way forever: it rolls faster and faster until the motors max out (TUNING_LOG rounds 16 to 20). Step 8 adds an outer loop in `control.h` that watches the wheels and moves the target angle:
+
+```text
+target = trim - (sp x wheel turns per second  +  si x wheel turns since arming)    (limited to +-6 deg)
+```
+
+- **Speed P (`sp`)**: rolling forward 1 turn/s leans the target back `sp` degrees, so the angle loop runs the wheels ahead of the body, BB1 tips back and brakes.
+- **Speed I (`si`)**: the integral of speed is position. Rolled 1 turn forward since arming leans the target back `si` degrees: pulls it home and cancels a trim error.
+- Both default to **0 = off** (the angle loop alone, as before). Set them on /tune (boxes **Speed P (sp)**, **Speed I (si)**) or serial `sp 1.5`, `si 0.5`. Saved to flash with the others (settings layout v2; settings saved before step 8 still load, with the speed loop off).
+- Wheel speed is smoothed (`SPEED_FILTER`, about 0.1 s) so encoder steps don't kick the angle loop.
+- The log's `setpoint` column shows the moving target (trim + shift); the header's gains line has `speed_p` / `speed_i`.
+
 Battery voltage (2026-10-24, **flashed**; together with the clean-up and the 2 s heartbeat below): `battery.h` reads the D153C's `ADC` pin (battery / 11) on GP26 from core 0 every 100 ms. Shown as a chip on both pages, in the serial readout (`batt 7.92 V`) and `/state`; every log row gets `batt_v` (log format 6, record now 72 bytes, RAM free 44 KB).
 
 Clean-up (2026-10-23, flashed 2026-10-24): the balance settings' names and limits live in one place, `setBalanceSetting()` in `settings.h` (serial, `/gains` and loading from flash all use it); limits in `config.h` (`GAIN_P_MAX` etc.).

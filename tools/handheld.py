@@ -115,11 +115,11 @@ class SerialLink(threading.Thread):
                     self.trim = float(line.split(" trim ")[1].split()[0])
                     w = line.split()
                     pick = lambda key: f"{float(w[w.index(key) + 1]):g}"    # the number after a word
-                    self.gains = f"kp {pick('kp')} kd {pick('kd')} cap {pick('cap')}"
+                    self.gains = f"kp {pick('kp')} kd {pick('kd')} cap {pick('cap')}" + (f" sp {pick('sp')} si {pick('si')}" if "sp" in w else "")
                     # The CSV only has gains_ver per row, so keep what each version
                     # meant (changes from the /tune page arrive here too).
                     ver = int(w[1].lstrip("v").rstrip(":"))
-                    self.versions[ver] = " ".join(f"{k} {pick(k)}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband"))
+                    self.versions[ver] = " ".join(f"{k} {pick(k)}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband", "sp", "si") if k in w)
                 say(f"BB1: {line}")
 
 
@@ -161,7 +161,7 @@ class WifiLink(threading.Thread):
             self.post("/disarm")
         elif key == "gains":
             say(f"BB1: gains: {self.versions.get(max(self.versions), '...') if self.versions else '...'}")
-        elif key in ("kp", "ki", "kd", "trim", "cap", "deadband") and len(words) == 2:
+        elif key in ("kp", "ki", "kd", "trim", "cap", "deadband", "sp", "si") and len(words) == 2:
             say("BB1: " + self.post("/gains", **{key: words[1]}))      # "trim here" works too
         elif key == "save":
             say("BB1: " + self.post("/gains/save"))
@@ -183,8 +183,8 @@ class WifiLink(threading.Thread):
             self.readout = f"pitch {s['pitch']:+.1f} (trim {s['pitch'] - g['trim']:+.1f})"
             if s.get("batt_ok"):
                 self.readout += f" | batt {s['batt_v'] / s.get('batt_cells', 2):.2f} V/cell"
-            self.gains = f"kp {g['kp']:g} kd {g['kd']:g} cap {g['cap']:g}"
-            self.versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband"))
+            self.gains = f"kp {g['kp']:g} kd {g['kd']:g} cap {g['cap']:g}" + (f" sp {g['sp']:g} si {g['si']:g}" if "sp" in g else "")
+            self.versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband", "sp", "si") if k in g)
             if s["armed"] != self.armed:                           # print each change once
                 if self.armed is not None:
                     say("BB1: ARMED" if s["armed"] else f"BB1: DISARMED: {s['reason']}")
