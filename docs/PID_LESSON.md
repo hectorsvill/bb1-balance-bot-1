@@ -79,19 +79,6 @@ The speed loop is an outer loop that moves the angle loop's target:
 
 Tune order: angle P / D first (done enough), then sp up until it stops running away, then a little si until it stays in place.
 
-## 7b. The speed loop (step 8, built 2026-10-24)
-
-PD on the angle has no idea BB1 is rolling. A trim that's 0.2 deg off makes it hold a small lean, and holding a lean means accelerating: it rolls faster and faster until the motors max out. On wood that took about 2 s every time (TUNING_LOG rounds 16 to 20).
-
-The speed loop is an outer loop that moves the angle loop's target:
-
-| Gain | Does | Too little | Too much | On a quad |
-|---|---|---|---|---|
-| **Speed P (sp)** | rolling forward -> target leans back, so BB1 brakes | still runs away, just slower | rocks back and forth slowly, overcorrects the speed | how hard position hold resists drift |
-| **Speed I (si)** | rolled away from start -> lean back toward it; cancels trim error | drifts away slowly, never comes back | big slow back-and-forth around the start point | position hold pulling back to the hold point |
-
-Tune order: angle P / D first (done enough), then sp up until it stops running away, then a little si until it stays in place.
-
 ## 8. Words you'll meet
 
 - **Setpoint**: the target angle (our trim).
