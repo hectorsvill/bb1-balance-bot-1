@@ -38,6 +38,22 @@ If D can't go high enough without jitter, the next tools are a low-pass filter o
 
 ## Rounds
 
+### 2026-10-24, round 27: heading hold th 20 — balances in place (`bb1_2026-10-24_16-56-18_th20.csv`)
+
+**Setting (saved to flash, and now the `config.h` defaults):** P 18, I 100, D 0.5, trim 0, cap 200, deadband 10, sp 4, si 0.5, **th 20**, PWM 10 kHz, wood, 3.94 V/cell.
+
+| try | secs | end | wobble | \|P\| | \|I\| | \|D\| | flips/s | turns |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 10.0 | timer | 0.2 | 3 | 5 | 1 | 3.1 | +0.2 |
+| 2 | 10.0 | timer | 0.2 | 3 | 4 | 1 | 3.5 | 0.0 |
+| 3 | 10.0 | timer | 0.3 | 4 | 4 | 2 | 7.6 | +0.1 |
+
+**What it says:** **BB1 balances in place on wood.** Both wheels share the work, it stayed between the sticky notes, no turning, wobble 0.2 to 0.3 deg, under a fifth of a wheel turn in 10 s. Hector: "used both wheels to balance and stayed within the sticky notes".
+
+**What got it here (rounds 15 to 27):** typed trim instead of hand-set; deadband 10 at 10 kHz PWM; D down to 0.5 for no jitter; **a big angle I term** because the motors act like speed knobs on the floor; the speed loop (sp, si) to stop the drift and hold position; heading hold for the stronger right wheel.
+
+**Next:** longer arms (30 s), a step test, then a push test; then milestone 2 (driving).
+
 ### 2026-10-24, round 26: si 0.5 — holds position (`bb1_2026-10-24_16-50-19_i100-sp4-si0-5-d0-5.csv`)
 
 **Setting:** P 18, I 100, D 0.5, sp 4, **si 0.5**, trim 0, cap 200, deadband 10, wood. **Saved to flash.**

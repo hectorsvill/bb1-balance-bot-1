@@ -13,6 +13,25 @@ Template:
 **Open / next:**
 ```
 
+## 2026-10-24 (afternoon): battery, 10 kHz, step 8, heading hold — BB1 balances
+
+**Did:**
+- Battery voltage on GP26 (D153C `ADC` pin), calibrated to a meter (12.07), shown per cell.
+- PWM 20 -> 10 kHz (wheels start at lower PWM).
+- Tuning rounds 15 to 27 on wood with exact values (Hector asked for them today).
+- Firmware: step 8 speed loop (`sp`, `si`), heading hold (`th`), Deadband / sp / si / th boxes on /tune.
+
+**Learned:**
+- On the floor these motors act like **speed knobs**: wheel speed follows PWM. P/D alone can't balance that (always one unstable root); a **big I on the angle** (100) makes acceleration follow the lean. P becomes damping.
+- The speed loop then stops the drift (sp) and holds position (si); heading hold fixes the stronger right wheel.
+- Setting the trim by hand ("current pitch") is too rough; type it.
+
+**Decided:** keep 10 kHz; new defaults in `config.h` = the round 27 settings.
+
+**Result:** **BB1 balances in place**: 0.2 deg wobble, stays on the sticky notes, no turning.
+
+**Open / next:** 30 s arms, step test, push test; milestone 2 driving; vault Roadmap update.
+
 ## 2026-10-24: knowledge graph, motor kit folder
 
 **Did:**

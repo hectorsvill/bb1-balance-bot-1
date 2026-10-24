@@ -145,6 +145,10 @@ Wheels in the air, 1 s per test: both wheels start between PWM 10 and 15, forwar
 
 Hector soldered the D153C `ADC` pin (battery / 11) to GP26 (Pico pin 31). First reading 7.2 V vs a meter's 7.9 V with the nominal factor 11, so `BATTERY_DIVIDER` = 12.07. Check after: meter 7.9 V (3.95 V/cell), page 3.9 to 4.0 V/cell. Good to about ±0.05 V/cell.
 
+## Milestone: balances in place (2026-10-24, TUNING_LOG round 27)
+
+On the wood floor, no cable: P 18, I 100, D 0.5, speed loop sp 4 / si 0.5, heading hold th 20, deadband 10, cap 200, trim 0, PWM 10 kHz. 3 of 3 tries to the 10 s timer, wobble 0.2 to 0.3 deg, under 0.2 wheel turns of drift, no turning.
+
 ## PWM frequency: 20 kHz vs 10 kHz (2026-10-24, `tools/deadband_test.py`, wheels in the air, battery 7.9 V)
 
 | PWM | 20 kHz fwd (L / R) | 10 kHz fwd | 20 kHz back | 10 kHz back |

@@ -76,30 +76,31 @@ const long COUNTS_PER_REV = 520;
 const int SPEED_WINDOW = 10;
 
 // ---------- balancing (step 6) ----------
-// Starting values. Change them live with serial (kp, ki, kd, trim, cap, deadband)
+// Starting values: the first settings that balanced on wood (2026-10-24, TUNING_LOG round 27).
+// Change them live with serial (kp, ki, kd, trim, cap, deadband)
 // or the page's Balance panel. "save" stores them in flash (settings.h); saved
 // values replace these at power-up, so after changing these type "defaults" then
 // "save" (docs/PID_TUNING.md, "Two ways to change the gains").
 // P, I, D gains like Betaflight's (pid.h explains each). Units: PWM per deg (P),
 // PWM per deg*s (I), PWM per deg/s (D). Serial / page / logs call them kp, ki, kd.
-const float DEFAULT_P_GAIN = 15.0;     // a guess to start from; tune per docs/PID_TUNING.md
-const float DEFAULT_I_GAIN = 0.0;
+const float DEFAULT_P_GAIN = 18.0;     // a guess to start from; tune per docs/PID_TUNING.md
+const float DEFAULT_I_GAIN = 100.0;
 const float DEFAULT_D_GAIN = 0.5;
-const float DEFAULT_TRIM = -4.39;  // deg: the pitch where BB1 really balances (measured 2026-10-21; page: "Use current pitch")
-const float DEFAULT_PWM_CAP = 80;  // PWM limit while armed (of 255). Gentle for first tests; raise once it balances.
-const float DEFAULT_DEADBAND = 0;  // PWM added so small corrections still turn the wheels (measured: wheels start at 10-15 in the air, about 30 on wood)
+const float DEFAULT_TRIM = 0.0;  // deg: the pitch where BB1 really balances (measured 2026-10-21; page: "Use current pitch")
+const float DEFAULT_PWM_CAP = 200;  // PWM limit while armed (of 255). Gentle for first tests; raise once it balances.
+const float DEFAULT_DEADBAND = 10;  // PWM added so small corrections still turn the wheels (measured: wheels start at 10-15 in the air, about 30 on wood)
 // Speed loop (step 8): leans BB1 back when it rolls forward, so it brakes
 // instead of running away. Units: degrees of target lean per wheel turn per
 // second (speed P) and per wheel turn rolled since arming (speed I = position).
 // 0 = off, which is the angle loop alone, as before step 8.
-const float DEFAULT_SPEED_P = 0;
-const float DEFAULT_SPEED_I = 0;
+const float DEFAULT_SPEED_P = 4.0;
+const float DEFAULT_SPEED_I = 0.5;
 const float SPEED_SHIFT_MAX = 6.0;   // deg: the speed loop never moves the target more than this
 const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about 0.1 s) so encoder steps don't kick the angle loop
 // Heading hold (2026-10-24): keeps both wheels rolling the same distance, so BB1
 // goes straight (the right wheel is about 7% faster at the same PWM). Unit: PWM
 // moved from one wheel to the other per wheel turn of difference. 0 = off.
-const float DEFAULT_TURN_HOLD = 0;
+const float DEFAULT_TURN_HOLD = 20;
 const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
 // Limits for the settings above, wherever they're set from (serial, the pages, flash).
 const float GAIN_P_MAX = 100;

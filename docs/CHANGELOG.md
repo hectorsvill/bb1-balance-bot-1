@@ -11,6 +11,8 @@ Newest first.
 
 ## 2026-10-24 - step 8: speed loop
 
+- **Milestone: BB1 balances in place on wood** (round 27): P 18, I 100, D 0.5, sp 4, si 0.5, th 20, deadband 10, cap 200, trim 0. Wobble 0.2 deg, stays between the sticky notes, no turning. Saved to flash and made the `config.h` defaults
+
 - Round 25: P 18 / I 100 / **D 0.5** / **sp 4**: wobble **0.2 deg**, no jitter, 3 of 3 to the timer, drift 2 to 4 turns. Saved to flash
 - Heading hold `th` (`balanceSteer()`): equal wheel distance so it stops curving left; /tune box, flash layout v3, `/state`, log header `turn_hold`. Default off. Flashed 2026-10-24 (saved v2 settings loaded fine)
 
