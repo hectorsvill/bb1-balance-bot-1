@@ -61,4 +61,4 @@ volatile bool     robotArmed     = false;   // the balance loop is driving the m
 volatile uint32_t armedSinceMs   = 0;       // millis() when it last armed (for the page's countdown)
 volatile uint8_t  disarmReason   = 0;       // Reason in control.h: why it last disarmed / refused to arm
 volatile uint32_t armAttempts    = 0;       // counts up after each arm request is handled
-volatile uint8_t  autoArmState   = 3;       // AutoState in auto_arm.h (3 = waiting for calibration)
+volatile uint8_t  autoArmState   = 4;       // AutoState in auto_arm.h (4 = waiting for upright)

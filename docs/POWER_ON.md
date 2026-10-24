@@ -12,9 +12,11 @@ recording test logs) and no Wi-Fi. It stops only when you press STOP (web page
 or serial), when it falls or is laid down, or on a safety stop (IMU errors,
 lift detector).
 
-1. **Switched on standing upright** on the floor: it measures the gyro bias
-   (2 s, must be still), then, once it has been within 3 deg of the trim and
-   still for 1 s, it starts balancing. About 3.5 s from switch-on.
+1. **Switched on standing upright** (you hold it, since it can't stand
+   unpowered): it tries to measure the gyro bias (2 s). Your hand moving is
+   fine: if that fails it uses the typical bias. Then, once it has been within
+   3 deg of the trim and still for 1 s, it starts balancing. About 3.5 s from
+   switch-on.
 2. **Switched on lying down**: it measures the bias and waits. Stand it up and
    hold it still (hands just touching) for 1 s: it starts balancing. Let go.
 
@@ -27,7 +29,7 @@ never gets near the 3 deg window and just waits.
 |---|---|---|---|
 | 1 | Switched on upright, still | Balances after cal + 1 s | Same |
 | 2 | Switched on lying down | Waits; stand it up + 1 s | Same (`AUTO_ARM_HOLD_MS`, 1 s; Hector asked for 1 to 3 s) |
-| 3 | Switched on while held or moving | Bias cal fails, retries every 3 s; can't arm until it passes | Same |
+| 3 | Switched on while held or moving (the normal way to switch it on standing up) | Bias cal fails, retries every 3 s; **can't arm until it passes, so it never balanced** (found 2026-10-24) | Starts with the typical bias (`GYRO_BIAS_TYPICAL`, from every log so far) and arms normally; re-measures only while lying down and disarmed |
 | 4 | Switched on mid-fall or leaning | Waits until within 3 deg and still | Same |
 | 5 | Held upright **in the air**, still 1 s | **Arms: wheels spin in your hands** | Arms, then the lift detector stops the wheels after 0.5 s of fast spinning |
 | 6 | Picked up **while balancing** | Only the 45 deg cut-out; held level it keeps driving, wheels race toward the cap | Lift detector: motors off, reason "picked up"; set it down and hold still to re-arm |
@@ -91,6 +93,7 @@ format 7), so you can always see why it is or isn't arming.
 | `AUTO_ARM_ANGLE` | 3 deg | how close to the trim counts as upright |
 | `AUTO_ARM_RATE` | 30 deg/s | how slow counts as still |
 | `AUTO_ARM_HOLD_MS` | 1000 | how long upright and still before it arms |
+| `GYRO_BIAS_TYPICAL` | -0.60, 2.04, -2.24 deg/s | gyro bias used until a calibration succeeds |
 | `AUTO_MAX_FALLS` / `AUTO_FALL_WINDOW_MS` | 3 / 30 s | too many falls: off until ARM |
 | `LIFT_TURNS_PER_SEC` / `LIFT_MS` | 4 / 0.5 s | lift detector |
 

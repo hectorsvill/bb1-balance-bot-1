@@ -8,9 +8,8 @@
 // picks one state; the state goes in the log (auto_state column), on serial
 // and on the pages, so you can always see why it is or isn't arming.
 //
-//   OFF_SETTING ---- "auto 1" ----> WAIT_CAL  (gyro bias not measured yet)
-//                                      |
-//                                      v
+//   OFF_SETTING ---- "auto 1" ----+
+//                                  v
 //              +-----------------> WAIT_UPRIGHT  (lying down, leaning, moving, battery low)
 //              |                       |  upright and still
 //              |                       v
@@ -23,7 +22,7 @@
 //                                 (both wait for ARM or a power-up)
 //
 // Like a quad's arming rules in Betaflight: it only arms when it's safe (level,
-// still, calibrated), and a disarm switch (STOP) always wins.
+// still), and a disarm switch (STOP) always wins. (NO_IMU: the IMU never answered.)
 //
 // Runs on core 1, once per tick. Core 0 only reads autoArmState (shared.h).
 
@@ -37,7 +36,7 @@ enum AutoState : uint8_t {
   AUTO_OFF_SETTING  = 0,  // "auto 0": only ARM starts balancing
   AUTO_OFF_STOPPED  = 1,  // STOP (or another stop that wasn't a fall): waits for ARM
   AUTO_OFF_FALLS    = 2,  // fell AUTO_MAX_FALLS times in a row quickly: waits for ARM
-  AUTO_WAIT_CAL     = 3,  // gyro bias not measured yet (keep it still)
+  AUTO_NO_IMU       = 3,  // the IMU never answered at startup: can't balance
   AUTO_WAIT_UPRIGHT = 4,  // lying down, leaning, moving, battery low or a motor test
   AUTO_HOLDING      = 5,  // upright and still: counting
   AUTO_BALANCING    = 6,  // armed (by itself or by ARM)
@@ -48,7 +47,7 @@ const char *autoStateText(uint8_t s) {
     case AUTO_OFF_SETTING:  return "off (auto 0): press ARM";
     case AUTO_OFF_STOPPED:  return "off: stopped, press ARM";
     case AUTO_OFF_FALLS:    return "off: fell too often, press ARM";
-    case AUTO_WAIT_CAL:     return "waiting: keep still to calibrate";
+    case AUTO_NO_IMU:       return "off: IMU not found";
     case AUTO_WAIT_UPRIGHT: return "waiting: stand it up and hold still";
     case AUTO_HOLDING:      return "holding: starts in a moment";
     case AUTO_BALANCING:    return "balancing";
@@ -57,7 +56,7 @@ const char *autoStateText(uint8_t s) {
 }
 
 struct AutoArm {
-  AutoState state = AUTO_WAIT_CAL;    // at power-up: on, waiting
+  AutoState state = AUTO_WAIT_UPRIGHT;   // at power-up: on, waiting
   unsigned long holdStartMs = 0;      // when HOLDING began
   bool wasArmed = false;              // armed last tick (to notice a disarm)
   unsigned long fallMs[AUTO_MAX_FALLS] = {};   // when the last few falls happened
@@ -118,7 +117,7 @@ bool autoArmUpdate(const Angle &a, bool imuOk) {
   if (balance.armed)                    aa.state = AUTO_BALANCING;
   else if (offUntilArm)                 { /* stay off */ }
   else if (autoArm < 0.5f)              aa.state = AUTO_OFF_SETTING;
-  else if (!everCalibrated)             aa.state = AUTO_WAIT_CAL;
+  else if (!imuFound)                   aa.state = AUTO_NO_IMU;
   else if (!imuOk || motorTestRunning || batteryTooLow() || !uprightAndStill(a))
                                         aa.state = AUTO_WAIT_UPRIGHT;
   else if (aa.state != AUTO_HOLDING)    { aa.state = AUTO_HOLDING; aa.holdStartMs = now; }

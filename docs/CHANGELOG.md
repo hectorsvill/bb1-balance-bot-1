@@ -9,6 +9,12 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-24 - fix: no balance after switching on standing up
+
+- **Bug:** switched on standing up (held by hand), the startup gyro calibration failed because the hand moves, and arming needed a successful calibration, so auto-arm waited forever (`waiting: keep still to calibrate`). Lying down it worked
+- **Fix:** BB1 starts with `GYRO_BIAS_TYPICAL` (config.h: the average bias from every log, X within 0.15 deg/s), so it can arm without a calibration. Retries only while lying down and disarmed (a calibration stops the loop for 2 s). Arming no longer requires a calibration (`REASON_NOT_CALIBRATED` unused). `FLAG_NO_BIAS` now means "using the typical bias"
+- `auto_state` 3 now means "no IMU" (LOG_FORMAT 8)
+
 ## 2026-10-24 - main page clean-up
 
 - Main page (`page.h`) is now for using BB1, not tuning it: the Balance panel shows Balancing / Not balancing / Fallen and what auto-arm is waiting for, with **ARM** and **STOP** and a link to /tune. Gain boxes, the arm timer, the countdown bar and the step test are gone from it (all on /tune)

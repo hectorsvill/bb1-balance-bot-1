@@ -159,10 +159,14 @@ void loop1() {
   }
   angle.alpha = requestedAlpha;
 
-  // If the startup calibration failed (someone was holding the robot), try
-  // again every 3 s until it's set down still. Without a bias the angle drifts.
+  // If the startup calibration failed (someone was holding the robot), BB1 runs
+  // on the typical bias (config.h) and tries again every 3 s, but only while
+  // it's lying down and disarmed: a calibration stops the loop for 2 s, and
+  // lying down is when it's still.
   static unsigned long lastCalAttemptMs = 0;
-  if (imuFound && !everCalibrated && millis() - lastCalAttemptMs > 3000) {
+  bool lyingDown = fabs(angle.pitch - balanceTrim) > FALL_ANGLE;
+  if (imuFound && !everCalibrated && lyingDown && !balance.armed && !test.running &&
+      millis() - lastCalAttemptMs > 3000) {
     lastCalAttemptMs = millis();
     requestCalibrate = true;                   // handled at the top of the next tick
   }
@@ -494,7 +498,7 @@ void loop() {
     } else {
       Serial.println(everCalibrated
                      ? "! robot moved (or the IMU didn't answer): bias not changed. Type cal to retry."
-                     : "! robot moved during calibration. Set it down still; retrying every 3 s.");
+                     : "! robot moved during calibration: using the typical bias. Retrying while it lies still.");
     }
   }
 

@@ -36,6 +36,8 @@ Template:
 
 **Then:** Hector: power-on should just balance, no script; `handheld.py` is for testing only. Cleaned up the main page: Balance panel = status + ARM / STOP (no gains, no timer, no heartbeat; ARM sends `heartbeat=0`), developer panels folded by default. Gains and timed runs stay on /tune.
 
+**Then:** Hector: switched on, it didn't balance. Cause (from the code): switched on standing up means held by hand, the startup gyro calibration fails on the hand's movement, and arming needed a good calibration, so it waited forever. Fix: start with the typical bias from all the logs (`GYRO_BIAS_TYPICAL`), re-measure only while lying down. **Learned:** a robot that can't stand unpowered is never still at power-on when switched on upright.
+
 ## 2026-10-24 (afternoon): battery, 10 kHz, step 8, heading hold — BB1 balances
 
 **Did:**

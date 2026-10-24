@@ -35,7 +35,8 @@ struct ImuSample {
 // Gyro bias: what each gyro axis reads while perfectly still (deg/s).
 // Every MEMS gyro has some; ours was about +2.5 deg/s on Y. We measure it at
 // startup and subtract it, otherwise the angle would drift away steadily.
-float gyroBias[3] = {0, 0, 0};
+// Until a calibration succeeds it holds the typical values from config.h.
+float gyroBias[3] = { GYRO_BIAS_TYPICAL[0], GYRO_BIAS_TYPICAL[1], GYRO_BIAS_TYPICAL[2] };
 
 void imuWrite(uint8_t reg, uint8_t value) {
   Wire.beginTransmission(MPU_ADDR);

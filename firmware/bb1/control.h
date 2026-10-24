@@ -32,7 +32,7 @@ enum Reason : uint8_t {
   REASON_HEARTBEAT,      // armed from the page, and the page stopped asking for /state
   REASON_OVERRUN,        // the loop ran late several ticks in a row
   REASON_NOT_UPRIGHT,    // arm refused: not within ARM_ANGLE of the trim
-  REASON_NOT_CALIBRATED, // arm refused: no gyro bias yet
+  REASON_NOT_CALIBRATED, // arm refused: no gyro bias yet (not used since 2026-10-24: BB1 starts with the typical bias)
   REASON_MOTOR_TEST,     // arm refused: a motor test is running
   REASON_CALIBRATE,      // disarmed to recalibrate the gyro
   REASON_PAGE_HIDDEN,    // the page was hidden (tab switched, phone locked) while armed
@@ -87,11 +87,10 @@ void balanceDisarm(uint8_t reason) {
 }
 
 // Called between ticks when core 0 asks to arm. Refuses (and says why) unless
-// it's safe to start: no motor test, gyro calibrated, near the balance point.
+// it's safe to start: no motor test, near the balance point.
 void balanceArm(float pitch, bool motorTestOn) {
   balance.fallen = false;
   if (motorTestOn)                              { disarmReason = REASON_MOTOR_TEST; return; }
-  if (!everCalibrated)                          { disarmReason = REASON_NOT_CALIBRATED; return; }
   if (fabs(pitch - balanceTrim) > ARM_ANGLE)    { disarmReason = REASON_NOT_UPRIGHT; return; }
   balance.pid.reset();
   balance.imuErrorsInRow = 0;

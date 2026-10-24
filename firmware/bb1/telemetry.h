@@ -28,7 +28,7 @@ enum Mode : uint8_t {
 // Bits in LogRecord::flags
 const uint8_t FLAG_IMU_ERROR = 1 << 0;   // the IMU read failed this tick (sensor fields repeat the last good values)
 const uint8_t FLAG_OVERRUN   = 1 << 1;   // the previous tick's work took longer than 5 ms
-const uint8_t FLAG_NO_BIAS   = 1 << 2;   // no successful gyro calibration yet: pitch_rate includes the bias
+const uint8_t FLAG_NO_BIAS   = 1 << 2;   // no successful gyro calibration yet: using GYRO_BIAS_TYPICAL (config.h)
 const uint8_t FLAG_SATURATED = 1 << 3;   // armed and the PID output hit the PWM cap
 
 // One control tick. 72 bytes; 2000 of them (10 s) use 144 KB of the 264 KB RAM.

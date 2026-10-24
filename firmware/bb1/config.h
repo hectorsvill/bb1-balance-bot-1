@@ -145,3 +145,11 @@ const float FILTER_ALPHA = 0.98;
 // ---------- gyro bias calibration ----------
 const int   CAL_SAMPLES     = 400;   // 2 s at 200 Hz; keep the robot still
 const float CAL_MAX_SPREAD  = 4.0;   // deg/s; if the gyro wanders more than this, it moved
+// The bias BB1 starts with, before (or without) a good calibration: the
+// average of every log so far (2026-10-21 to 24). Measured X (pitch) values
+// stayed within -0.48 to -0.75 deg/s, so this is off by at most about 0.15 deg/s.
+// Through the filter that's under 0.05 deg of pitch: plenty to balance on.
+// Why it matters: switched on standing up, BB1 is held by hand, the hand
+// shakes, and the startup calibration fails. Without a starting bias it could
+// not arm until it was set down still, which it can't do standing up.
+const float GYRO_BIAS_TYPICAL[3] = { -0.60, 2.04, -2.24 };   // deg/s, x y z
