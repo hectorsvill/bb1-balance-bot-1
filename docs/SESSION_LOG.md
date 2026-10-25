@@ -38,7 +38,7 @@ Template:
 
 **Then:** Hector: switched on, it didn't balance. Cause (from the code): switched on standing up means held by hand, the startup gyro calibration fails on the hand's movement, and arming needed a good calibration, so it waited forever. Fix: start with the typical bias from all the logs (`GYRO_BIAS_TYPICAL`), re-measure only while lying down. **Learned:** a robot that can't stand unpowered is never still at power-on when switched on upright.
 
-**Then:** `tools/flash.py` (compile, lying-down check, upload, status) so Hector can flash himself. Its first run flashed the bias fix and the site clean-up (BB1 was lying down on USB). Not yet tested: switching on standing up.
+**Then:** `tools/flash.py` (compile, lying-down check, upload, status) so Hector can flash himself. Its first run flashed the bias fix and the site clean-up (BB1 was lying down on USB). Hector tried it: "perfect". Not reported yet: switching on standing up.
 
 ## 2026-10-24 (afternoon): battery, 10 kHz, step 8, heading hold — BB1 balances
 
