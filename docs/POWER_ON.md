@@ -4,7 +4,7 @@ What BB1 does from the moment you switch it on, and every edge case around it.
 **Status (2026-10-24):** reworked into `firmware/bb1/auto_arm.h`, flashed, not tested
 yet. Picks made with the recommended defaults while Hector was away
 (1 s hold, lift detector, 3 falls in 30 s); any of them can change.
-**2026-10-25:** case 15 changed (low battery disarms while already balancing). Written, not flashed.
+**2026-10-25:** case 15 changed (low battery disarms while already balancing). Flashed 2026-10-25; Hector: working as intended.
 
 ## The two main cases
 
@@ -100,7 +100,7 @@ read top to bottom:
 ```text
 OFF_SETTING      auto 0
 OFF_STOPPED      STOP (or another non-fall disarm); waits for ARM
-WAIT_CAL         gyro bias not measured yet
+NO_IMU           the IMU never answered at startup
 WAIT_UPRIGHT     lying down, leaning, moving, or battery low
 HOLDING          upright and still, counting to the hold time
 BALANCING        armed
