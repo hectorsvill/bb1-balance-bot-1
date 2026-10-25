@@ -22,6 +22,10 @@ Newest first.
 - Deleted the orphan serial dump `tools/step1.txt` (README and TOOLS.md did not link to it)
 - GitHub Actions (`.github/workflows/compile.yml`) compiles `firmware/bb1` for Raspberry Pi Pico W (`rp2040:rp2040:rpipicow`, Earle Philhower core 6.3.0) on push and pull request to main
 
+## 2026-10-25 - power-on work finished
+
+- Flashed from branch `power-on` with `tools/flash.py`: the low-battery cut-out plus everything from 2026-10-24. Hector: power-on behavior working as intended
+
 ## 2026-10-24 - tools/flash.py
 
 - `tools/flash.py`: compile, check BB1 is lying down (pitch over serial), upload, print the auto-arm state and gains after the reboot. Docs: FLASHING.md, TOOLS.md
