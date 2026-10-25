@@ -16,7 +16,7 @@ Newest first.
 - **Page:** new **Drive** panel on http://bb1.local: joystick pad, arrow keys / WASD, Max speed slider, asked / target / wheels tiles, hover hints. Sends every 100 ms, one request at a time; hiding the tab or leaving the window stops driving. The mock answers `/drive` and `/drive/stop` too
 - **API docs:** new `docs/API.md`, the full HTTP reference (every endpoint, `/state` fields, units, errors) plus what the AI-agent milestone would still need. `/state` has a new `drive` object
 - **Logs:** format 9 adds `drive_speed`, `drive_turn` (the operator command) and flag 16 (drive stopping); `# drive_...` settings line in the header. Record 76 bytes, +8 KB RAM (heap left about 36 KB)
-- Not flashed yet
+- First floor test (Hector, 2026-10-25): drives in all directions, a little slow, small left-right jitter; **fell backward when reversing** at 100% (log `drive-test-20`: the angle I term held about +100 PWM going forward and had to unwind before the wheels could reverse). Fix: speed feedforward setting `dff` (default 60, live on /tune, saved in flash, settings v5; `/state` gains `dff`; `# gains_ver` line `drive_ff`)
 
 ## 2026-10-25 - low battery disarms while armed
 

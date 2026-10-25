@@ -111,6 +111,15 @@ const float DRIVE_MAX_SPEED   = 1.0;   // turns/s, forward or back. On the floor
 const float DRIVE_MAX_TURN    = 1.0;   // turns/s of left-minus-right wheel difference (+ = turn right)
 const float DRIVE_ACCEL       = 1.0;   // turns/s per second: how fast the speed target ramps (0 to full in 1 s)
 const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
+// Drive feedforward (setting "dff", live on /tune, saved in flash): PWM per
+// turn/s of speed target, added straight to both wheels. These motors are
+// speed knobs: holding 1 turn/s takes about 105 PWM (first drive log,
+// 2026-10-25). Without it the angle loop's I term has to wind up to that
+// PWM, and when you reverse it has to unwind all of it first: meanwhile the
+// wheels keep rolling the old way, BB1 tips back and falls. Betaflight's
+// feedforward does the same job for the sticks.
+const float DEFAULT_DRIVE_FF  = 60;
+const float DRIVE_FF_MAX      = 150;
 const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's)
 const float DRIVE_MAX_LAG     = 1.0;   // wheel turns: the targets never run further than this ahead of the wheels (blocked wheel = no lurch later)
 const unsigned long DRIVE_HOLD_MS     = 500;    // a drive command lasts this long unless sent again (the page re-sends every 100 ms)

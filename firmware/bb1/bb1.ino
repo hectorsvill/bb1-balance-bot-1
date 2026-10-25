@@ -264,6 +264,7 @@ void printHelp() {
   Serial.println("  arm [N]   start balancing (hold it near upright first); N = stop after N s. disarm, or Enter, stops it");
   Serial.println("  p N / i N / d N   set the P, I, D gain, same as kp / ki / kd (now " + String(gainP, 2) + " / " + String(gainI, 2) + " / " + String(gainD, 2) + ")");
   Serial.println("  sp N / si N   speed loop P / I (now " + String(gainSpeedP, 2) + " / " + String(gainSpeedI, 2) + ");  th N  heading hold (now " + String(gainTurnHold, 1) + ")");
+  Serial.println("  dff N     drive feedforward, PWM per turn/s of speed asked (now " + String(gainDriveFF, 0) + ")");
   Serial.println("  auto 1 / auto 0   start balancing by itself when stood upright and still (now " + String((int)autoArm) + ")");
   Serial.println("  trim N    balance point in deg (now " + String(balanceTrim, 2) + ");  trim here = use the current pitch");
   Serial.println("  cap N     PWM limit while armed (now " + String(pwmCap, 0) + ");  deadband N  (now " + String(motorDeadband, 0) + ")");

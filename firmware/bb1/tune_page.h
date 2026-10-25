@@ -104,6 +104,7 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
     <label class="box"><span class="name tip" data-tip="Speed P (step 8): when BB1 rolls, lean the target back this many degrees per wheel turn per second, so it brakes instead of running away. Like position hold on a quad. 0 = off.">Speed P (sp)</span><input id="sp" inputmode="decimal"></label>
     <label class="box"><span class="name tip" data-tip="Speed I (step 8): lean the target back this many degrees per wheel turn rolled since arming. Pulls BB1 back to where it started and cancels a trim error. Too much = slow, big back-and-forth. 0 = off.">Speed I (si)</span><input id="si" inputmode="decimal"></label>
     <label class="box"><span class="name tip" data-tip="Heading hold: keeps both wheels rolling the same distance so BB1 goes straight (the right wheel is a bit faster). PWM moved between the wheels per wheel turn of difference. Too much = it wiggles left-right. 0 = off.">Heading (th)</span><input id="th" inputmode="decimal"></label>
+    <label class="box"><span class="name tip" data-tip="Drive feedforward (milestone 2): PWM per wheel turn/s of drive speed, sent straight to the wheels while driving, like Betaflight feedforward. Holding 1 turn/s takes about 105 PWM. Too little = slow to start and it tips back when you reverse or stop. Too much = it rolls out from under itself (tips back when starting). 0 = off.">Drive FF (dff)</span><input id="dff" inputmode="numeric"></label>
     <label class="box"><span class="name tip" data-tip="Auto-arm: 1 = BB1 starts balancing by itself after power-up (or after a fall) once you stand it upright and hold it still for 1 s. STOP turns it off until the next ARM or power-up. 0 = only ARM starts it. Careful: held upright in the air, the wheels will spin.">Auto-arm (1/0)</span><input id="auto" inputmode="numeric"></label>
   </div>
   <div class="muted" id="tipText" style="margin-top:8px; min-height:1.4em">Hover over (or tap) P, I or D to see what it does.</div>
@@ -215,14 +216,14 @@ function showBattery(s) {
 }
 
 const el = id => document.getElementById(id);
-const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si', 'th', 'auto'];
+const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si', 'th', 'auto', 'dff'];
 let gains = null, filledVer = -1;   // the gains BB1 last reported, and the version shown in the boxes
 
 // Put BB1's current gains in the boxes. Only when asked or when BB1's version
 // changed (someone else changed them), so it never overwrites what you're typing.
 function fillBoxes() {
   if (!gains) return;
-  for (const f of FIELDS) if (gains[f] !== undefined) el(f).value = (f === 'cap' || f === 'deadband' || f === 'auto') ? gains[f].toFixed(0) : +gains[f].toFixed(3);
+  for (const f of FIELDS) if (gains[f] !== undefined) el(f).value = (f === 'cap' || f === 'deadband' || f === 'auto' || f === 'dff') ? gains[f].toFixed(0) : +gains[f].toFixed(3);
   filledVer = gains.ver;
 }
 

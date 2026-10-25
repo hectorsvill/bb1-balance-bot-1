@@ -202,6 +202,10 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   pid.limit = pwmCap;
   float error = a.pitch - setpoint;             // forward lean past the balance point = positive
   float out = pid.update(error, a.pitchRate, dt);
+  // Drive feedforward: while driving, the PWM that speed needs goes straight
+  // in, so the I term only fixes what's left (and has little to unwind when
+  // you reverse). 0 when standing still. Not in the p/i/d log columns: pwm_l/r include it.
+  out += gainDriveFF * drive.speed;
 
   // Deadband: the motors don't turn at all below some PWM. Add it on top so a
   // small correction still moves the wheels, then clamp to the cap again.
