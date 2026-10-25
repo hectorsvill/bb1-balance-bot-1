@@ -100,7 +100,7 @@ read top to bottom:
 ```text
 OFF_SETTING      auto 0
 OFF_STOPPED      STOP (or another non-fall disarm); waits for ARM
-WAIT_CAL         gyro bias not measured yet
+NO_IMU           the IMU never answered at startup
 WAIT_UPRIGHT     lying down, leaning, moving, or battery low
 HOLDING          upright and still, counting to the hold time
 BALANCING        armed

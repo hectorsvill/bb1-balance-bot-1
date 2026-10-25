@@ -17,7 +17,7 @@ Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash wr
 
 BB1 starts balancing by itself. Switched on standing up, it balances about 3.5 s later (2 s gyro calibration, then 1 s held upright). Switched on lying down, it waits until you stand it up and hold it still for 1 s. Every edge case: [docs/POWER_ON.md](../docs/POWER_ON.md).
 
-- `auto_arm.h` is a small state machine: `OFF_SETTING`, `OFF_STOPPED`, `OFF_FALLS`, `WAIT_CAL`, `WAIT_UPRIGHT`, `HOLDING`, `BALANCING`. The state is printed on serial when it changes (`auto-arm: ...`), shown on both pages next to the mode, and logged every tick (`auto_state`, log format 7).
+- `auto_arm.h` is a small state machine: `OFF_SETTING`, `OFF_STOPPED`, `OFF_FALLS`, `NO_IMU`, `WAIT_UPRIGHT`, `HOLDING`, `BALANCING`. The state is printed on serial when it changes (`auto-arm: ...`), shown on both pages next to the mode, and logged every tick (`auto_state`, log format 8).
 - **STOP always wins:** STOP / Enter / the arm timer / a Wi-Fi drop / IMU errors / a low battery turn auto-arm off until the next ARM or power-up.
 - After a fall it re-arms when stood up, but **3 falls within 30 s** turn it off until ARM.
 - **Lift detector** (`control.h`, any arm): wheels over 4 turns/s for 0.5 s = picked up, motors off, reason "picked up". Stand it back on the floor and it re-arms.
