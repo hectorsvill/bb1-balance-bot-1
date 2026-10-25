@@ -9,6 +9,12 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-25 - narrative docs moved; compile CI
+
+- Session, tuning, build-record, and PID-lesson notes now live in the second brain (`Projects/bb1 - balance bot 1/`). These repo files are short stubs so old links keep working: `SESSION_LOG.md` → `BB1 - Dev Log.md`; `TUNING_LOG.md` → `Logs/` or `BB1 - Tuning Log.md`; `BUILD_RECORD.md` → `BB1 - Build Record.md` or `Logs/`; `PID_LESSON.md` → Learning Log; `PID_LEARNING_PROMPT.md` → learning asset; `FUTURE_INTEGRATIONS.md` → Ideas and Roadmap (pin table kept here)
+- Deleted the orphan serial dump `tools/step1.txt` (README and TOOLS.md did not link to it)
+- GitHub Actions (`.github/workflows/compile.yml`) compiles `firmware/bb1` for Raspberry Pi Pico W (`rp2040:rp2040:rpipicow`, Earle Philhower core 6.3.0) on push and pull request to main
+
 ## 2026-10-24 - tools/flash.py
 
 - `tools/flash.py`: compile, check BB1 is lying down (pitch over serial), upload, print the auto-arm state and gains after the reboot. Docs: FLASHING.md, TOOLS.md
