@@ -4,10 +4,11 @@
 // Instead it moves the targets of the two outer loops in control.h:
 //
 //   speed loop (sp/si)  holds the wheels at a speed and a position.
-//                       Standing still both targets are 0. Driving, the speed
-//                       target is the asked speed and the position target
-//                       rolls forward at that speed, so the speed I term
-//                       doesn't pull BB1 back to where it armed.
+//                       Standing still the speed target is 0 and the position
+//                       target is where it stopped. Driving, the speed target
+//                       is the asked speed and the position target rides with
+//                       the wheels, so the speed I term doesn't pull BB1 back
+//                       (or push it on) after you let go.
 //   heading hold (th)   holds the right-minus-left wheel difference.
 //                       Turning, that target slides at the asked turn rate,
 //                       and DRIVE_TURN_FF adds the steering PWM straight away
@@ -62,20 +63,31 @@ void driveUpdate(float dt, float posNow, float diffNow) {
   drive.wantSpeed = live ? driveSpeedCmd : 0;
   drive.wantTurn  = live ? driveTurnCmd  : 0;
 
+  bool wasMoving = drive.speed != 0 || drive.turn != 0;
   drive.speed = rampToward(drive.speed, drive.wantSpeed, DRIVE_ACCEL * dt);
   drive.turn  = rampToward(drive.turn,  drive.wantTurn,  DRIVE_TURN_ACCEL * dt);
-  drive.stopping = !live && (drive.speed != 0 || drive.turn != 0);
+  bool moving = drive.speed != 0 || drive.turn != 0;
+  drive.stopping = !live && moving;
 
-  // Roll the targets along. Right turn = left wheel gets ahead = the
-  // right-minus-left difference goes down.
-  drive.pos  += drive.speed * dt;
-  drive.diff -= drive.turn * dt;
-
-  // While moving, never let a target run more than DRIVE_MAX_LAG ahead of the
-  // wheels (stuck against a wall, then let go = no sudden lurch). Standing
-  // still it's left alone, so a push still rolls back home as before.
-  if (drive.speed != 0) drive.pos  = constrain(drive.pos,  posNow - DRIVE_MAX_LAG,  posNow + DRIVE_MAX_LAG);
-  if (drive.turn  != 0) drive.diff = constrain(drive.diff, diffNow - DRIVE_MAX_LAG, diffNow + DRIVE_MAX_LAG);
+  // Position: while moving, the hold point rides with the wheels, so the
+  // speed I term (position) never builds up a "you're behind" debt. Speed P
+  // and the feedforward (dff) do the driving.
+  // Heading: the target slides at the turn rate (right turn = left wheel
+  // ahead = right-minus-left goes down), never more than DRIVE_MAX_LAG from
+  // the wheels.
+  // Why (floor test 1, 2026-10-25): with a full turn of lag allowed, BB1 kept
+  // rolling 2-3 wheel turns and swinging 35-90 deg after you let go, catching
+  // up targets that had run ahead.
+  if (moving) {
+    drive.pos   = posNow;
+    drive.diff -= drive.turn * dt;
+    drive.diff  = constrain(drive.diff, diffNow - DRIVE_MAX_LAG, diffNow + DRIVE_MAX_LAG);
+  }
+  // Just came to a stop: hold right here, facing the way it faces now.
+  if (wasMoving && !moving) {
+    drive.pos  = posNow;
+    drive.diff = diffNow;
+  }
 
   driveSpeedNow = drive.speed;
   driveTurnNow  = drive.turn;

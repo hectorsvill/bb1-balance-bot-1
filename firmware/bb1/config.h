@@ -121,7 +121,7 @@ const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
 const float DEFAULT_DRIVE_FF  = 60;
 const float DRIVE_FF_MAX      = 150;
 const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's)
-const float DRIVE_MAX_LAG     = 1.0;   // wheel turns: the targets never run further than this ahead of the wheels (blocked wheel = no lurch later)
+const float DRIVE_MAX_LAG     = 0.25;  // wheel turns (about 18 deg of heading): the heading target never runs further ahead of the wheels than this. Was 1.0: BB1 swung 35-90 deg after a turn catching up (floor test 1)
 const unsigned long DRIVE_HOLD_MS     = 500;    // a drive command lasts this long unless sent again (the page re-sends every 100 ms)
 const unsigned long DRIVE_HOLD_MAX_MS = 3000;   // longest a single command may ask for (ms=...)
 // Auto-arm (auto_arm.h, docs/POWER_ON.md): after power-up or a fall, BB1 starts

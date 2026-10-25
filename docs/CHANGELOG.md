@@ -12,11 +12,12 @@ Newest first.
 ## 2026-10-25 - milestone 2: drive from the web page
 
 - **Driving** (`firmware/bb1/drive.h`): `POST /drive` with `speed` and `turn` (wheel turns/s, ±1.0) moves the speed loop's and heading hold's targets; BB1 leans into it by itself. Targets ramp (1 turn/s per s; turn 2). Turn feedforward `DRIVE_TURN_FF` 15 PWM per turn/s. `POST /drive/stop`, serial `drive S T [ms]` / `drive stop`
-- **Failsafe:** each command lasts 500 ms (or `ms=`, max 3000). Not re-sent = ramp to a stop and keep balancing (no disarm). Disarm, fall and arm clear it. Targets never run more than 1 wheel turn ahead of the wheels while moving
+- **Failsafe:** each command lasts 500 ms (or `ms=`, max 3000). Not re-sent = ramp to a stop and keep balancing (no disarm). Disarm, fall and arm clear it. While driving the position target rides with the wheels and the heading target stays within 0.25 wheel turns; on stopping both snap to where BB1 is
 - **Page:** new **Drive** panel on http://bb1.local: joystick pad, arrow keys / WASD, Max speed slider, asked / target / wheels tiles, hover hints. Sends every 100 ms, one request at a time; hiding the tab or leaving the window stops driving. The mock answers `/drive` and `/drive/stop` too
 - **API docs:** new `docs/API.md`, the full HTTP reference (every endpoint, `/state` fields, units, errors) plus what the AI-agent milestone would still need. `/state` has a new `drive` object
 - **Logs:** format 9 adds `drive_speed`, `drive_turn` (the operator command) and flag 16 (drive stopping); `# drive_...` settings line in the header. Record 76 bytes, +8 KB RAM (heap left about 36 KB)
 - First floor test (Hector, 2026-10-25): drives in all directions, a little slow, small left-right jitter; **fell backward when reversing** at 100% (log `drive-test-20`: the angle I term held about +100 PWM going forward and had to unwind before the wheels could reverse). Fix: speed feedforward setting `dff` (default 60, live on /tune, saved in flash, settings v5; `/state` gains `dff`; `# gains_ver` line `drive_ff`)
+- Floor test 2 (Hector): no visible change, still fell at 45%, and **swayed 35-90 deg when left alone after driving**. Log: after letting go BB1 rolled 2-4 more wheel turns and turned 0.5-3 wheel turns of difference, catching up targets that were allowed 1 turn of lag. Fix: position target rides with the wheels while driving, heading lag 0.25 turns, both snap to where BB1 is when it stops
 
 ## 2026-10-25 - low battery disarms while armed
 
