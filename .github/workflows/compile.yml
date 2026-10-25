@@ -1,0 +1,42 @@
+# Compile firmware/bb1 on every push and pull request to main.
+# Board: Raspberry Pi Pico W. FQBN rp2040:rp2040:rpipicow.
+# Core: Earle Philhower arduino-pico 6.3.0 (the version FLASHING.md and CLAUDE.md were tested with).
+# No prompts: a failing compile fails the job.
+
+name: Compile bb1
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  compile:
+    name: Compile firmware/bb1 (Pico W)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Install arduino-cli 1.5.1
+        run: |
+          curl -fsSL -o /tmp/arduino-cli.tar.gz \
+            https://github.com/arduino/arduino-cli/releases/download/v1.5.1/arduino-cli_1.5.1_Linux_64bit.tar.gz
+          tar -xzf /tmp/arduino-cli.tar.gz -C /tmp arduino-cli
+          sudo mv /tmp/arduino-cli /usr/local/bin/arduino-cli
+          arduino-cli version
+
+      - name: Install the RP2040 core (Earle Philhower 6.3.0)
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls \
+            https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+          arduino-cli core update-index
+          arduino-cli core install rp2040:rp2040@6.3.0
+
+      - name: Copy the secrets template
+        run: cp firmware/bb1/secrets.example.h firmware/bb1/secrets.h
+
+      - name: Compile firmware/bb1
+        run: arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/bb1 firmware/bb1
