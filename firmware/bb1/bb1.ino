@@ -14,7 +14,7 @@
 //
 // Motors are OFF (STBY low) unless armed (balancing) or during a motor test,
 // which always stops by itself (MOTOR_TEST_MAX_MS in config.h). Arming needs
-// the robot near upright; falling past 45 deg, IMU errors or losing the page disarm it.
+// the robot near upright; falling past 45 deg, a low battery, IMU errors or losing the page disarm it.
 //
 // Board: Raspberry Pi Pico W, arduino-pico core by Earle Philhower (6.3.0).
 // Serial: 115200 baud, line ending "Newline". Type "help" for commands.

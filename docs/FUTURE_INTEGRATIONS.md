@@ -28,7 +28,7 @@ V_batt = adc_counts / 4095 x 3.3 x 11
 - Check the factor against a multimeter and put it in `config.h`. Done 2026-10-24: meter 7.9 V, BB1 7.2 V with 11, so `BATTERY_DIVIDER` = 12.07. The pages show volts per cell.
 - Don't use the Pico's built-in VSYS/3 reading: on the Pico W GP29 is shared with the Wi-Fi chip, and our VSYS is the D153C's regulated 5 V, not the battery.
 - Thresholds to start with: warn at 7.0 V, low at 6.6 V (under load the voltage sags, so read it with the motors off).
-- **Firmware (2026-10-24):** `battery.h` reads it on core 0 every 100 ms; it shows on both pages and in the serial readout, and every log row has `batt_v`. It only warns for now (orange / red chip); refusing to arm when low is a later step.
+- **Firmware (2026-10-24, cut-out 2026-10-25):** `battery.h` reads it on core 0 every 100 ms; it shows on both pages and in the serial readout, and every log row has `batt_v`. Orange under 7.0 V, red under 6.6 V. With a reading present, under 6.6 V it will not arm and it disarms if it is already balancing (`REASON_BATTERY`). No sense wire: no cut-out. Not flashed yet.
 - (The earlier plan for an external 100 k / 47 k divider is no longer needed.)
 
 ## SSD1306 OLED (0.96", 128 x 64, I2C)

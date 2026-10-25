@@ -49,3 +49,11 @@ void batteryUpdate() {
 bool batteryPresent() {
   return batteryMv >= BATTERY_MIN_SENSE_V * 1000;
 }
+
+// True when a pack is actually connected and under BATTERY_LOW_V (3.3 V per cell).
+// Under BATTERY_MIN_SENSE_V means no reading at all (wire off, switch off): don't
+// block on that, or BB1 could never arm on the bench without the sense wire.
+// One check so auto-arm, balanceArm() and the armed cut-out in balanceTick() agree.
+bool batteryTooLow() {
+  return batteryMv > BATTERY_MIN_SENSE_V * 1000 && batteryMv < BATTERY_LOW_V * 1000;
+}

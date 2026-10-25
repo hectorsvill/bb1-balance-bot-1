@@ -54,7 +54,8 @@ arm_attempts = 0
 arm_until = None                  # tick the arm timer ends at, or None
 REASONS = {"disarmed by you": 1, "not upright: hold it near the balance point to arm": 6,
            "the page was hidden (tab switched or screen locked)": 10, "arm time finished": 11,
-           "picked up (wheels spinning in the air)": 12}   # codes as in control.h
+           "picked up (wheels spinning in the air)": 12,
+           "battery low (under 3.3 V per cell)": 13}   # codes as in control.h
 
 
 def test_at(tick):

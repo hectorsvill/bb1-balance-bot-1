@@ -58,7 +58,7 @@ const float BATTERY_DIVIDER     = 12.07;
 const int   BATTERY_CELLS       = 2;      // 2S LiPo: the pages show volts per cell
 const unsigned long BATTERY_READ_MS = 100;
 const float BATTERY_WARN_V      = 7.0;    // whole pack: 3.5 V per cell. The page turns orange.
-const float BATTERY_LOW_V       = 6.6;    // whole pack: 3.3 V per cell. The page turns red: charge it.
+const float BATTERY_LOW_V       = 6.6;    // whole pack: 3.3 V per cell. Page turns red, and (when a reading is present) BB1 disarms / refuses to arm.
 const float BATTERY_MIN_SENSE_V = 3.0;    // below this: no wire, or the D153C switch is off
 
 // ---------- motors (step 5) ----------

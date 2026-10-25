@@ -2,6 +2,13 @@
 
 Newest first.
 
+## 2026-10-25 - low battery disarms while armed
+
+- **Safety:** a pack under `BATTERY_LOW_V` (6.6 V, 3.3 V per cell) only blocked auto-arm. Once balancing, the motors kept driving as the voltage sagged. `balanceTick()` now disarms with `REASON_BATTERY` (13): motors braked, STBY low. `balanceArm()` refuses with the same reason. Both use `batteryTooLow()` in `battery.h` (moved out of `auto_arm.h`)
+- No sense wire (under `BATTERY_MIN_SENSE_V`): still no battery check
+- The disarm is not a fall, so auto-arm stays off until ARM (the voltage recovers as soon as the motors stop). `/state` `reason` is "battery low (under 3.3 V per cell)". `pid_report.py` names reason 13 "battery" (and 12 "picked up")
+- Docs: POWER_ON.md case 15. Not flashed yet
+
 ## Open items
 
 - 1N5819 diode in the D153C 5V to VSYS wire (follow the power rule until then)

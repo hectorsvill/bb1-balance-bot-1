@@ -13,6 +13,20 @@ Template:
 **Open / next:**
 ```
 
+## 2026-10-25: low battery disarms while armed
+
+**Did:**
+- While armed, a pack under 6.6 V (3.3 V per cell) with the sense wire present now disarms (`REASON_BATTERY` = 13), same as the other cut-outs in `balanceTick()`. ARM and auto-arm both refuse through the same `batteryTooLow()` check. No wire: still allowed.
+- Documented in POWER_ON.md case 15. Not flashed.
+
+**Learned:** auto-arm already refused to start on a low pack, but nothing stopped the motors once it was balancing. On the floor the motors act like speed knobs, so a sagging pack would keep driving. The voltage also jumps back up the moment the motors stop, so this disarm must stay off until ARM or it would start again and sag straight back down.
+
+**Decided:** one shared check in `battery.h`, checked before the 45 deg fall so a dying pack is not counted as a fall. Same "no sense wire" exemption as before.
+
+**Open / next:**
+- Flash it (lay BB1 down first) and check case 15: armed, pack taken under 6.6 V, expect `DISARMED: battery low (under 3.3 V per cell)` and motors off; ARM while still low refused; no reading still arms.
+- Milestone 2 (driving from the web page) after that.
+
 ## 2026-10-24 (evening): power-on behavior, auto-arm rework
 
 **Did:**

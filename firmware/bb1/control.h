@@ -7,7 +7,8 @@
 //       +------- disarm / safety stop --------+---- disarm or re-arm ----+
 //
 // While ARMED, the PID turns the lean into a PWM for both wheels (no steering
-// yet). Anything that looks wrong disarms at once: motors braked, STBY low.
+// yet). Anything that looks wrong disarms at once: motors braked, STBY low
+// (a fall, IMU errors, a late loop, a lift, a low battery, the page going away).
 // The reason is kept in disarmReason so the page and serial can say why.
 //
 // Starting by itself (auto-arm) lives in auto_arm.h; this file only arms when asked.
@@ -19,6 +20,7 @@
 #include "config.h"
 #include "shared.h"
 #include "angle.h"
+#include "battery.h"
 #include "motors.h"
 #include "pid.h"
 #include "telemetry.h"
@@ -38,6 +40,7 @@ enum Reason : uint8_t {
   REASON_PAGE_HIDDEN,    // the page was hidden (tab switched, phone locked) while armed
   REASON_TIMER,          // the arm time you set ran out
   REASON_LIFTED,         // wheels spun fast for a while: picked up, or in the air
+  REASON_BATTERY,        // pack under BATTERY_LOW_V while a reading is present (armed cut-out, or arm refused)
 };
 
 const char *reasonText(uint8_t r) {
@@ -54,6 +57,7 @@ const char *reasonText(uint8_t r) {
     case REASON_PAGE_HIDDEN:    return "the page was hidden (tab switched or screen locked)";
     case REASON_TIMER:          return "arm time finished";
     case REASON_LIFTED:         return "picked up (wheels spinning in the air)";
+    case REASON_BATTERY:        return "battery low (under 3.3 V per cell)";
     default:                    return "";
   }
 }
@@ -87,10 +91,13 @@ void balanceDisarm(uint8_t reason) {
 }
 
 // Called between ticks when core 0 asks to arm. Refuses (and says why) unless
-// it's safe to start: no motor test, near the balance point.
+// it's safe to start: no motor test, battery not low, near the balance point.
 void balanceArm(float pitch, bool motorTestOn) {
   balance.fallen = false;
   if (motorTestOn)                              { disarmReason = REASON_MOTOR_TEST; return; }
+  // Same batteryTooLow() as auto-arm and the tick below: a low pack must not
+  // start. No sense wire (under BATTERY_MIN_SENSE_V) is allowed.
+  if (batteryTooLow())                          { disarmReason = REASON_BATTERY; return; }
   if (fabs(pitch - balanceTrim) > ARM_ANGLE)    { disarmReason = REASON_NOT_UPRIGHT; return; }
   balance.pid.reset();
   balance.imuErrorsInRow = 0;
@@ -156,7 +163,13 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     // while the body stays upright, so the 45 deg check never fires.
     float wheelTurnsPerSec = (abs(r.speed_l) + abs(r.speed_r)) / 2.0f / COUNTS_PER_REV;
     balance.fastTicks = wheelTurnsPerSec > LIFT_TURNS_PER_SEC ? balance.fastTicks + 1 : 0;
-    if (fabs(a.pitch - balanceTrim) > FALL_ANGLE) { balance.fallen = true; balanceDisarm(REASON_FELL); }
+    // Low battery first, like a quad's battery failsafe. On the floor the motors
+    // act like speed knobs, so a sagging pack would keep driving until something
+    // else tripped. Checked before the fall so a dying pack isn't counted as a
+    // fall (auto-arm would stand it up and start again). No sense wire: batteryTooLow()
+    // is false under BATTERY_MIN_SENSE_V, same exemption as auto-arm.
+    if (batteryTooLow())                               balanceDisarm(REASON_BATTERY);
+    else if (fabs(a.pitch - balanceTrim) > FALL_ANGLE) { balance.fallen = true; balanceDisarm(REASON_FELL); }
     else if (balance.imuErrorsInRow >= 5)          balanceDisarm(REASON_IMU);
     else if (balance.overrunsInRow >= 5)           balanceDisarm(REASON_OVERRUN);
     else if (balance.fastTicks >= (int)(LIFT_MS * LOOP_HZ / 1000)) balanceDisarm(REASON_LIFTED);

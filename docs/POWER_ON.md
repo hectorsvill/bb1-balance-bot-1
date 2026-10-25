@@ -4,13 +4,14 @@ What BB1 does from the moment you switch it on, and every edge case around it.
 **Status (2026-10-24):** reworked into `firmware/bb1/auto_arm.h`, flashed, not tested
 yet. Picks made with the recommended defaults while Hector was away
 (1 s hold, lift detector, 3 falls in 30 s); any of them can change.
+**2026-10-25:** case 15 changed (low battery disarms while already balancing). Written, not flashed.
 
 ## The two main cases
 
 Nothing else is needed: no web page, no script (`handheld.py` is only for
 recording test logs) and no Wi-Fi. It stops only when you press STOP (web page
 or serial), when it falls or is laid down, or on a safety stop (IMU errors,
-lift detector).
+lift detector, low battery when a voltage reading is present).
 
 1. **Switched on standing upright** (you hold it, since it can't stand
    unpowered): it tries to measure the gyro bias (2 s). Your hand moving is
@@ -41,7 +42,7 @@ never gets near the 3 deg window and just waits.
 | 12 | Arm timer runs out, page lost, page hidden (after a page ARM) | Auto-arm off until ARM | Same |
 | 13 | IMU errors, loop running late | Disarm; auto-arm off | Same (something is broken) |
 | 14 | `cal` while balancing | Disarms; auto-arm off | Same |
-| 15 | Battery low (under 3.3 V per cell) | Won't auto-arm. Already balancing: keeps going | Same; the page shows it red |
+| 15 | Battery low (under 3.3 V per cell, and a reading is present) | Won't auto-arm. Already balancing: keeps going | Motors off (`REASON_BATTERY` = 13). Stays off until ARM. ARM is refused while still low. Page shows it red and says why |
 | 16 | No battery reading (wire off, switch off) | Auto-arm allowed | Same |
 | 17 | No Wi-Fi at all | Auto-arm works: no page, no timer, no heartbeat needed | Same. A fall, a lift, IMU errors or STOP over serial stop it |
 | 18 | Motor test running | No auto-arm | Same |
@@ -60,6 +61,34 @@ for `LIFT_MS` (0.5 s) = lifted, motors off, reason "picked up". It counts like a
 fall: auto-arm waits to be stood up again. So when you pick it up while it's
 balancing, expect about half a second of spinning wheels before it stops.
 Laying it down (past 45 deg) still stops it at once.
+
+### Low battery while armed (case 15)
+
+`batteryTooLow()` in `battery.h` is the one check, used by auto-arm, by
+`balanceArm()`, and by the safety block in `balanceTick()`:
+
+- a reading is present (above `BATTERY_MIN_SENSE_V`, 3.0 V: the sense wire is on), and
+- the pack is under `BATTERY_LOW_V` (6.6 V, 3.3 V per cell).
+
+While armed, that disarms on the next tick: motors braked, STBY low, reason
+"battery low (under 3.3 V per cell)". Same idea as a fall or a late loop, and
+the same idea as a quad's battery failsafe. It is checked before the 45 deg
+fall, so a dying pack is not counted as a fall.
+
+It does **not** re-arm by itself. The voltage jumps back up the moment the
+motors stop, and arming again would sag it straight back under 6.6 V. So this
+disarm is treated like an IMU error: auto-arm stays off until you press ARM
+(`/state` field `reason`, and `auto_state` "off: stopped, press ARM").
+
+ARM while the pack is still low is refused, with the same reason. That press
+still turns auto-arm back on (case 11), but it waits in "waiting" until the
+pack is above 6.6 V, then the usual 1 s hold. No reading at all (wire off or
+the D153C switch off, case 16): the check does nothing, so a missing sense
+wire cannot block balancing.
+
+The voltage is the smoothed reading from core 0 (every 100 ms), so a sag has
+to stay down for a few readings before this fires. The page's red chip uses
+the same 6.6 V line.
 
 ## The code
 

@@ -12,6 +12,7 @@ What the columns mean (all from the armed part of the try only):
     secs     how long it stayed armed (10 = the arm timer ran out, it never fell)
     end      timer / FELL fwd / FELL back / you (STOP, Enter) / Wi-Fi lost (no /state
              for 2 s while armed over Wi-Fi) / tab hidden / IMU error / loop late
+             / picked up / battery (under 3.3 V per cell, sense wire present)
     wobble   standard deviation of the error, deg. Smaller = calmer
     lean     average error, deg. Far from 0 = trim is off (+ = leans forward)
     |P| |I| |D|  average size of each term, in PWM. Who is doing the work?
@@ -33,7 +34,7 @@ REPO = Path(__file__).resolve().parent.parent
 MODE_ARMED, MODE_FALLEN = 4, 5            # telemetry.h
 # Why it disarmed, by the number in the log's "reason" column (control.h, DisarmReason order)
 END_NAMES = {1: "you", 2: "FELL", 3: "IMU error", 4: "Wi-Fi lost", 5: "loop late",
-             9: "calibrate", 10: "tab hidden", 11: "timer"}
+             9: "calibrate", 10: "tab hidden", 11: "timer", 12: "picked up", 13: "battery"}
 REASON_FELL = 2
 COUNTS_PER_REV = 520
 SAT_FLAG = 8                              # FLAG_SATURATED in telemetry.h
