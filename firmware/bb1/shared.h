@@ -74,3 +74,4 @@ volatile uint32_t armedSinceMs   = 0;       // millis() when it last armed (for 
 volatile uint8_t  disarmReason   = 0;       // Reason in control.h: why it last disarmed / refused to arm
 volatile uint32_t armAttempts    = 0;       // counts up after each arm request is handled
 volatile uint8_t  autoArmState   = 4;       // AutoState in auto_arm.h (4 = waiting for upright)
+volatile uint8_t  encoderFault   = 0;       // control.h: 1 = left encoder not counting, 2 = right (while armed; cleared on arm)

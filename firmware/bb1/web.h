@@ -77,6 +77,7 @@ void handleState() {
            "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
            "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"step\":%s,\"auto_state\":\"%s\",\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
+           "\"enc_fault\":%u,"
            "\"drive\":{\"speed\":%.2f,\"turn\":%.2f,\"speed_now\":%.2f,\"turn_now\":%.2f,\"left_ms\":%ld,\"commands\":%lu,\"max_speed\":%.2f,\"max_turn\":%.2f},"
            "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,\"batt_cells\":%d,"
            "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f}}",
@@ -96,6 +97,7 @@ void handleState() {
            (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
            robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs, armLeftMs, stepActive ? "true" : "false", autoStateText(autoArmState),
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
+           encoderFault,
            driveLeftMs > 0 ? driveSpeedCmd : 0.0, driveLeftMs > 0 ? driveTurnCmd : 0.0, driveSpeedNow, driveTurnNow, driveLeftMs,
            (unsigned long)driveCommands, DRIVE_MAX_SPEED, DRIVE_MAX_TURN,
            batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V, BATTERY_CELLS,
@@ -286,6 +288,10 @@ void handleStep() {
 void handleDrive() {
   if (!robotArmed) {
     server.send(409, "application/json", "{\"ok\":false,\"error\":\"not balancing: arm first (POST /arm)\"}");
+    return;
+  }
+  if (encoderFault) {
+    server.send(409, "application/json", "{\"ok\":false,\"error\":\"encoder fault: a wheel is not counting, check its wires (see /state enc_fault)\"}");
     return;
   }
   float speed = constrain(server.arg("speed").toFloat(), -DRIVE_MAX_SPEED, DRIVE_MAX_SPEED);

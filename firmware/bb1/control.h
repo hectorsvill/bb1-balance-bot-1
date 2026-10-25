@@ -77,6 +77,7 @@ struct Balance {
   int32_t diffAtArm = 0;        // right minus left encoder when it armed (heading hold)
   bool    newArm = false;       // first tick after arming: remember the encoders
   int     fastTicks = 0;        // ticks in a row with the wheels spinning fast (lift detector)
+  int     encOddTicks = 0;      // ticks in a row with one encoder near 0 while the other spins (encoder fault detector)
 };
 
 Balance balance;                // only core 1 touches this
@@ -105,6 +106,8 @@ void balanceArm(float pitch, bool motorTestOn) {
   balance.pid.reset();
   balance.imuErrorsInRow = 0;
   balance.fastTicks = 0;
+  balance.encOddTicks = 0;
+  encoderFault = 0;
   balance.overrunsInRow = 0;
   balance.armed = true;
   balance.armedAtMs = millis();
@@ -149,6 +152,14 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     float turns       = (float)(encNow - balance.encAtArm) / COUNTS_PER_REV;
     float diffTurns   = (float)((r.enc_r - r.enc_l) - balance.diffAtArm) / COUNTS_PER_REV;
     driveUpdate(dt, turns, diffTurns);
+    // Encoder fault detector (config.h): going straight, both wheels should
+    // read about the same. One near 0 while the other spins = not counting.
+    float fastSide = max(abs(r.speed_l), abs(r.speed_r)), slowSide = min(abs(r.speed_l), abs(r.speed_r));
+    bool odd = fabs(drive.turn) < 0.1f && fastSide > ENC_FAULT_MIN_SPEED && slowSide < ENC_FAULT_RATIO * fastSide;
+    balance.encOddTicks = odd ? balance.encOddTicks + 1 : 0;
+    if (balance.encOddTicks >= (int)(ENC_FAULT_MS * LOOP_HZ / 1000) && !encoderFault)
+      encoderFault = abs(r.speed_l) < abs(r.speed_r) ? 1 : 2;            // sticky until the next arm
+    if (encoderFault) r.flags |= FLAG_ENC_FAULT;
     if (drive.stopping) r.flags |= FLAG_DRIVE_STOPPING;
     r.drive_speed = (int8_t)lroundf(drive.wantSpeed * 100);              // log the operator's command, hundredths of a turn/s
     r.drive_turn  = (int8_t)lroundf(drive.wantTurn * 100);               // (the ramped target follows from it and the # drive_ settings)
@@ -229,7 +240,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
 // (right turn = more left wheel). Call after balanceTick() on the same tick;
 // 0 when disarmed. th 0 = no hold, but turning still works on feedforward alone.
 int balanceSteer(const LogRecord &r) {
-  if (!balance.armed) return 0;
+  if (!balance.armed || encoderFault) return 0;   // bad counts would steer it in circles
   float aheadTurns = (float)((r.enc_r - r.enc_l) - balance.diffAtArm) / COUNTS_PER_REV - drive.diff;   // + = right wheel ahead of the target
   float hold = gainTurnHold > 0 ? gainTurnHold * aheadTurns : 0;
   float feedforward = DRIVE_TURN_FF * drive.turn;

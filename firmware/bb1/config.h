@@ -133,6 +133,15 @@ const float AUTO_ARM_RATE      = 30.0;  // deg/s: ...turning slower than this...
 const unsigned long AUTO_ARM_HOLD_MS = 1000;   // ...for this long, then it arms (no arm timer)
 const int   AUTO_MAX_FALLS     = 3;     // this many falls...
 const unsigned long AUTO_FALL_WINDOW_MS = 30000;  // ...within this long: auto-arm off until ARM
+// Encoder fault detector (control.h, 2026-10-25): one wheel reads near 0 while
+// the other spins, for this long, and no turn is asked for = that encoder is
+// not counting (a loose wire: the left one stopped counting backward today).
+// Bad counts make the heading hold spin BB1 in circles and the speed loop
+// under-brake, so while faulted the hold is off, driving is refused, and the
+// page and log say so. Cleared by the next arm.
+const float ENC_FAULT_MIN_SPEED = 150;   // counts/s the good wheel must be doing
+const float ENC_FAULT_RATIO     = 0.2;   // the other wheel reads under this fraction of it
+const unsigned long ENC_FAULT_MS = 300;
 // Lift detector (control.h): wheels faster than this for this long while armed
 // = picked up or in the air, motors off. On the floor it stays under about 2.
 const float LIFT_TURNS_PER_SEC = 4.0;   // wheel turns per second, average of both wheels

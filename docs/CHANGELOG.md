@@ -19,6 +19,11 @@ Newest first.
 - First floor test (Hector, 2026-10-25): drives in all directions, a little slow, small left-right jitter; **fell backward when reversing** at 100% (log `drive-test-20`: the angle I term held about +100 PWM going forward and had to unwind before the wheels could reverse). Fix: speed feedforward setting `dff` (default 60, live on /tune, saved in flash, settings v5; `/state` gains `dff`; `# gains_ver` line `drive_ff`)
 - Floor test 2 (Hector): no visible change, still fell at 45%, and **swayed 35-90 deg when left alone after driving**. Log: after letting go BB1 rolled 2-4 more wheel turns and turned 0.5-3 wheel turns of difference, catching up targets that were allowed 1 turn of lag. Fix: position target rides with the wheels while driving, heading lag 0.25 turns, both snap to where BB1 is when it stops
 
+## 2026-10-25 - encoder fault detector
+
+- Floor tests 2 and 3 (circles on startup, falls when reversing): the drive log shows the **left encoder reading exactly 0 whenever the wheels roll backward** (right: −300 to −800 counts/s), while yesterday's logs have it counting both ways. A hardware fault (loose wire), not the branch; heading hold then thinks the right wheel is turns behind and spins BB1
+- `control.h`: going straight, one wheel under 20% of the other's speed while that one does over 150 counts/s, for 0.3 s = `encoderFault` (1 left, 2 right; `ENC_FAULT_*` in config.h). Heading hold off, `/drive` and serial `drive` refused, log flag 32, `/state` `enc_fault`, orange warning in the Balance panel, pad greyed. Cleared by the next arm
+
 ## 2026-10-25 - low battery disarms while armed
 
 - **Safety:** a pack under `BATTERY_LOW_V` (6.6 V, 3.3 V per cell) only blocked auto-arm. Once balancing, the motors kept driving as the voltage sagged. `balanceTick()` now disarms with `REASON_BATTERY` (13): motors braked, STBY low. `balanceArm()` refuses with the same reason. Both use `batteryTooLow()` in `battery.h` (moved out of `auto_arm.h`)

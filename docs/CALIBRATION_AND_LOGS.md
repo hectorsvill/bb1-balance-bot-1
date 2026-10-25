@@ -188,7 +188,7 @@ Since step 4 the top lines come from `log_meta.h`:
 | `t_us` | microseconds | when the tick started (since boot). Consecutive ticks are 5000 apart. |
 | `work_us` | microseconds | how long the tick's work took (budget 5000) |
 | `mode` | code | 0 boot, 1 calibrating, 2 disarmed (motors off), 3 motor test running, 4 armed (balancing), 5 fallen (motors off until you arm or disarm again) |
-| `flag_bits` | bits | 1 = IMU read failed this tick, 2 = the previous tick overran 5 ms, 4 = no successful gyro calibration yet (the robot was moving at startup; `pitch_rate` still includes the bias, and BB1 retries every 3 s), 8 = armed and the PID output hit the PWM cap (saturated), 16 = a drive command ran out or was stopped and BB1 is ramping to a stop (log format 9). Usually 0. |
+| `flag_bits` | bits | 1 = IMU read failed this tick, 2 = the previous tick overran 5 ms, 4 = no successful gyro calibration yet (the robot was moving at startup; `pitch_rate` still includes the bias, and BB1 retries every 3 s), 8 = armed and the PID output hit the PWM cap (saturated), 16 = a drive command ran out or was stopped and BB1 is ramping to a stop (log format 9), 32 = encoder fault: one wheel read near 0 while the other spun for 0.3 s, heading hold off until the next arm (2026-10-25). Usually 0. |
 | `ax_raw` `ay_raw` `az_raw` | counts | accelerometer exactly as the chip sent it. g = raw / 16384 |
 | `temp_raw` | counts | chip temperature. deg C = raw / 340 + 36.53 |
 | `gx_raw` `gy_raw` `gz_raw` | counts | gyro exactly as sent, **bias not removed**. deg/s = raw / 65.5 - bias |

@@ -18,6 +18,10 @@ BB1 drives by moving the **targets** of the speed loop and heading hold, never b
 - How to send it: the **Drive** panel on http://bb1.local, `POST /drive` (docs/API.md), or serial `drive 0.3 0 2000` / `drive stop`.
 - Log format 9: `drive_speed`, `drive_turn` (the operator command), flag 16 = stopping. Record is 76 bytes; static RAM 225.6 KB (heap about 36 KB, was 44 KB): check **Heap free** in Pico memory stays over 20 KB.
 
+## Encoder fault detector (`control.h`, 2026-10-25)
+
+Both wheels should read about the same speed going straight. If one reads under 20% of the other while that one does over 150 counts/s, for 0.3 s and with no turn asked (`ENC_FAULT_*` in config.h), that encoder is not counting (found when the left one stopped counting backward: a loose wire). Bad counts make the heading hold spin BB1 in circles, so while faulted: heading hold off, driving refused (409 / serial message), log flag 32, `/state` `enc_fault` (1 left, 2 right), warning on the page. Cleared by the next arm. Quick check: motor test `m -80 -80 1000` with the wheels in the air; both "moved" counts should be about −1400.
+
 ## bb1, step 7: save settings + step test
 
 - **Save to flash** (page Balance panel, or `save` on serial) stores Kp, Ki, Kd, trim, cap and deadband in the Pico's flash (`settings.h`, next to the Wi-Fi settings). They load at startup, so a restart keeps your tuning. Only while disarmed. **Defaults** (`defaults`) goes back to `config.h`, which now starts at trim −4.39 and cap 80.

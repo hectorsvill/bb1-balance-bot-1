@@ -197,6 +197,7 @@ class Handler(BaseHTTPRequestHandler):
                 "drive": {"speed": drive_now()[0], "turn": drive_now()[1], "speed_now": drive_now()[0], "turn_now": drive_now()[1],
                           "left_ms": max(0, int((drive["until"] - time.time()) * 1000)) if drive_now() != (0.0, 0.0) else 0,
                           "commands": drive["commands"], "max_speed": DRIVE_MAX_SPEED, "max_turn": DRIVE_MAX_TURN},
+                "enc_fault": 0,
                 "batt_v": mock_battery(r["tick"]), "batt_ok": True, "batt_warn_v": 7.0, "batt_low_v": 6.6, "batt_cells": 2,
             }
             self.reply(json.dumps(state), "application/json")

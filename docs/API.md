@@ -26,7 +26,7 @@ Out-of-range values are clamped, not refused; the answer says what will actually
 {"ok":true,"speed":0.50,"turn":0.00,"ms":500}
 ```
 
-Not balancing: `409` and `{"ok":false,"error":"not balancing: arm first (POST /arm)"}`.
+Not balancing: `409` and `{"ok":false,"error":"not balancing: arm first (POST /arm)"}`. Encoder fault (`/state` `enc_fault`): `409` with `"error":"encoder fault: ..."`.
 
 **The failsafe:** every command runs out. To keep driving, send it again before it does (the page sends every 100 ms). When it runs out, BB1 ramps to a stop and keeps balancing where it is; it does not disarm. So a dropped Wi-Fi, a closed page or a crashed script can never leave BB1 driving for more than `ms`. A single command can ask for up to 3 s, for "drive forward for 2 s" without a loop.
 
@@ -62,7 +62,8 @@ The newest values, as one JSON object. The page asks about 20 times a second. As
 | `have` | false until the first log record exists |
 | `tick`, `t_us`, `uptime_s` | record number (200 a second), its time in µs, seconds since boot |
 | `mode` | 0 boot, 1 calibrating, 2 running (motors off), 3 motor test, 4 armed (balancing), 5 fallen |
-| `flag_bits` | 1 IMU error, 2 loop overran, 4 no gyro calibration yet, 8 PID at the PWM cap, 16 drive command ran out (stopping) |
+| `flag_bits` | 1 IMU error, 2 loop overran, 4 no gyro calibration yet, 8 PID at the PWM cap, 16 drive command ran out (stopping), 32 encoder fault |
+| `enc_fault` | 0 ok; 1 the left encoder, 2 the right one, is not counting while armed (one wheel reads near 0 while the other spins for 0.3 s). Heading hold is off and `/drive` answers 409 until the next arm. Check that encoder's wires |
 | `pitch`, `accel_pitch`, `pitch_rate` | deg (forward +), deg from the accelerometer only, deg/s |
 | `armed`, `reason`, `auto_state` | balancing or not; why it last stopped or refused (text, empty if none); what auto-arm is doing (text) |
 | `arm_attempts`, `arm_ms`, `arm_left_ms`, `step` | arm requests handled; arm timer length and time left (-1 = no timer); step test running |

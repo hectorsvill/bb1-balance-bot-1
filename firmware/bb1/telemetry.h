@@ -31,6 +31,7 @@ const uint8_t FLAG_OVERRUN   = 1 << 1;   // the previous tick's work took longer
 const uint8_t FLAG_NO_BIAS   = 1 << 2;   // no successful gyro calibration yet: using GYRO_BIAS_TYPICAL (config.h)
 const uint8_t FLAG_SATURATED = 1 << 3;   // armed and the PID output hit the PWM cap
 const uint8_t FLAG_DRIVE_STOPPING = 1 << 4;   // a drive command ran out or was stopped: ramping to a stop (drive.h)
+const uint8_t FLAG_ENC_FAULT = 1 << 5;   // an encoder isn't counting (control.h): heading hold off, driving refused
 
 // One control tick. 76 bytes (since log format 9); 2000 of them (10 s) use 144 KB of the 264 KB RAM.
 // (Step 5 added 16 bytes: encoders, wheel speeds, motor commands. Step 6 added

@@ -637,7 +637,9 @@ function showMode(s) {
   el('armState').className = 'armstate' + (s.armed ? ' on' : s.mode === 5 ? ' fallen' : '');
 
   // Disarmed: why it last stopped, and what auto-arm is waiting for.
-  el('armReason').textContent = s.armed ? 'balancing' : [s.reason, s.auto_state && 'auto-arm ' + s.auto_state].filter(Boolean).join('. ');
+  const encWarn = s.enc_fault ? ' ENCODER FAULT: the ' + (s.enc_fault === 1 ? 'left' : 'right') + ' wheel is not counting (check its wires). Heading hold off, driving refused.' : '';
+  el('armReason').textContent = (s.armed ? 'balancing' : [s.reason, s.auto_state && 'auto-arm ' + s.auto_state].filter(Boolean).join('. ')) + encWarn;
+  el('armReason').className = 'msg' + (s.enc_fault ? ' warn' : '');
 }
 
 // ---------- drive (milestone 2) ----------
@@ -727,8 +729,8 @@ setInterval(async () => {
 
 // From poll(): what BB1 reports.
 function showDrive(s) {
-  driveArmed = s.armed;
-  pad.classList.toggle('off', !s.armed);
+  driveArmed = s.armed && !s.enc_fault;
+  pad.classList.toggle('off', !s.armed || !!s.enc_fault);
   if (!s.armed) stopDriving();
   const d = s.drive;
   if (!d) return;

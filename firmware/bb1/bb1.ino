@@ -398,6 +398,8 @@ void handleCommand(String cmd) {
     }
     if (!robotArmed) {
       Serial.println("arm first: driving moves BB1 while it balances");
+    } else if (encoderFault) {
+      Serial.println(String("encoder fault: the ") + (encoderFault == 1 ? "left" : "right") + " wheel is not counting, check its wires");
     } else {
       driveSpeedCmd = constrain(speed, -DRIVE_MAX_SPEED, DRIVE_MAX_SPEED);
       driveTurnCmd  = constrain(turn, -DRIVE_MAX_TURN, DRIVE_MAX_TURN);
