@@ -6,8 +6,8 @@
 //       ^                                     |                          |
 //       +------- disarm / safety stop --------+---- disarm or re-arm ----+
 //
-// While ARMED, the PID turns the lean into a PWM for both wheels (no steering
-// yet). Anything that looks wrong disarms at once: motors braked, STBY low
+// While ARMED, the PID turns the lean into a PWM for both wheels, and heading
+// hold steers. Driving (drive.h) moves the speed loop's and heading hold's targets. Anything that looks wrong disarms at once: motors braked, STBY low
 // (a fall, IMU errors, a late loop, a lift, a low battery, the page going away).
 // The reason is kept in disarmReason so the page and serial can say why.
 //
@@ -24,6 +24,7 @@
 #include "motors.h"
 #include "pid.h"
 #include "telemetry.h"
+#include "drive.h"
 
 // Why the robot last disarmed, or why an arm request was refused.
 enum Reason : uint8_t {
@@ -84,6 +85,8 @@ void balanceDisarm(uint8_t reason) {
   if (balance.armed) motorsOff();
   balance.armed = false;
   balance.pid.reset();
+  driveUntilMs = 0;                             // a drive command never outlives the arm
+  driveReset();
   balance.stepUntilMs = 0;
   stepActive = false;
   disarmReason = reason;
@@ -107,6 +110,8 @@ void balanceArm(float pitch, bool motorTestOn) {
   balance.armedAtMs = millis();
   balance.speedFiltered = 0;
   balance.newArm = true;                        // balanceTick() records the encoders on the next tick
+  driveUntilMs = 0;                             // start standing still, whatever was asked before
+  driveReset();
   armedSinceMs = balance.armedAtMs;
   robotArmed = true;
   disarmReason = REASON_NONE;
@@ -132,6 +137,9 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   //                 integral of speed = position): pulls it back home and
   //                 cancels a trim error for good
   // Both 0 = off. The log's setpoint column shows the result (trim + shift).
+  // Driving (drive.h) gives both a target: speed error = speed - asked speed,
+  // position error = position - where the target has rolled to.
+  r.drive_speed = r.drive_turn = 0;              // 0 unless armed and driving
   if (balance.armed) {
     float speed = (r.speed_l + r.speed_r) / 2.0f;                       // counts/s, forward +
     balance.speedFiltered += SPEED_FILTER * (speed - balance.speedFiltered);
@@ -139,7 +147,13 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     if (balance.newArm) { balance.encAtArm = encNow; balance.diffAtArm = r.enc_r - r.enc_l; balance.newArm = false; }
     float turnsPerSec = balance.speedFiltered / COUNTS_PER_REV;
     float turns       = (float)(encNow - balance.encAtArm) / COUNTS_PER_REV;
-    float shift = -(gainSpeedP * turnsPerSec + gainSpeedI * turns);    // rolling forward -> lean back (negative)
+    float diffTurns   = (float)((r.enc_r - r.enc_l) - balance.diffAtArm) / COUNTS_PER_REV;
+    driveUpdate(dt, turns, diffTurns);
+    if (drive.stopping) r.flags |= FLAG_DRIVE_STOPPING;
+    r.drive_speed = (int8_t)lroundf(drive.wantSpeed * 100);              // log the operator's command, hundredths of a turn/s
+    r.drive_turn  = (int8_t)lroundf(drive.wantTurn * 100);               // (the ramped target follows from it and the # drive_ settings)
+    // Faster than asked -> lean back (negative); slower -> lean forward.
+    float shift = -(gainSpeedP * (turnsPerSec - drive.speed) + gainSpeedI * (turns - drive.pos));
     setpoint += constrain(shift, -SPEED_SHIFT_MAX, SPEED_SHIFT_MAX);
   }
   r.setpoint_cdeg = (int16_t)(setpoint * 100);
@@ -203,14 +217,19 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
 }
 
 // Heading hold: how much PWM to move from the right wheel to the left (or back)
-// so both wheels roll the same distance since arming. The right wheel runs
+// so both wheels roll the same distance since arming (or, while turning, the
+// difference drive.h asks for). The right wheel runs
 // about 7% faster at the same PWM, so without this BB1 curves left. If the
 // right wheel is ahead by one wheel turn, the left gets +th PWM and the right
-// -th PWM. Call after balanceTick() on the same tick; 0 when disarmed or th 0.
+// -th PWM. Turning, drive.turn adds DRIVE_TURN_FF PWM per turn/s at once
+// (right turn = more left wheel). Call after balanceTick() on the same tick;
+// 0 when disarmed. th 0 = no hold, but turning still works on feedforward alone.
 int balanceSteer(const LogRecord &r) {
-  if (!balance.armed || gainTurnHold <= 0) return 0;
-  float aheadTurns = (float)((r.enc_r - r.enc_l) - balance.diffAtArm) / COUNTS_PER_REV;   // + = right wheel ahead
-  return (int)lroundf(constrain(gainTurnHold * aheadTurns, -TURN_HOLD_MAX_PWM, TURN_HOLD_MAX_PWM));
+  if (!balance.armed) return 0;
+  float aheadTurns = (float)((r.enc_r - r.enc_l) - balance.diffAtArm) / COUNTS_PER_REV - drive.diff;   // + = right wheel ahead of the target
+  float hold = gainTurnHold > 0 ? gainTurnHold * aheadTurns : 0;
+  float feedforward = DRIVE_TURN_FF * drive.turn;
+  return (int)lroundf(constrain(hold + feedforward, -TURN_HOLD_MAX_PWM, TURN_HOLD_MAX_PWM));
 }
 
 // Called between ticks when core 0 asks for a step test. Only while armed.

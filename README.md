@@ -31,9 +31,9 @@ The surprise: on the floor these geared motors act like a *speed* knob, not a *p
 ## Web pages (on the Pico)
 
 - `http://bb1.local/tune`: change every gain live, ARM with a timer, STOP, live P / I / D terms, battery per cell.
-- `http://bb1.local`: everything else (motor test, logs, sensors, Wi-Fi setup).
+- `http://bb1.local`: status, ARM / STOP and the **Drive** pad (milestone 2); folded below, everything else (motor test, logs, sensors, Wi-Fi setup).
 
-Details: [docs/WEB_INTERFACE.md](docs/WEB_INTERFACE.md). The pages have **no login**: anyone on the same Wi-Fi can arm the robot. Use it on your own network.
+Details: [docs/WEB_INTERFACE.md](docs/WEB_INTERFACE.md). Everything the pages do is a plain HTTP API, usable from curl or a script: [docs/API.md](docs/API.md). The pages have **no login**: anyone on the same Wi-Fi can arm the robot. Use it on your own network.
 
 ## Logging (for tuning now, for training a model later)
 

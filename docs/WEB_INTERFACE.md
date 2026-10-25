@@ -38,6 +38,7 @@ The panels sit in one column, on a phone or a Mac. Since 2026-10-24 only **Balan
 | Panel | Shows / does |
 |---|---|
 | Balance | **Balancing** / **Not balancing** / **Fallen**, why it last stopped and what auto-arm is waiting for; **ARM** (no time limit, keeps going if you close the page; turns auto-arm back on), **STOP** (auto-arm off until ARM); a link to /tune. Gains, timed runs and the step test are on /tune only |
+| Drive | (milestone 2, 2026-10-25) a **joystick pad**: press and drag, up = forward, sideways = turn; let go = stop driving, still balancing. **Arrow keys / WASD** do the same while held. **Max speed** slider (10 to 100% of the firmware limit, remembered per browser). Tiles: asked (what the page sends), target now (what BB1 aims for after its ramp), wheels (real speed). Works only while balancing. The page sends `POST /drive` every 100 ms while you hold; each command lasts 500 ms on BB1, so a closed page or dropped Wi-Fi stops it within half a second. Hiding the tab stops driving (not balancing) |
 | PID | view only: error (pitch − trim), P, I, D and the output in tiles, and a 10 s chart of P, I, D and the output with the ±cap lines. All zero while disarmed |
 | Pitch | pitch, pitch rate, accel-only pitch, and a 10 s chart: blue = filtered pitch, orange = accelerometer only, green dashes = trim |
 | Log | note, **Record** / **Stop**, **Download**, **Save last 10 s**. While recording, a table shows the records as they arrive (armed rows tinted green); **Watch** shows it without recording, **Pause** freezes it. Every record / 10th / 40th; **all columns** shows every column, otherwise the useful ones |
@@ -47,7 +48,7 @@ The panels sit in one column, on a phone or a Mac. Since 2026-10-24 only **Balan
 | Pico memory | RAM used with a bar, heap free, flash used with a bar, log buffer, page size, CPU clock. Updates every 2 s |
 | Network | which network BB1 is on; save a home network; switch back to the own network |
 
-Coming next: drive pad (milestone 2).
+The Drive panel is open the first time too (it sits under Balance; fold or move it like the others).
 
 BB1 balances by itself (auto-arm, docs/POWER_ON.md): no page, script or Wi-Fi is needed. ARM on the main page sends `heartbeat=0`, so it keeps balancing when the page closes. Armed from **/tune** (timed test runs), BB1 disarms if the page stops polling `/state` for 2 s (closed tab, phone screen off, Wi-Fi drop). That's on purpose.
 
@@ -94,7 +95,7 @@ The page never talks to the IMU directly: it reads the same log records as the s
 
 ### Endpoints
 
-You can call these yourself with `curl` (on the same network as BB1):
+The full reference, with arguments, answers, units and the drive failsafe, is **[docs/API.md](API.md)**. Short list; you can call these yourself with `curl` (on the same network as BB1):
 
 | Request | Does |
 |---|---|
@@ -117,6 +118,8 @@ You can call these yourself with `curl` (on the same network as BB1):
 | `POST /gains/save` | store them in flash (disarmed only); they load at startup |
 | `POST /gains/defaults` | back to the `config.h` defaults (Save to keep) |
 | `POST /step` | step test while armed: setpoint +2 deg for 1 s |
+| `POST /drive` with `speed=0.3&turn=0&ms=500` | drive while balancing (wheel turns/s; lasts `ms`, default 500, max 3000; answers JSON) |
+| `POST /drive/stop` | stop driving now, keep balancing |
 
 `/log` starts with one line saying what came back, then the header and rows:
 

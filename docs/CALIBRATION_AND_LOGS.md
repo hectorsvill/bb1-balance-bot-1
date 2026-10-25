@@ -188,7 +188,7 @@ Since step 4 the top lines come from `log_meta.h`:
 | `t_us` | microseconds | when the tick started (since boot). Consecutive ticks are 5000 apart. |
 | `work_us` | microseconds | how long the tick's work took (budget 5000) |
 | `mode` | code | 0 boot, 1 calibrating, 2 disarmed (motors off), 3 motor test running, 4 armed (balancing), 5 fallen (motors off until you arm or disarm again) |
-| `flag_bits` | bits | 1 = IMU read failed this tick, 2 = the previous tick overran 5 ms, 4 = no successful gyro calibration yet (the robot was moving at startup; `pitch_rate` still includes the bias, and BB1 retries every 3 s), 8 = armed and the PID output hit the PWM cap (saturated). Usually 0. |
+| `flag_bits` | bits | 1 = IMU read failed this tick, 2 = the previous tick overran 5 ms, 4 = no successful gyro calibration yet (the robot was moving at startup; `pitch_rate` still includes the bias, and BB1 retries every 3 s), 8 = armed and the PID output hit the PWM cap (saturated), 16 = a drive command ran out or was stopped and BB1 is ramping to a stop (log format 9). Usually 0. |
 | `ax_raw` `ay_raw` `az_raw` | counts | accelerometer exactly as the chip sent it. g = raw / 16384 |
 | `temp_raw` | counts | chip temperature. deg C = raw / 340 + 36.53 |
 | `gx_raw` `gy_raw` `gz_raw` | counts | gyro exactly as sent, **bias not removed**. deg/s = raw / 65.5 - bias |
@@ -205,6 +205,8 @@ Since step 4 the top lines come from `log_meta.h`:
 | `web_age_ms` | ms | time since the page last asked for `/state` (10 ms steps, 2550 = 2.55 s or more). Normally 0 to about 100. Big values show Wi-Fi stalls; over 1000 while armed from the page = heartbeat disarm (log format 5) |
 | `batt_v` | V | battery voltage, **whole pack** (2S LiPo; the pages show it per cell), from the D153C's `ADC` pin (battery / 11) on GP26, read on core 0 every 100 ms, 16 samples averaged and smoothed (`battery.h`). 0 = no wire or the D153C switch off. Sags while the motors push. (log format 6, 2026-10-24) |
 | `auto_state` | - | what auto-arm is doing (`auto_arm.h`): 0 off (auto 0), 1 off (stopped, waits for ARM), 2 off (fell too often), 3 no IMU (log format 7: waiting for calibration), 4 waiting for upright, 5 holding (counting to 1 s), 6 balancing. (log format 7, 2026-10-24; format 8 changed what 3 means) |
+| `drive_speed` | wheel turns/s | the **operator's drive command** in force this tick (`POST /drive`, the Drive pad, serial `drive`): forward +, 0 when none or once it ran out. Steps of 0.01. What BB1 actually aims for ramps toward this (`# drive_accel` in the header). This is the action a model would learn to copy (log format 9, 2026-10-25) |
+| `drive_turn` | turns/s | the operator's turn command: left-minus-right wheel difference, right turn +. Same rules as `drive_speed` (log format 9) |
 
 Raw values are kept on purpose: a better filter, or a model, can be re-run on them later. Step 5 added the six wheel columns (log format 2), step 6 the five controller columns (log format 3); later steps add the speed loop and drive commands at the end.
 

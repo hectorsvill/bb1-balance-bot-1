@@ -26,6 +26,7 @@
 //   angle.h      complementary filter
 //   motors.h     D153C motor driver, encoders, wheel speed
 //   pid.h        a small PID;  control.h  arm / disarm, safety checks, the angle loop
+//   drive.h      driving: moves the speed loop and heading hold targets (milestone 2)
 //   auto_arm.h   power-on: start balancing by itself when stood upright (docs/POWER_ON.md)
 //   telemetry.h  LogRecord, the ring buffer, CSV output
 //   shared.h     requests from core 0 to core 1, status back
@@ -246,7 +247,7 @@ bool quiet = false;        // "quiet": pause the 10 Hz readout
 
 void printHelp() {
   Serial.println();
-  Serial.println("BB1 step 8 commands:");
+  Serial.println("BB1 milestone 2 commands:");
   Serial.println("  cal       measure the gyro bias again (lay the robot still first)");
   Serial.println("  alpha N   set the filter weight, 0.90 to 0.999 (now " + String(requestedAlpha, 3) + ")");
   Serial.println("  csv       switch the readout to comma-separated lines (again to switch back)");
@@ -268,6 +269,9 @@ void printHelp() {
   Serial.println("  cap N     PWM limit while armed (now " + String(pwmCap, 0) + ");  deadband N  (now " + String(motorDeadband, 0) + ")");
   Serial.println("  gains     print the balance settings");
   Serial.println("  save      store the balance settings in flash (disarmed only); defaults = back to config.h");
+  Serial.println("  drive S T [ms]  drive while balancing: S wheel turns/s (forward +, max " + String(DRIVE_MAX_SPEED, 1) +
+                 "), T turn (right +, max " + String(DRIVE_MAX_TURN, 1) + ") for ms (default " + String(DRIVE_HOLD_MS) + ", max " + String(DRIVE_HOLD_MAX_MS) + ")");
+  Serial.println("            e.g. drive 0.5 0 2000 = forward half a wheel turn/s for 2 s;  drive stop (or ds) = stop driving");
   Serial.println("  step      step test: setpoint +" + String(STEP_TEST_DEG, 1) + " deg for " + String(STEP_TEST_MS) + " ms (armed only)");
   Serial.println("  help      this list");
 }
@@ -374,6 +378,33 @@ void handleCommand(String cmd) {
     requestArm = true;
   } else if (cmd == "disarm") {
     requestDisarm = true;
+  } else if (cmd == "drive stop" || cmd == "ds") {
+    driveUntilMs = 0;
+  } else if (cmd.startsWith("drive ")) {
+    // drive SPEED TURN [ms]: same as POST /drive (drive.h). e.g. "drive 0.5 0 2000"
+    String a = cmd.substring(6);
+    a.trim();
+    int sp1 = a.indexOf(' ');
+    float speed = a.toFloat();
+    float turn = 0;
+    long ms = DRIVE_HOLD_MS;
+    if (sp1 > 0) {
+      String rest = a.substring(sp1 + 1);
+      rest.trim();
+      turn = rest.toFloat();
+      int sp2 = rest.indexOf(' ');
+      if (sp2 > 0) ms = rest.substring(sp2 + 1).toInt();
+    }
+    if (!robotArmed) {
+      Serial.println("arm first: driving moves BB1 while it balances");
+    } else {
+      driveSpeedCmd = constrain(speed, -DRIVE_MAX_SPEED, DRIVE_MAX_SPEED);
+      driveTurnCmd  = constrain(turn, -DRIVE_MAX_TURN, DRIVE_MAX_TURN);
+      ms = constrain(ms, 0L, (long)DRIVE_HOLD_MAX_MS);
+      driveUntilMs  = millis() + ms;
+      driveCommands = driveCommands + 1;
+      Serial.println("driving: speed " + String(driveSpeedCmd, 2) + " turns/s, turn " + String(driveTurnCmd, 2) + " for " + String(ms) + " ms");
+    }
   } else if (cmd == "gains") {
     printGains();
   } else if (cmd == "save") {

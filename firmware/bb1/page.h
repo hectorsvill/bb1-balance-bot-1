@@ -16,6 +16,7 @@
 // Layout, top to bottom:
 //   status bar (always visible): connection, battery, mode, STOP
 //   Balance: what BB1 is doing (auto-arm state), ARM, STOP. Gains are on /tune.
+//   Drive: a joystick pad (and arrow keys / WASD) that drives BB1 while it balances.
 //   then the developer panels, folded until you open them: PID, Pitch, Log,
 //   Live values, Motor test, Sensors, Pico memory, Network. Click a panel's
 //   title to fold it; the arrows move it. Both are remembered by this browser
@@ -146,6 +147,22 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
             animation:blink 1s infinite; vertical-align:middle; }
   @keyframes blink { 50% { opacity:0.2; } }
 
+  /* Drive pad: a square you press and drag, like a stick. Up = forward, right = turn right. */
+  .drivebox { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+  .pad { position:relative; width:220px; height:220px; flex:none; border-radius:16px; background:#0b0e13;
+         border:1px solid var(--line); touch-action:none; user-select:none; cursor:grab; }
+  .pad.off { opacity:0.4; cursor:not-allowed; }
+  .pad.on { border-color:var(--green); cursor:grabbing; }
+  .pad::before, .pad::after { content:''; position:absolute; background:var(--line); }
+  .pad::before { left:50%; top:10px; bottom:10px; width:1px; } .pad::after { top:50%; left:10px; right:10px; height:1px; }
+  .knob { position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px 0 0 -28px; border-radius:50%;
+          background:var(--panel2); border:2px solid var(--muted); pointer-events:none; z-index:1; }
+  .pad.on .knob { background:rgba(63,185,122,0.25); border-color:var(--green); }
+  .driveside { flex:1; min-width:200px; }
+  .driveside input[type=range] { width:100%; padding:0; }
+  .keys { font-size:12px; color:var(--muted); }
+  .keys b { display:inline-block; min-width:22px; padding:1px 5px; border:1px solid var(--line); border-radius:4px; text-align:center; color:var(--text); }
+
   /* Memory bars */
   .meter { height:8px; background:#0b0e13; border-radius:4px; overflow:hidden; margin-top:6px; }
   .meter i { display:block; height:100%; background:var(--blue); }
@@ -190,6 +207,33 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
         <a href="/tune" style="color:var(--blue)">Tune gains and test runs &rarr;</a>
       </div>
       <div class="msg">BB1 starts balancing by itself when it's upright and still for 1 s, and again after you stand it back up from a fall. STOP turns that off until you press ARM. Laying it down stops the motors. Space bar = STOP.</div>
+    </div>
+  </div>
+
+  <!-- ===================== Drive ===================== -->
+  <!-- Milestone 2. The pad sends POST /drive every 100 ms while you hold it,
+       and POST /drive/stop when you let go. BB1 stops by itself if the
+       commands stop coming (500 ms), so a dropped Wi-Fi can't leave it driving. -->
+  <div class="panel" id="p-drive">
+    <div class="head"><span class="fold">&#9660;</span><h2>Drive</h2></div>
+    <div class="body">
+      <div class="drivebox">
+        <div>
+          <div class="pad off" id="pad"><div class="knob" id="knob"></div></div>
+          <div class="small muted" style="margin-top:6px"><span id="h-pad">How the pad works</span></div>
+        </div>
+        <div class="driveside">
+          <div class="tiles">
+            <div class="tile"><div class="name" id="h-dask">asked</div><div class="val" id="driveAsk">--</div></div>
+            <div class="tile"><div class="name" id="h-dnow">target now</div><div class="val" id="driveNow">--</div></div>
+            <div class="tile"><div class="name" id="h-dwheels">wheels</div><div class="val" id="driveWheels">--</div></div>
+          </div>
+          <label class="field" style="margin-top:10px"><span class="name">Max speed <span id="driveMaxShow">50%</span></span>
+            <input type="range" id="driveMax" min="10" max="100" step="5" value="50"></label>
+          <div class="msg" id="driveMsg">Arm first: driving works only while BB1 balances.</div>
+          <div class="keys" id="h-keys">Keys: <b>&#8593;</b><b>&#8595;</b><b>&#8592;</b><b>&#8594;</b> or <b>W</b><b>A</b><b>S</b><b>D</b> while held. <b>Space</b> = STOP.</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -411,6 +455,13 @@ const HINTS = {
   // Balance
   armBtn: 'Start balancing now if it is within 10 deg of upright, and turn auto-arm back on after a STOP. No time limit, and it keeps going if you close this page.',
   disarmBtn: 'Stop balancing now: brakes both wheels and puts the motor driver to sleep. Auto-arm stays off until you press ARM.',
+  // Drive
+  'h-pad': 'Press and drag to drive: up = forward, down = back, left / right = turn. Let go and BB1 slows to a stop and keeps balancing. Works only while it balances.',
+  driveMax: 'Scales the pad and the keys. 100% = the firmware limit (1 wheel turn per second forward, 1 turn/s of turn). Start low.',
+  'h-dask': 'What this page is asking for: speed in wheel turns per second (forward +) and turn (right +).',
+  'h-dnow': 'What BB1 is aiming for right now. It ramps toward what you ask so a jab on the pad cannot tip it over.',
+  'h-dwheels': 'How fast the wheels are really turning, average of both, wheel turns per second. Forward +.',
+  'h-keys': 'Arrow keys or WASD drive while held, at the Max speed above. Clicking the page first may be needed so it gets the keys.',
   // PID
   'h-err': 'How far past the balance point it leans, in degrees. Forward +. This is what the PID works on.',
   'h-p': 'P = Kp x error. Pushes harder the further it leans.',
@@ -587,6 +638,105 @@ function showMode(s) {
 
   // Disarmed: why it last stopped, and what auto-arm is waiting for.
   el('armReason').textContent = s.armed ? 'balancing' : [s.reason, s.auto_state && 'auto-arm ' + s.auto_state].filter(Boolean).join('. ');
+}
+
+// ---------- drive (milestone 2) ----------
+//
+// The pad (or the keys) sets want.speed / want.turn, -1..1. A timer sends
+// POST /drive every 100 ms while you hold it, scaled by Max speed and the
+// firmware's limits (from /state). Each command lasts 500 ms on BB1, so if
+// this page freezes, closes or loses Wi-Fi, BB1 stops by itself. Letting go
+// sends POST /drive/stop at once. One request at a time: if BB1 is slow to
+// answer, we skip a beat instead of queueing up old commands.
+
+const want = { speed: 0, turn: 0, pad: false };
+const keysDown = new Set();
+let driveArmed = false, driveLimits = { max_speed: 1, max_turn: 1 }, driveBusy = false, driveWasOn = false;
+
+el('driveMax').value = store.get('bb1.driveMax', 50);
+function showDriveMax() { el('driveMaxShow').textContent = el('driveMax').value + '%'; }
+el('driveMax').oninput = () => { store.set('bb1.driveMax', +el('driveMax').value); showDriveMax(); };
+showDriveMax();
+
+// Pad: the knob follows your finger, clamped to the circle. y up = forward.
+const pad = el('pad'), knob = el('knob');
+function padMove(e) {
+  const r = pad.getBoundingClientRect(), half = r.width / 2 - 28;
+  let x = (e.clientX - r.left - r.width / 2) / half, y = -(e.clientY - r.top - r.height / 2) / half;
+  const len = Math.hypot(x, y);
+  if (len > 1) { x /= len; y /= len; }
+  want.speed = y; want.turn = x;
+  knob.style.transform = 'translate(' + (x * half) + 'px,' + (-y * half) + 'px)';
+}
+function padRelease() {
+  if (!want.pad) return;
+  want.pad = false; want.speed = want.turn = 0;
+  knob.style.transform = '';
+  pad.classList.remove('on');
+}
+pad.addEventListener('pointerdown', e => {
+  if (!driveArmed) { el('driveMsg').textContent = 'Arm first: driving works only while BB1 balances.'; return; }
+  pad.setPointerCapture(e.pointerId);
+  want.pad = true; pad.classList.add('on'); padMove(e);
+});
+pad.addEventListener('pointermove', e => { if (want.pad) padMove(e); });
+pad.addEventListener('pointerup', padRelease);
+pad.addEventListener('pointercancel', padRelease);
+
+// Keys: arrows or WASD, held. Ignored while typing in a box.
+const DRIVE_KEYS = { ArrowUp: 'f', KeyW: 'f', ArrowDown: 'b', KeyS: 'b', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
+document.addEventListener('keydown', e => {
+  if (!DRIVE_KEYS[e.code] || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  e.preventDefault();
+  keysDown.add(DRIVE_KEYS[e.code]);
+});
+document.addEventListener('keyup', e => { if (DRIVE_KEYS[e.code]) keysDown.delete(DRIVE_KEYS[e.code]); });
+
+// Anything that might leave a key or finger "stuck" stops driving.
+function stopDriving() { keysDown.clear(); padRelease(); }
+window.addEventListener('blur', stopDriving);
+document.addEventListener('visibilitychange', () => { if (document.hidden) { stopDriving(); navigator.sendBeacon('/drive/stop'); } });
+
+function driveAsk() {
+  let speed = want.speed, turn = want.turn;
+  if (!want.pad && keysDown.size) {
+    speed = (keysDown.has('f') ? 1 : 0) - (keysDown.has('b') ? 1 : 0);
+    turn  = (keysDown.has('r') ? 1 : 0) - (keysDown.has('l') ? 1 : 0);
+  }
+  const k = el('driveMax').value / 100;
+  return { speed: +(speed * k * driveLimits.max_speed).toFixed(2), turn: +(turn * k * driveLimits.max_turn).toFixed(2) };
+}
+
+setInterval(async () => {
+  const ask = driveAsk();
+  const on = driveArmed && (ask.speed !== 0 || ask.turn !== 0);
+  if (!on && !driveWasOn) return;                      // idle: send nothing
+  if (driveBusy) return;                               // still waiting for the last answer
+  driveBusy = true;
+  try {
+    const res = await fetch(on ? '/drive' : '/drive/stop', { method: 'POST', body: new URLSearchParams(on ? ask : {}),
+                                                         signal: AbortSignal.timeout ? AbortSignal.timeout(400) : undefined });
+    const j = await res.json();
+    el('driveMsg').textContent = j.ok ? (on ? 'driving' : 'stopped driving, still balancing') : j.error;
+    driveWasOn = on && j.ok;
+  } catch (e) {
+    el('driveMsg').textContent = 'no answer: BB1 stops by itself within 0.5 s';
+  }
+  driveBusy = false;
+}, 100);
+
+// From poll(): what BB1 reports.
+function showDrive(s) {
+  driveArmed = s.armed;
+  pad.classList.toggle('off', !s.armed);
+  if (!s.armed) stopDriving();
+  const d = s.drive;
+  if (!d) return;
+  driveLimits = d;
+  const ask = driveAsk();
+  el('driveAsk').innerHTML = ask.speed.toFixed(2) + ' / ' + ask.turn.toFixed(2) + ' <small>turns/s</small>';
+  el('driveNow').innerHTML = d.speed_now.toFixed(2) + ' / ' + d.turn_now.toFixed(2);
+  el('driveWheels').innerHTML = ((s.speed_l + s.speed_r) / 2 / 520).toFixed(2) + ' <small>turns/s</small>';
 }
 
 // ---------- pulling log records ----------
@@ -893,6 +1043,7 @@ async function poll() {
       : 'On BB1\'s own network "' + s.wifi_ssid + '". Save a home network below to join it instead.';
 
     showMode(s);
+    showDrive(s);
     const err = s.pitch - s.gains.trim;
     if (s.have) {
       el('pitch').textContent = s.pitch.toFixed(1);

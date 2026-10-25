@@ -47,6 +47,17 @@ volatile bool     stepActive    = false;     // status: a step test is running
 volatile uint32_t lastWebHeartbeatMs = 0;    // millis() of the page's latest /state request
 volatile uint16_t batteryMv     = 0;         // battery voltage in mV, from core 0 (battery.h); core 1 logs it
 
+// Driving (milestone 2, drive.h). Core 0 writes the two numbers FIRST, then
+// driveUntilMs; core 1 uses them until millis() passes driveUntilMs, then
+// ramps back to standing still. driveUntilMs = 0 = stop driving now.
+volatile float    driveSpeedCmd = 0;         // wheel turns/s asked for, forward +
+volatile float    driveTurnCmd  = 0;         // turns/s of left-minus-right wheel difference, right turn +
+volatile uint32_t driveUntilMs  = 0;         // millis() when the command runs out
+volatile uint32_t driveCommands = 0;         // counts every accepted command (shown in /state)
+// What core 1 is actually doing (after the ramp), for /state
+volatile float    driveSpeedNow = 0;
+volatile float    driveTurnNow  = 0;
+
 // Status from core 1 to core 0
 volatile bool     imuFound       = false;
 volatile uint32_t calibrationsDone = 0;    // counts up after each calibration attempt

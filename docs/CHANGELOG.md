@@ -9,6 +9,15 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-25 - milestone 2: drive from the web page
+
+- **Driving** (`firmware/bb1/drive.h`): `POST /drive` with `speed` and `turn` (wheel turns/s, ±1.0) moves the speed loop's and heading hold's targets; BB1 leans into it by itself. Targets ramp (1 turn/s per s; turn 2). Turn feedforward `DRIVE_TURN_FF` 15 PWM per turn/s. `POST /drive/stop`, serial `drive S T [ms]` / `drive stop`
+- **Failsafe:** each command lasts 500 ms (or `ms=`, max 3000). Not re-sent = ramp to a stop and keep balancing (no disarm). Disarm, fall and arm clear it. Targets never run more than 1 wheel turn ahead of the wheels while moving
+- **Page:** new **Drive** panel on http://bb1.local: joystick pad, arrow keys / WASD, Max speed slider, asked / target / wheels tiles, hover hints. Sends every 100 ms, one request at a time; hiding the tab or leaving the window stops driving. The mock answers `/drive` and `/drive/stop` too
+- **API docs:** new `docs/API.md`, the full HTTP reference (every endpoint, `/state` fields, units, errors) plus what the AI-agent milestone would still need. `/state` has a new `drive` object
+- **Logs:** format 9 adds `drive_speed`, `drive_turn` (the operator command) and flag 16 (drive stopping); `# drive_...` settings line in the header. Record 76 bytes, +8 KB RAM (heap left about 36 KB)
+- Not flashed yet
+
 ## 2026-10-25 - low battery disarms while armed
 
 - **Safety:** a pack under `BATTERY_LOW_V` (6.6 V, 3.3 V per cell) only blocked auto-arm. Once balancing, the motors kept driving as the voltage sagged. `balanceTick()` now disarms with `REASON_BATTERY` (13): motors braked, STBY low. `balanceArm()` refuses with the same reason. Both use `batteryTooLow()` in `battery.h` (moved out of `auto_arm.h`)

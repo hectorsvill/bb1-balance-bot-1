@@ -102,6 +102,19 @@ const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about
 // moved from one wheel to the other per wheel turn of difference. 0 = off.
 const float DEFAULT_TURN_HOLD = 20;
 const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
+// Driving (milestone 2, drive.h): the page or the API asks for a wheel speed
+// and a turn rate; drive.h moves the speed loop's and the heading hold's
+// targets, and BB1 leans into it by itself. Like flying a quad in angle mode:
+// you ask for a speed, the loops work out the lean. Needs sp/si and th on.
+// Units are wheel turns per second (520 counts = 1 turn) until the wheel size is measured.
+const float DRIVE_MAX_SPEED   = 1.0;   // turns/s, forward or back. On the floor BB1 stays under about 2; the lift detector trips at 4
+const float DRIVE_MAX_TURN    = 1.0;   // turns/s of left-minus-right wheel difference (+ = turn right)
+const float DRIVE_ACCEL       = 1.0;   // turns/s per second: how fast the speed target ramps (0 to full in 1 s)
+const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
+const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's)
+const float DRIVE_MAX_LAG     = 1.0;   // wheel turns: the targets never run further than this ahead of the wheels (blocked wheel = no lurch later)
+const unsigned long DRIVE_HOLD_MS     = 500;    // a drive command lasts this long unless sent again (the page re-sends every 100 ms)
+const unsigned long DRIVE_HOLD_MAX_MS = 3000;   // longest a single command may ask for (ms=...)
 // Auto-arm (auto_arm.h, docs/POWER_ON.md): after power-up or a fall, BB1 starts
 // balancing by itself once it's stood upright and held still. STOP turns it off
 // until the next ARM or power-up, so STOP always means stop.

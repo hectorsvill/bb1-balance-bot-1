@@ -11,8 +11,8 @@
 #include "shared.h"
 
 // Bump this when the log columns change, so old and new files can be told apart.
-const char *FIRMWARE_NAME = "bb1 step 8";
-const int   LOG_FORMAT    = 8;   // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration")
+const char *FIRMWARE_NAME = "bb1 milestone 2";
+const int   LOG_FORMAT    = 9;   // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping
 
 String logMetaLines() {
   String m;
@@ -28,5 +28,7 @@ String logMetaLines() {
   m += "# gains_ver," + String(gainsVersion) + ",kp," + String(gainP, 3) + ",ki," + String(gainI, 3) +
        ",kd," + String(gainD, 3) + ",trim," + String(balanceTrim, 2) + ",pwm_cap," + String(pwmCap, 0) +
        ",deadband," + String(motorDeadband, 0) + ",speed_p," + String(gainSpeedP, 2) + ",speed_i," + String(gainSpeedI, 2) + ",turn_hold," + String(gainTurnHold, 1) + ",auto_arm," + String((int)autoArm) + "\n";
+  m += "# drive_max_speed," + String(DRIVE_MAX_SPEED, 2) + ",drive_max_turn," + String(DRIVE_MAX_TURN, 2) + ",drive_accel," + String(DRIVE_ACCEL, 2) +
+       ",drive_turn_accel," + String(DRIVE_TURN_ACCEL, 2) + ",drive_turn_ff," + String(DRIVE_TURN_FF, 1) + ",drive_hold_ms," + String(DRIVE_HOLD_MS) + "\n";
   return m;
 }
