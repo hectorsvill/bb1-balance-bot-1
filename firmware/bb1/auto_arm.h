@@ -30,6 +30,7 @@
 #include "config.h"
 #include "shared.h"
 #include "angle.h"
+#include "battery.h"
 #include "control.h"
 
 enum AutoState : uint8_t {
@@ -92,18 +93,15 @@ bool uprightAndStill(const Angle &a) {
   return fabs(a.pitch - balanceTrim) < AUTO_ARM_ANGLE && fabs(a.pitchRate) < AUTO_ARM_RATE;
 }
 
-bool batteryTooLow() {
-  // Under BATTERY_MIN_SENSE_V means no reading at all (wire off): don't block on that.
-  return batteryMv > BATTERY_MIN_SENSE_V * 1000 && batteryMv < BATTERY_LOW_V * 1000;
-}
-
 // Call every tick, before balanceTick(). Returns true when it's time to arm.
 bool autoArmUpdate(const Angle &a, bool imuOk) {
   AutoArm &aa = autoArmer;
   unsigned long now = millis();
 
   // 1. Did balancing just stop? A fall or a lift: wait to be stood up again.
-  //    Anything else (STOP, the timer, Wi-Fi, IMU errors): stay off until ARM.
+  //    Anything else (STOP, the timer, Wi-Fi, IMU errors, low battery): stay off
+  //    until ARM. A sagging pack recovers the moment the motors stop, so this
+  //    must not count as a fall or it would arm again and sag straight back down.
   if (aa.wasArmed && !balance.armed) {
     bool fellOrLifted = disarmReason == REASON_FELL || disarmReason == REASON_LIFTED;
     if (!fellOrLifted)          aa.state = AUTO_OFF_STOPPED;

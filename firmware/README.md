@@ -18,10 +18,10 @@ Checked on the robot: saved kd 0.6, restarted, it came back as 0.6; the flash wr
 BB1 starts balancing by itself. Switched on standing up, it balances about 3.5 s later (2 s gyro calibration, then 1 s held upright). Switched on lying down, it waits until you stand it up and hold it still for 1 s. Every edge case: [docs/POWER_ON.md](../docs/POWER_ON.md).
 
 - `auto_arm.h` is a small state machine: `OFF_SETTING`, `OFF_STOPPED`, `OFF_FALLS`, `WAIT_CAL`, `WAIT_UPRIGHT`, `HOLDING`, `BALANCING`. The state is printed on serial when it changes (`auto-arm: ...`), shown on both pages next to the mode, and logged every tick (`auto_state`, log format 7).
-- **STOP always wins:** STOP / Enter / the arm timer / a Wi-Fi drop / IMU errors turn auto-arm off until the next ARM or power-up.
+- **STOP always wins:** STOP / Enter / the arm timer / a Wi-Fi drop / IMU errors / a low battery turn auto-arm off until the next ARM or power-up.
 - After a fall it re-arms when stood up, but **3 falls within 30 s** turn it off until ARM.
 - **Lift detector** (`control.h`, any arm): wheels over 4 turns/s for 0.5 s = picked up, motors off, reason "picked up". Stand it back on the floor and it re-arms.
-- It won't auto-arm with the battery under `BATTERY_LOW_V` or during a motor test.
+- Battery under `BATTERY_LOW_V` (6.6 V, and a reading is present): it won't auto-arm, `balanceArm()` refuses, and if it is already balancing `balanceTick()` disarms (`REASON_BATTERY` = 13, motors off). No sense wire (under `BATTERY_MIN_SENSE_V`): no battery check. A motor test also blocks auto-arm.
 - No script or page needed: `handheld.py` and /tune are for testing. The main page's **ARM** / **STOP** match serial `arm` / `disarm` (ARM there sends `heartbeat=0`: no timer, keeps going if the page closes).
 - Setting `auto` (1 / 0): serial `auto 0`, /tune box **Auto-arm (1/0)**, saved in flash. Constants in `config.h` (`AUTO_ARM_*`, `AUTO_MAX_FALLS`, `AUTO_FALL_WINDOW_MS`, `LIFT_*`).
 
@@ -53,7 +53,7 @@ Fix (2026-10-21): the web server now closes each connection after answering (`ro
 
 ### Hand-held test, the current way: serial + logger.py (no web page)
 
-Why not the page: arming from the page ties the motors to Wi-Fi (no `/state` for 1 s = disarm), and Wi-Fi hiccups kept cutting the test short. For getting BB1 to balance we leave the page closed: you arm from **serial** over the USB cable (no heartbeat check then) and **logger.py** records over Wi-Fi in the background. If Wi-Fi stalls, the robot keeps the last 10 s, so the logger catches up without losing records. All other cut-outs still work: the arm timer, 45 deg (FALLEN), IMU errors, late loops, Enter.
+Why not the page: arming from the page ties the motors to Wi-Fi (no `/state` for 1 s = disarm), and Wi-Fi hiccups kept cutting the test short. For getting BB1 to balance we leave the page closed: you arm from **serial** over the USB cable (no heartbeat check then) and **logger.py** records over Wi-Fi in the background. If Wi-Fi stalls, the robot keeps the last 10 s, so the logger catches up without losing records. All other cut-outs still work: the arm timer, 45 deg (FALLEN), low battery, IMU errors, late loops, Enter.
 
 **Before you start**
 1. Battery on (D153C switch) **first**, then plug in USB (power rule).
