@@ -157,10 +157,13 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     float fastSide = max(abs(r.speed_l), abs(r.speed_r)), slowSide = min(abs(r.speed_l), abs(r.speed_r));
     bool odd = fabs(drive.turn) < 0.1f && fastSide > ENC_FAULT_MIN_SPEED && slowSide < ENC_FAULT_RATIO * fastSide;
     balance.encOddTicks = odd ? balance.encOddTicks + 1 : 0;
-    if (balance.encOddTicks >= (int)(ENC_FAULT_MS * LOOP_HZ / 1000) && !encoderFault)
+    if (balance.encOddTicks >= (int)(ENC_FAULT_MS * LOOP_HZ / 1000) && !encoderFault) {
       encoderFault = abs(r.speed_l) < abs(r.speed_r) ? 1 : 2;            // sticky until the next arm
+      driveUntilMs = 0;   // also end the command already running (up to 3 s): ramp to a stop now
+    }
     if (encoderFault) r.flags |= FLAG_ENC_FAULT;
     if (drive.stopping) r.flags |= FLAG_DRIVE_STOPPING;
+    static_assert(DRIVE_MAX_SPEED * 100 <= 127 && DRIVE_MAX_TURN * 100 <= 127, "drive_speed/drive_turn are int8 hundredths: widen them before raising the limits");
     r.drive_speed = (int8_t)lroundf(drive.wantSpeed * 100);              // log the operator's command, hundredths of a turn/s
     r.drive_turn  = (int8_t)lroundf(drive.wantTurn * 100);               // (the ramped target follows from it and the # drive_ settings)
     // Faster than asked -> lean back (negative); slower -> lean forward.

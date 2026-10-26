@@ -9,6 +9,15 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-26 - drive tests, drive tuning, training set
+
+- **`tools/drive_test.py`**: named drive tests over Wi-Fi (stand, fwd-back-30/50, turn, arc), recorded like `logger.py` with one `# step` line per step, and a per-step report (asked vs got, stop distance, heading drift, lean, saturation, Wi-Fi drops). Refuses unless armed with `enc_fault` 0; 1 s commands re-sent every 100 ms; `/drive/stop` between steps and on any error; ends the test at 3 wheel turns from the start (after BB1 crept into a wall), on a disarm, an encoder fault or 2 s without an answer
+- **Floor runs (wood, 15 logs, all kept, one fall after hitting the wall):** stand: wobble 0.5 deg, no drift. Drive was slow because the speed loop is P-only while driving: it runs short by (lean needed) / sp. Live changes: `dff` 60 → 90 (mixed alone), `sp` 4 → 8 (**clearly better**: 0.3 asked → 0.19 forward / 0.28 back, stops within 0.5 turn at 0.3, calmer standing), `sp` 12 and `si` 1.5 and `th` 40 not better, put back. At 0.5 turns/s stops still overshoot (0.6 forward, 0.8-0.95 back). Turning reaches about 30% of the asked rate, and it rolls back 1-2 turns per turn test. Run table: vault `Logs/2026-10-26 bb1 drive tuning.md`
+- **Firmware (not flashed yet):** `DRIVE_TURN_FF` 15 → 45 (each wheel needs about 87 PWM per turn/s on wood), `TURN_HOLD_MAX_PWM` 40 → 60. Each axis only lets go of its own hold: turning on the spot keeps the position hold, and driving straight keeps the full heading hold (review: the lag clamp capped straight-line heading hold at 5 PWM). Review fixes: an encoder fault now ends the command already running; `driveCommand()` in `drive.h` is the one clamp for HTTP and serial, refusing `nan` (HTTP 400); `static_assert` that the drive limits fit the int8 log fields (`DRIVE_MAX_SPEED`/`TURN` now `constexpr`); arrow keys scroll the main page again unless BB1 is balancing
+- **Tools:** `logger.py` `GAIN_KEYS` shared with `handheld.py`, so `dff` reaches handheld logs and its `--wifi` `dff N` works. Mock: a drive command never outlives its arm, and `/drive` parses like the firmware (`ms=500.5` ok, `nan` → 400)
+- **`tools/dataset.py`**: every real format-9 log as one table (`logs/dataset/bb1_dataset.csv.gz`) with outcome labels (timer / stopped / fell / log_ended), context columns, IMU-error and encoder-fault rows dropped (also re-detected on old logs). What training still lacks: FIRMWARE_PLAN.md section 6
+- **Open:** the Pico's web server goes quiet for 1-2.5 s now and then (`web_age_ms` up to 2550; Wi-Fi power save is already off); and one stuck browser tab blocked every other client until it was closed
+
 ## 2026-10-25 - milestone 2: drive from the web page
 
 - **Driving** (`firmware/bb1/drive.h`): `POST /drive` with `speed` and `turn` (wheel turns/s, ±1.0) moves the speed loop's and heading hold's targets; BB1 leans into it by itself. Targets ramp (1 turn/s per s; turn 2). Turn feedforward `DRIVE_TURN_FF` 15 PWM per turn/s. `POST /drive/stop`, serial `drive S T [ms]` / `drive stop`

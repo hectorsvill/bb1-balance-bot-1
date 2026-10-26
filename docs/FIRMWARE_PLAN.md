@@ -189,6 +189,21 @@ What a model needs, and where it is in our logs:
 
 **Still to do:** a backup of `logs/` (gitignored, about 113 MB on one laptop so far; decided 2026-10-23: its own git repo once BB1 balances);  maybe a "hand touched" event key in handheld.py.
 
+### Training set: checked on the real logs (2026-10-26, `tools/dataset.py`)
+
+Every format-9 row has the observation (raw IMU, pitch, pitch rate, encoders, speeds), the operator action (`drive_speed`, `drive_turn`), the controller output (`pwm_l`, `pwm_r`, setpoint, P/I/D) and the context (`gains_ver` with its `# gains_vN` line, surface, note, `batt_v`, reason, flags). No empty cells. `dataset.py` writes them as one table with outcome labels. First build: 316k rows (26 min) from 20 logs, 58 older logs skipped (format under 9).
+
+What is still missing, smallest fix first:
+
+| Gap | Why it matters | Smallest fix |
+|---|---|---|
+| Very little driving: 100 s of rows with a drive command, all from `drive_test.py`; 77% of rows are one idle carpet run | a model learns what's in the data | record page-pad driving with `logger.py --surface wood -n ...` running; vary surfaces (tooling only) |
+| The ramped targets BB1 really aims for (`/state` `speed_now`, `turn_now`) and the hold targets aren't in the log | a model of the controller can't see its own state; the dff part of the PWM can't be rebuilt from the log | firmware: two `int8` fields at the end of `LogRecord`, `drive_speed_now`, `drive_turn_now` (hundredths, like `drive_speed`), `LOG_FORMAT` 10. 2 bytes a record |
+| Wi-Fi stalls: 1,810 rows where a drive step was running but the command had run out | the action column says 0 while the operator meant to drive: label noise | tooling done for scripted runs (`step` column says what was asked); the stall itself is an open item (CHANGELOG) |
+| Logs from before the encoder detector (2026-10-25) have a dead left encoder with no flag 32 | wrong wheel data | done in tooling: `dataset.py` re-runs the firmware's fault rule and drops those rows (3,271) |
+| Old `# gains_vN` lines have no `dff` | can't tell feedforward settings apart | done: `dataset.py` fills it from the header; `logger.py` and `handheld.py` now share one `GAIN_KEYS` list |
+| Units: 520 counts per turn is assumed, wheel size and track width unmeasured | speeds and turns in real units (m/s, deg/s) for a model that moves in the room | measure them (docs/API.md, AI-agent milestone item 2) |
+
 ## 7. Steps (one at a time, tested on the bot between each)
 
 | # | Step | You test | Motors? |

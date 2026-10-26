@@ -689,6 +689,7 @@ pad.addEventListener('pointercancel', padRelease);
 const DRIVE_KEYS = { ArrowUp: 'f', KeyW: 'f', ArrowDown: 'b', KeyS: 'b', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
 document.addEventListener('keydown', e => {
   if (!DRIVE_KEYS[e.code] || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  if (!driveArmed) return;           // not balancing: let the arrow keys scroll the page
   e.preventDefault();
   keysDown.add(DRIVE_KEYS[e.code]);
 });

@@ -178,6 +178,8 @@ Since step 4 the top lines come from `log_meta.h`:
 # records,2400,lost,0
 ```
 
+`logger.py` and `handheld.py` add `# gains_vN,...` (one per gains version used), `# surface,...`, `# note,...`, `# recorded_at,...` and `# records,...`. `drive_test.py` also adds one `# step,name,speed,turn,from_tick,to_tick` line per step (what was asked, and when) and `# drive_test,<test>,<how it ended>`; `dataset.py` turns the step lines into a `step` column.
+
 `log_format` goes up whenever the columns change. Files whose firmware says `MOCK` came from the offline mock: made-up data, keep them out of any analysis or training set.
 
 ### Columns

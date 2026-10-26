@@ -12,6 +12,8 @@ Python helpers that run on the Mac, with their own virtual environment in `tools
 | `check_dump.py` | Loads any log (serial `dump`, page Download, `logger.py`), checks nothing is missing, `--plot` draws it; `load_dump()` for your own scripts |
 | `handheld.py` | (testing only) Arm test in one window: keys a = arm 5 s, Enter = disarm, q = save the log and quit; records over Wi-Fi like `logger.py` |
 | `logger.py` | Records every log record from BB1 over Wi-Fi into `logs/bb1_<date>_<time>_<note>.csv` (same layout as the page's Download) |
+| `drive_test.py` | **Moves BB1.** Runs a named drive test over Wi-Fi (stand, fwd-back-30/50, turn, arc), records it like `logger.py`, reports stop distance, heading, lean, saturation per step |
+| `dataset.py` | Builds one clean training table from every real log (`logs/dataset/bb1_dataset.csv.gz`) and prints what's in it |
 | `mock_bb1.py` | A pretend BB1 on the Mac: serves the real page with made-up data at http://localhost:8080 |
 
 Quick start, from the repo folder:

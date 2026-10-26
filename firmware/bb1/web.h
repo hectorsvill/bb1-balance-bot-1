@@ -294,14 +294,13 @@ void handleDrive() {
     server.send(409, "application/json", "{\"ok\":false,\"error\":\"encoder fault: a wheel is not counting, check its wires (see /state enc_fault)\"}");
     return;
   }
-  float speed = constrain(server.arg("speed").toFloat(), -DRIVE_MAX_SPEED, DRIVE_MAX_SPEED);
-  float turn  = constrain(server.arg("turn").toFloat(),  -DRIVE_MAX_TURN,  DRIVE_MAX_TURN);
+  float speed = server.arg("speed").toFloat();
+  float turn  = server.arg("turn").toFloat();
   long ms = server.hasArg("ms") ? server.arg("ms").toInt() : (long)DRIVE_HOLD_MS;
-  ms = constrain(ms, 0L, (long)DRIVE_HOLD_MAX_MS);
-  driveSpeedCmd = speed;                       // the numbers first...
-  driveTurnCmd  = turn;
-  driveUntilMs  = ms ? millis() + ms : 0;      // ...then the deadline: core 1 reads them after seeing it
-  driveCommands = driveCommands + 1;
+  if (!driveCommand(speed, turn, ms)) {        // clamps, then hands it to core 1 (drive.h)
+    server.send(400, "application/json", "{\"ok\":false,\"error\":\"speed and turn must be numbers\"}");
+    return;
+  }
   char json[120];
   snprintf(json, sizeof(json), "{\"ok\":true,\"speed\":%.2f,\"turn\":%.2f,\"ms\":%ld}", speed, turn, ms);
   server.send(200, "application/json", json);

@@ -400,13 +400,10 @@ void handleCommand(String cmd) {
       Serial.println("arm first: driving moves BB1 while it balances");
     } else if (encoderFault) {
       Serial.println(String("encoder fault: the ") + (encoderFault == 1 ? "left" : "right") + " wheel is not counting, check its wires");
+    } else if (!driveCommand(speed, turn, ms)) {   // same clamps as POST /drive (drive.h)
+      Serial.println("drive: speed and turn must be numbers");
     } else {
-      driveSpeedCmd = constrain(speed, -DRIVE_MAX_SPEED, DRIVE_MAX_SPEED);
-      driveTurnCmd  = constrain(turn, -DRIVE_MAX_TURN, DRIVE_MAX_TURN);
-      ms = constrain(ms, 0L, (long)DRIVE_HOLD_MAX_MS);
-      driveUntilMs  = millis() + ms;
-      driveCommands = driveCommands + 1;
-      Serial.println("driving: speed " + String(driveSpeedCmd, 2) + " turns/s, turn " + String(driveTurnCmd, 2) + " for " + String(ms) + " ms");
+      Serial.println("driving: speed " + String(speed, 2) + " turns/s, turn " + String(turn, 2) + " for " + String(ms) + " ms");
     }
   } else if (cmd == "gains") {
     printGains();

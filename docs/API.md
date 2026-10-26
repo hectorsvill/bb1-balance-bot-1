@@ -26,13 +26,13 @@ Out-of-range values are clamped, not refused; the answer says what will actually
 {"ok":true,"speed":0.50,"turn":0.00,"ms":500}
 ```
 
-Not balancing: `409` and `{"ok":false,"error":"not balancing: arm first (POST /arm)"}`. Encoder fault (`/state` `enc_fault`): `409` with `"error":"encoder fault: ..."`.
+Not balancing: `409` and `{"ok":false,"error":"not balancing: arm first (POST /arm)"}`. Encoder fault (`/state` `enc_fault`): `409` with `"error":"encoder fault: ..."`, and a fault also ends the command already running. `speed` or `turn` not a number (`nan`, `inf`): `400` and `"error":"speed and turn must be numbers"`. Text that doesn't start with a number counts as 0, like Arduino's `toFloat()`.
 
 **The failsafe:** every command runs out. To keep driving, send it again before it does (the page sends every 100 ms). When it runs out, BB1 ramps to a stop and keeps balancing where it is; it does not disarm. So a dropped Wi-Fi, a closed page or a crashed script can never leave BB1 driving for more than `ms`. A single command can ask for up to 3 s, for "drive forward for 2 s" without a loop.
 
 Speed and turn ramp toward what you ask (1 turn/s per second, turn twice as fast), so a full jab can't tip it over. Disarming, a fall or a new arm clears the command.
 
-Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are by default (sp 4, si 0.5, th 20). With `th 0` turning still works on feedforward alone (`DRIVE_TURN_FF`), just less exactly. Speed has its own feedforward, the setting `dff` (PWM per turn/s, default 60): the PWM a speed needs goes straight to the wheels, so the angle loop's I term doesn't have to wind up to it and unwind it when you reverse.
+Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are by default (sp 4, si 0.5, th 20). With `th 0` turning still works on feedforward alone (`DRIVE_TURN_FF`, 45 PWM per turn/s), just less exactly. Turning on the spot keeps the position hold, and driving straight keeps the full heading hold (each axis only lets go of its own hold). Speed has its own feedforward, the setting `dff` (PWM per turn/s, default 60): the PWM a speed needs goes straight to the wheels, so the angle loop's I term doesn't have to wind up to it and unwind it when you reverse.
 
 ### `POST /drive/stop`
 
@@ -89,7 +89,7 @@ tick,t_us,work_us,...,drive_speed,drive_turn
 1200,6012345,451,...
 ```
 
-`/log/meta` gives the `# setting,value` lines that go at the top of a saved log file. Columns are in `docs/CALIBRATION_AND_LOGS.md`. `tools/logger.py` is a ready-made client.
+`/log/meta` gives the `# setting,value` lines that go at the top of a saved log file. Columns are in `docs/CALIBRATION_AND_LOGS.md`. `tools/logger.py` is a ready-made client; `tools/drive_test.py` drives a scripted test with the same calls and records it.
 
 ### `GET /sys`
 

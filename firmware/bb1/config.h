@@ -101,14 +101,14 @@ const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about
 // goes straight (the right wheel is about 7% faster at the same PWM). Unit: PWM
 // moved from one wheel to the other per wheel turn of difference. 0 = off.
 const float DEFAULT_TURN_HOLD = 20;
-const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
+const float TURN_HOLD_MAX_PWM = 60;  // the steering correction never exceeds this. Was 40: a full turn (1 turn/s) needs about 45 of feedforward alone
 // Driving (milestone 2, drive.h): the page or the API asks for a wheel speed
 // and a turn rate; drive.h moves the speed loop's and the heading hold's
 // targets, and BB1 leans into it by itself. Like flying a quad in angle mode:
 // you ask for a speed, the loops work out the lean. Needs sp/si and th on.
 // Units are wheel turns per second (520 counts = 1 turn) until the wheel size is measured.
-const float DRIVE_MAX_SPEED   = 1.0;   // turns/s, forward or back. On the floor BB1 stays under about 2; the lift detector trips at 4
-const float DRIVE_MAX_TURN    = 1.0;   // turns/s of left-minus-right wheel difference (+ = turn right)
+constexpr float DRIVE_MAX_SPEED = 1.0;   // turns/s, forward or back. On the floor BB1 stays under about 2; the lift detector trips at 4
+constexpr float DRIVE_MAX_TURN  = 1.0;   // turns/s of left-minus-right wheel difference (+ = turn right)
 const float DRIVE_ACCEL       = 1.0;   // turns/s per second: how fast the speed target ramps (0 to full in 1 s)
 const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
 // Drive feedforward (setting "dff", live on /tune, saved in flash): PWM per
@@ -120,7 +120,9 @@ const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
 // feedforward does the same job for the sticks.
 const float DEFAULT_DRIVE_FF  = 60;
 const float DRIVE_FF_MAX      = 150;
-const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's)
+const float DRIVE_TURN_FF     = 45;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's).
+                                      // Was 15: turned at about 30% of the asked rate (2026-10-26). On wood a wheel needs about 87 PWM per
+                                      // turn/s; a turn T moves each wheel T/2, so about 43 per turn/s
 const float DRIVE_MAX_LAG     = 0.25;  // wheel turns (about 18 deg of heading): the heading target never runs further ahead of the wheels than this. Was 1.0: BB1 swung 35-90 deg after a turn catching up (floor test 1)
 const unsigned long DRIVE_HOLD_MS     = 500;    // a drive command lasts this long unless sent again (the page re-sends every 100 ms)
 const unsigned long DRIVE_HOLD_MAX_MS = 3000;   // longest a single command may ask for (ms=...)

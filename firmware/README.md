@@ -6,15 +6,17 @@
 | `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
-## bb1, milestone 2: driving (`drive.h`, 2026-10-25, not flashed yet)
+## bb1, milestone 2: driving (`drive.h`, 2026-10-25; changes of 2026-10-26 not flashed yet)
 
 BB1 drives by moving the **targets** of the speed loop and heading hold, never by sending PWM straight to the wheels, so the balance loop stays in charge (quad picture: angle mode with position hold, and the sticks move the hold point).
 
 - Speed: the speed loop now works on `speed - asked speed` and `position - target position`. While driving, the target position rides with the wheels; when BB1 comes to a stop it holds that spot (and that heading). Lean forward to speed up, back to slow down: the loop works it out.
-- Turn: the heading hold's target (right-minus-left wheel turns) slides at the asked turn rate, and `DRIVE_TURN_FF` (15 PWM per turn/s) adds the steering at once, like Betaflight feedforward, so the hold doesn't have to lag first. Still limited to ±40 PWM (`TURN_HOLD_MAX_PWM`).
+- Turn: the heading hold's target (right-minus-left wheel turns) slides at the asked turn rate, and `DRIVE_TURN_FF` (45 PWM per turn/s; was 15, which turned at about 30% of the asked rate in the 2026-10-26 floor tests) adds the steering at once, like Betaflight feedforward, so the hold doesn't have to lag first. Limited to ±60 PWM (`TURN_HOLD_MAX_PWM`, was 40).
 - Speed feedforward, setting **`dff`** (PWM per turn/s of speed target, default 60, /tune box **Drive FF (dff)**, serial `dff 60`, saved in flash, settings layout v5): added straight to both wheels. Why (first drive log, 2026-10-25): these motors are speed knobs, holding 1 turn/s takes about 105 PWM, and without feedforward the angle I term carried all of it (I about +100 going forward). Reversing, I had to unwind from +100 while the wheels kept rolling forward, BB1 tipped back past 9 deg, hit the cap and fell backward: every fall in that log. Feedforward takes most of that load off I.
 - Both ramp (`DRIVE_ACCEL` 1 turn/s per s, turn 2): a full jab can't kick it over. Limits ±1 turn/s each (`DRIVE_MAX_SPEED`, `DRIVE_MAX_TURN`); the lift detector is at 4.
 - Failsafe: a command lasts 500 ms (`DRIVE_HOLD_MS`, or `ms=` up to 3000). Not sent again = ramp to a stop and keep balancing. Disarm, fall or a new arm clears it. While turning, the heading target never gets more than 0.25 wheel turns (about 18 deg) ahead of the wheels (`DRIVE_MAX_LAG`; was 1.0, which made BB1 swing 35-90 deg after a turn and roll 2-3 turns after letting go, floor test 1).
+- Each axis only lets go of its own hold (2026-10-26): turning on the spot keeps the position hold (it rolled back 1-2 wheel turns per turn test), and driving straight keeps the full heading hold (the 0.25-turn lag clamp applies only while turning).
+- `driveCommand()` in `drive.h` is the one place that clamps a command and hands it to core 1, for both `POST /drive` and serial `drive`; non-numbers (`nan`) are refused (HTTP 400). An encoder fault also ends the command already running.
 - How to send it: the **Drive** panel on http://bb1.local, `POST /drive` (docs/API.md), or serial `drive 0.3 0 2000` / `drive stop`.
 - Log format 9: `drive_speed`, `drive_turn` (the operator command), flag 16 = stopping. Record is 76 bytes; static RAM 225.6 KB (heap about 36 KB, was 44 KB): check **Heap free** in Pico memory stays over 20 KB.
 

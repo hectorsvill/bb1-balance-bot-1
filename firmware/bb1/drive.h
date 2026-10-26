@@ -42,6 +42,23 @@ struct Drive {
 
 Drive drive;            // only core 1 touches this
 
+// Core 0 (POST /drive and serial "drive") hands a command to core 1 here, so
+// both paths clamp the same way. Returns false for a value that isn't a
+// number (speed=nan would get through constrain(): every comparison with NaN
+// is false). ms 0 = stop now. Speed and turn are written before the deadline:
+// core 1 only reads them once it sees the new deadline.
+bool driveCommand(float &speed, float &turn, long &ms) {
+  if (!isfinite(speed) || !isfinite(turn)) return false;
+  speed = constrain(speed, -DRIVE_MAX_SPEED, DRIVE_MAX_SPEED);
+  turn  = constrain(turn,  -DRIVE_MAX_TURN,  DRIVE_MAX_TURN);
+  ms    = constrain(ms, 0L, (long)DRIVE_HOLD_MAX_MS);
+  driveSpeedCmd = speed;
+  driveTurnCmd  = turn;
+  driveUntilMs  = ms ? millis() + ms : 0;
+  driveCommands = driveCommands + 1;
+  return true;
+}
+
 // On every arm: stand still where it is.
 void driveReset() {
   drive = Drive();
@@ -63,7 +80,7 @@ void driveUpdate(float dt, float posNow, float diffNow) {
   drive.wantSpeed = live ? driveSpeedCmd : 0;
   drive.wantTurn  = live ? driveTurnCmd  : 0;
 
-  bool wasMoving = drive.speed != 0 || drive.turn != 0;
+  bool wasDriving = drive.speed != 0, wasTurning = drive.turn != 0;
   drive.speed = rampToward(drive.speed, drive.wantSpeed, DRIVE_ACCEL * dt);
   drive.turn  = rampToward(drive.turn,  drive.wantTurn,  DRIVE_TURN_ACCEL * dt);
   bool moving = drive.speed != 0 || drive.turn != 0;
@@ -78,16 +95,20 @@ void driveUpdate(float dt, float posNow, float diffNow) {
   // Why (floor test 1, 2026-10-25): with a full turn of lag allowed, BB1 kept
   // rolling 2-3 wheel turns and swinging 35-90 deg after you let go, catching
   // up targets that had run ahead.
-  if (moving) {
-    drive.pos   = posNow;
+  // Each axis only lets go of its own hold: turning on the spot keeps the
+  // position hold (it rolled back 1-2 wheel turns per turn test without it,
+  // 2026-10-26), and driving straight keeps the full heading hold (the lag
+  // clamp capped it at th x 0.25 = 5 PWM, under the ~7 PWM the faster right
+  // wheel needs).
+  if (drive.speed != 0) drive.pos = posNow;
+  if (drive.turn != 0) {
     drive.diff -= drive.turn * dt;
     drive.diff  = constrain(drive.diff, diffNow - DRIVE_MAX_LAG, diffNow + DRIVE_MAX_LAG);
   }
-  // Just came to a stop: hold right here, facing the way it faces now.
-  if (wasMoving && !moving) {
-    drive.pos  = posNow;
-    drive.diff = diffNow;
-  }
+  // Just stopped driving: hold right here. Just stopped turning: face the
+  // way it faces now. (Per axis, like above.)
+  if (wasDriving && drive.speed == 0) drive.pos  = posNow;
+  if (wasTurning && drive.turn == 0)  drive.diff = diffNow;
 
   driveSpeedNow = drive.speed;
   driveTurnNow  = drive.turn;

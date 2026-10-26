@@ -125,7 +125,8 @@ def record(tick):
 
 def drive_now():
     """The drive command if it hasn't run out (mock: no ramp), else (0, 0)."""
-    if armed_from is None or time.time() >= drive["until"]:
+    # A command never outlives the arm it was given in (balanceArm/balanceDisarm clear it)
+    if armed_from is None or drive.get("arm") != armed_from or time.time() >= drive["until"]:
         return 0.0, 0.0
     return drive["speed"], drive["turn"]
 
@@ -294,11 +295,18 @@ class Handler(BaseHTTPRequestHandler):
             # Same rules as handleDrive() in web.h (mock: the wheels don't really move).
             if armed_from is None:
                 return self.reply('{"ok":false,"error":"not balancing: arm first (POST /arm)"}', "application/json", 409)
-            num = lambda k: float(form.get(k) or 0)
-            speed = max(-DRIVE_MAX_SPEED, min(DRIVE_MAX_SPEED, num("speed")))
-            turn = max(-DRIVE_MAX_TURN, min(DRIVE_MAX_TURN, num("turn")))
-            ms = int(max(0, min(DRIVE_HOLD_MAX_MS, int(form.get("ms") or DRIVE_HOLD_MS))))
-            drive.update(speed=speed, turn=turn, until=time.time() + ms / 1000, commands=drive["commands"] + 1)
+            def num(k, default=0.0):
+                # Like Arduino's String.toFloat(): the leading number, 0 if there is none
+                m = re.match(r"\s*[-+]?(\d+\.?\d*|\.\d+|nan|inf)", form.get(k) or "", re.I)
+                return float(m.group(0)) if m else (default if form.get(k) is None else 0.0)
+            speed, turn = num("speed"), num("turn")
+            if not (math.isfinite(speed) and math.isfinite(turn)):
+                return self.reply('{"ok":false,"error":"speed and turn must be numbers"}', "application/json", 400)
+            speed = max(-DRIVE_MAX_SPEED, min(DRIVE_MAX_SPEED, speed))
+            turn = max(-DRIVE_MAX_TURN, min(DRIVE_MAX_TURN, turn))
+            ms = int(max(0, min(DRIVE_HOLD_MAX_MS, int(num("ms", DRIVE_HOLD_MS)))))
+            drive.update(speed=speed, turn=turn, until=time.time() + ms / 1000 if ms else 0.0,
+                         commands=drive["commands"] + 1, arm=armed_from)
             self.reply(json.dumps({"ok": True, "speed": speed, "turn": turn, "ms": ms}), "application/json")
         elif self.path == "/drive/stop":
             drive["until"] = 0.0
