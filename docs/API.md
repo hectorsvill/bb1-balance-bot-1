@@ -8,6 +8,54 @@ Everything the web pages do goes through this API, so anything else (curl, a Pyt
 - **Answers:** `/state`, `/sys`, `/wifi` (GET) and `/drive` answer JSON. Older actions answer one line of plain text meant for a person. Errors use the status code: `400` bad argument, `409` not allowed right now (the text says why), `404` unknown path.
 - **Units:** degrees, deg/s, PWM (-255..255, forward +), wheel turns per second (520 encoder counts = 1 turn, assumed). Forward and turn right are positive.
 
+## Every endpoint with curl
+
+Copy-paste versions of every route in `web.h`. Set `B` once per terminal. Use the IP if `bb1.local` is slow (it can time out on macOS). Use `http://localhost:8080` for the mock. **Anything marked "moves" turns the wheels:** check BB1 is on the floor with room to move, or wheels in the air for `/motor`.
+
+```bash
+B=http://bb1.local                      # or http://192.168.1.240, http://192.168.42.1, http://localhost:8080
+
+# Reading (safe any time)
+curl -s $B/state                        # everything now, JSON (also the heartbeat)
+curl -s $B/state | python3 -m json.tool # the same, readable
+curl -s "$B/log?since=0"                # log records as CSV (up to 1000; ask since=<to> next)
+curl -s $B/log/meta                     # the "# setting" lines for the top of a log file
+curl -s $B/sys                          # RAM and flash use, JSON
+curl -s $B/wifi                         # network mode and saved home network name, JSON
+curl -s $B/ -o page.html                # the main page; /tune is the tuning page
+curl -s $B/tune -o tune.html
+
+# Balancing (moves)
+curl -X POST $B/arm -d seconds=0 -d heartbeat=0   # balance, no time limit, no /state polls needed
+curl -X POST $B/arm -d seconds=10                 # balance 10 s; disarms after 2 s without a /state poll
+curl -X POST $B/disarm                            # stop balancing: motors off, hold BB1 first
+curl -X POST $B/motor/stop                        # STOP: end a motor test and disarm
+curl -X POST $B/step                              # step test while armed: setpoint +2 deg for 1 s
+
+# Driving (moves, only while armed)
+curl -X POST $B/drive -d speed=0.3 -d ms=2000     # forward 0.3 wheel turns/s for 2 s
+curl -X POST $B/drive -d turn=0.5 -d ms=1000      # turn right on the spot for 1 s
+curl -X POST $B/drive -d speed=-0.3 -d turn=-0.2  # back and left, 500 ms (the default)
+curl -X POST $B/drive/stop                        # ramp to a stop, keep balancing
+
+# Settings
+curl -X POST $B/gains -d sp=8 -d dff=90           # change any of kp ki kd trim cap deadband sp si th auto dff (RAM only)
+curl -X POST $B/gains -d trim=here                # trim = the current pitch
+curl -X POST $B/disarm && curl -X POST $B/gains/save   # store the gains in flash (disarmed only: hold BB1)
+curl -X POST $B/gains/defaults                    # back to the config.h defaults (save to keep)
+curl -X POST $B/alpha -d value=0.98               # angle filter weight, 0.90..0.999
+curl -X POST $B/cal                               # recalibrate the gyro: 2 s, keep still, disarms
+
+# Motor test (moves: wheels in the air, disarmed only, stops by itself)
+curl -X POST $B/motor -d left=80 -d right=80 -d ms=1000   # PWM up to ±150, at most 3000 ms
+
+# Network (BB1 restarts)
+curl -X POST $B/wifi --data-urlencode ssid='MyHome' --data-urlencode password='...'   # join a home network
+curl -X POST $B/wifi/forget                       # forget it, back to its own network "BB1"
+```
+
+Answers: `/state`, `/sys`, `GET /wifi` and `/drive` send JSON. The other actions send one line of text. A `409` says why it wasn't allowed (for example `/gains/save` while armed). Add `-w ' %{http_code}\n'` to see the status code.
+
 ## Driving (milestone 2)
 
 BB1 must be balancing (armed). It drives by moving the targets of its speed loop and heading hold (`firmware/bb1/drive.h`), never by sending PWM straight to the wheels, so the balance loop stays in charge.
