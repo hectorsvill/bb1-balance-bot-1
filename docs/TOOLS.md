@@ -208,6 +208,16 @@ Safety: refuses to start unless `/state` says armed and `enc_fault` 0. Each `/dr
 
 The report has one line per step: asked speed and turn; what the wheels did (average of the step's last half, turns/s); **stop** = furthest it rolled (or turned) on after the command ended (goal under 0.5 turn); **head** = heading drift; max lean forward/back; peak PWM; **sat%** (flag 8); **drop** = seconds the command ran out mid-step (Wi-Fi stall: don't compare gains on that step); flags (ENCODER FAULT printed in capitals). Then run `pid_report.py` on the same file for the balance side.
 
+### drive_explore.py: long random driving inside a box, for training logs
+
+**Moves BB1, for a long time.** BB1 balancing in the middle of a clear square.
+
+```bash
+tools/venv/bin/python tools/drive_explore.py --box 1.5 --minutes 60 --surface wood -n "explore 1"
+```
+
+Random moves (forward, back, spin, arc, stop; 1-4 s each, up to `--max-speed` 0.4 turns/s), each a `# step` line. Keeps inside the box with odometry from the encoders (65 mm wheels and 0.17 m track assumed, not measured; uses 80% of the box because odometry drifts): near the edge it turns to the middle and drives back. Saves a complete log every `--chunk` minutes (default 5) as `..._explore-pN.csv`. Stops for good on a fall, an encoder fault, battery under `--min-cell` (3.5 V/cell) or past the box edge; a Wi-Fi stall only pauses it (gives up after 30 s). Same 1 s commands as drive_test.py. For the mock, add `--host localhost:8080 --out-dir <scratch folder>` so mock logs never land in `logs/`.
+
 ### dataset.py: every real log as one training table
 
 ```bash
