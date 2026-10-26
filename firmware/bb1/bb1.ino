@@ -195,8 +195,13 @@ void loop1() {
   static WheelSpeed speedL, speedR;
   r.enc_l   = encoderLeft();
   r.enc_r   = encoderRight();
-  r.speed_l = (int16_t)constrain(speedL.update(r.enc_l), -32000.0f, 32000.0f);
-  r.speed_r = (int16_t)constrain(speedR.update(r.enc_r), -32000.0f, 32000.0f);
+  // update() first, into a variable: constrain() is a macro that repeats its
+  // first argument up to 3 times, so constrain(speedL.update(...)) stepped the
+  // 10-tick window 3 times a tick (a 3-tick window, speed 3.3x too low, from
+  // step 5 until 2026-10-26).
+  float speedLeft = speedL.update(r.enc_l), speedRight = speedR.update(r.enc_r);
+  r.speed_l = (int16_t)constrain(speedLeft,  -32000.0f, 32000.0f);
+  r.speed_r = (int16_t)constrain(speedRight, -32000.0f, 32000.0f);
   if (test.running && millis() - test.startMs >= test.durationMs) motorTestStop();   // time's up
 
   // Auto-arm (auto_arm.h): stood upright and held still -> start balancing.

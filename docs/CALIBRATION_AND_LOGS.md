@@ -198,7 +198,7 @@ Since step 4 the top lines come from `log_meta.h`:
 | `pitch_rate` | deg/s | gyro X, bias removed, forward + |
 | `accel_pitch` | deg | accelerometer-only pitch |
 | `enc_l` `enc_r` | counts | encoder counts since boot, forward +. 520 per wheel turn (assumed) |
-| `speed_l` `speed_r` | counts/s | wheel speed over the last 10 ticks (50 ms), forward + |
+| `speed_l` `speed_r` | counts/s | wheel speed over the last 10 ticks (50 ms), forward +. **Logs before format 10 (before 2026-10-26) read 3.3x low**: the `constrain()` macro called the speed update 3 times a tick, so they are counts over the last 3 ticks x 20. Multiply by 10/3 for counts/s (`dataset.py` does), or use the `enc_l`/`enc_r` differences |
 | `pwm_l` `pwm_r` | -255..255 | what was sent to each motor this tick, forward +. 0 = motor off. This is the robot's "action" for training. |
 | `setpoint` | deg | the balance trim in use (step 6) |
 | `p_term` `i_term` `d_term` | PWM | the PID's three parts this tick (0 when disarmed). pwm = p + i + d (+ deadband), clamped to the cap |

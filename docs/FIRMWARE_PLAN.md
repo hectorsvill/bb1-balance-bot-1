@@ -202,6 +202,7 @@ What is still missing, smallest fix first:
 | Wi-Fi stalls: 1,810 rows where a drive step was running but the command had run out | the action column says 0 while the operator meant to drive: label noise | tooling done for scripted runs (`step` column says what was asked); the stall itself is an open item (CHANGELOG) |
 | Logs from before the encoder detector (2026-10-25) have a dead left encoder with no flag 32 | wrong wheel data | done in tooling: `dataset.py` re-runs the firmware's fault rule and drops those rows (3,271) |
 | Old `# gains_vN` lines have no `dff` | can't tell feedforward settings apart | done: `dataset.py` fills it from the header; `logger.py` and `handheld.py` now share one `GAIN_KEYS` list |
+| `speed_l`/`speed_r` read 3.3x low before log format 10 (`constrain()` bug, CHANGELOG 2026-10-26) | wrong speeds, and the controller acted on them | done: firmware fixed (format 10); `dataset.py` rescales old logs by 10/3 |
 | Units: 520 counts per turn is assumed, wheel size and track width unmeasured | speeds and turns in real units (m/s, deg/s) for a model that moves in the room | measure them (docs/API.md, AI-agent milestone item 2) |
 
 ## 7. Steps (one at a time, tested on the bot between each)

@@ -93,7 +93,7 @@ const float DEFAULT_DEADBAND = 10;  // PWM added so small corrections still turn
 // instead of running away. Units: degrees of target lean per wheel turn per
 // second (speed P) and per wheel turn rolled since arming (speed I = position).
 // 0 = off, which is the angle loop alone, as before step 8.
-const float DEFAULT_SPEED_P = 4.0;
+const float DEFAULT_SPEED_P = 1.2;   // was 4.0, tuned on a wheel speed that read 3.3x low (constrain() bug, 2026-10-26): 4 x 0.3 = 1.2 keeps the same standing behavior
 const float DEFAULT_SPEED_I = 0.5;
 const float SPEED_SHIFT_MAX = 6.0;   // deg: the speed loop never moves the target more than this
 const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about 0.1 s) so encoder steps don't kick the angle loop
@@ -118,7 +118,7 @@ const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
 // PWM, and when you reverse it has to unwind all of it first: meanwhile the
 // wheels keep rolling the old way, BB1 tips back and falls. Betaflight's
 // feedforward does the same job for the sticks.
-const float DEFAULT_DRIVE_FF  = 60;
+const float DEFAULT_DRIVE_FF  = 25;   // was 60 (and "105 PWM per turn/s" above), from the 3.3x-low speed. Real slope on wood: about 26 PWM per real turn/s
 const float DRIVE_FF_MAX      = 150;
 const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's).
                                       // Tried 45 on 2026-10-26 from a misread log (logged wheel speed is 3.3x low): real turn rate went
@@ -141,12 +141,13 @@ const unsigned long AUTO_FALL_WINDOW_MS = 30000;  // ...within this long: auto-a
 // Bad counts make the heading hold spin BB1 in circles and the speed loop
 // under-brake, so while faulted the hold is off, driving is refused, and the
 // page and log say so. Cleared by the next arm.
-const float ENC_FAULT_MIN_SPEED = 150;   // counts/s the good wheel must be doing
+const float ENC_FAULT_MIN_SPEED = 500;   // counts/s the good wheel must be doing (was 150 on the 3.3x-low speed: same real speed)
 const float ENC_FAULT_RATIO     = 0.2;   // the other wheel reads under this fraction of it
 const unsigned long ENC_FAULT_MS = 300;
 // Lift detector (control.h): wheels faster than this for this long while armed
 // = picked up or in the air, motors off. On the floor it stays under about 2.
-const float LIFT_TURNS_PER_SEC = 4.0;   // wheel turns per second, average of both wheels
+const float LIFT_TURNS_PER_SEC = 4.0;   // wheel turns per second, average of both wheels. Until 2026-10-26 the speed read 3.3x low,
+                                        // so this really needed about 13 turns/s and never tripped (in the air: about 3.4 at PWM 100)
 const unsigned long LIFT_MS    = 500;
 // Limits for the settings above, wherever they're set from (serial, the pages, flash).
 const float GAIN_P_MAX = 100;

@@ -9,6 +9,14 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-26 - fix: wheel speed read 3.3x low (not flashed yet)
+
+- **Cause:** `bb1.ino` did `constrain(speedL.update(r.enc_l), ...)`. Arduino's `constrain()` is a macro that repeats its first argument up to 3 times, so `update()` ran 3 times a tick and the 10-slot window covered 3 ticks: speed = 20 x counts over 3 ticks, 3.3x low. Since step 5 (2026-10-21). Found by a wheels-in-the-air motor test (PWM 80: encoders 1410 / 1474 counts/s, speed 423 / 442) and the disassembly (3 calls per wheel). Fix: call `update()` once into a variable, then constrain
+- **Scale-dependent settings changed so behavior stays the same:** `DEFAULT_SPEED_P` 4 → 1.2 (4 x 0.3; same standing behavior, and drive targets now mean real turns/s); `ENC_FAULT_MIN_SPEED` 150 → 500 counts/s (same real speed); `DEFAULT_DRIVE_FF` 60 → 25 (real floor slope about 26 PWM per real turn/s)
+- **Lift detector:** `LIFT_TURNS_PER_SEC` stays 4, which is now 4 real turns/s. Before, it needed about 13 real turns/s and could never trip (in the air: about 3.4 at PWM 100)
+- **Log format 10.** Older logs' `speed_l`/`speed_r` are 3.3x low; `dataset.py` multiplies them by 10/3. `drive_test.py` already uses encoder counts
+- **After flashing:** the flash still holds sp 8 / dff 90 (saved earlier today on the wrong scale). Set the defaults and save before standing BB1 up
+
 ## 2026-10-26 - drive tests, drive tuning, training set
 
 - **Correction (later the same day): the logged wheel speed reads 3.3x too low.** In every log `speed_l`/`speed_r` = 20 x (counts over the last **3** ticks), not 10 as `WheelSpeed`/`SPEED_WINDOW` say (the compiled object has the 10-deep window; cause not found yet). Encoder counts are right. So BB1 really drives 2-3x faster than asked, and the speed findings below are wrong: sp 8 / dff 90 made the overspeed worse (put back to sp 4 / dff 60 live, not saved), and turning was fine (0.42-0.51 real for 0.5), so `DRIVE_TURN_FF` 45 now overshoots (0.80) and is back to 15 (`TURN_HOLD_MAX_PWM` back to 40). `drive_test.py`'s report now takes speed from the encoder counts. The speed loop, the lift detector and the encoder fault rule all use this speed

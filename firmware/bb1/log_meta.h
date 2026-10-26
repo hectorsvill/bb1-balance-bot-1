@@ -12,7 +12,7 @@
 
 // Bump this when the log columns change, so old and new files can be told apart.
 const char *FIRMWARE_NAME = "bb1 milestone 2";
-const int   LOG_FORMAT    = 9;   // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping
+const int   LOG_FORMAT    = 10;  // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping; 10: speed_l/speed_r really over 10 ticks (before: 3 ticks, read 3.3x low)
 
 String logMetaLines() {
   String m;

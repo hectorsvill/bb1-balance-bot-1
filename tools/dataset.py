@@ -7,17 +7,19 @@ Usage:
 What it does (rules: docs/FIRMWARE_PLAN.md section 6):
   1. reads logs/bb1_*.csv, skips mock logs (# firmware,bb1 MOCK) and logs
      older than format 9 (no drive_speed / drive_turn = no operator action)
-  2. drops rows with an IMU read error (flag 1) or an encoder fault (flag 32),
+  2. logs before format 10: multiplies speed_l/speed_r by 10/3 (they read
+     3.3x low, CHANGELOG 2026-10-26), so every row has the same speed scale
+  3. drops rows with an IMU read error (flag 1) or an encoder fault (flag 32),
      and rows where the firmware's encoder fault rule trips on the log itself
      (older logs had a dead encoder before the detector existed): their sensor
      values are wrong, a model shouldn't learn from them
-  3. splits each log into armed segments (one per arm) and labels each with
+  4. splits each log into armed segments (one per arm) and labels each with
      how it ended: timer, stopped (you, STOP, page hidden, Wi-Fi, battery,
      picked up), fell, or log_ended (recording stopped while it balanced)
-  4. adds the context columns from the file's header to every row: file,
+  5. adds the context columns from the file's header to every row: file,
      segment, outcome, surface, note, gains (the "# gains_vN" text for the
      row's gains_ver), and the drive_test step if there is one
-  5. writes logs/dataset/bb1_dataset.csv.gz and prints a summary
+  6. writes logs/dataset/bb1_dataset.csv.gz and prints a summary
 
 Kept as gzipped CSV (pandas reads it with read_csv) so no new library is needed.
 """
@@ -35,7 +37,8 @@ MODE_ARMED, MODE_FALLEN = 4, 5       # telemetry.h
 FLAG_IMU_ERROR, FLAG_ENC_FAULT = 1, 32
 # The firmware's encoder fault rule (config.h ENC_FAULT_*), run again here because
 # logs from before the detector (2026-10-25) have a dead left encoder with no flag 32
-ENC_FAULT_MIN_SPEED, ENC_FAULT_RATIO, ENC_FAULT_TICKS = 150, 0.2, 60
+ENC_FAULT_MIN_SPEED, ENC_FAULT_RATIO, ENC_FAULT_TICKS = 500, 0.2, 60   # counts/s on the fixed speed scale
+OLD_SPEED_SCALE = 10 / 3            # logs before format 10: speed_l/speed_r read 3.3x low (constrain() bug)
 # Disarm reasons (control.h DisarmReason) grouped into the three outcomes a model cares about
 REASON_OUTCOME = {1: "stopped", 2: "fell", 3: "stopped", 4: "stopped", 5: "stopped", 9: "stopped",
                   10: "stopped", 11: "timer", 12: "stopped", 13: "stopped"}
@@ -85,6 +88,8 @@ def load_one(path, all_rows):
     if fmt < MIN_FORMAT:
         return None, f"format {fmt}"
     df, _ = load_dump(path)
+    if fmt < 10:                                         # put old speeds on the real scale (counts/s)
+        df[["speed_l", "speed_r"]] = (df[["speed_l", "speed_r"]] * OLD_SPEED_SCALE).round()
     gains = {int(k[7:]): v for k, v in meta.items() if k[:7] == "gains_v" and k[7:].isdigit()}   # "# gains_v7,kp 18 ..." (not "# gains_ver")
     # Older "# gains_vN" lines were written before dff existed; the "# gains_ver,N,...,drive_ff,60"
     # line (the gains when the log started) has it, so fill it in for that version.
