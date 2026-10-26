@@ -224,10 +224,12 @@ def report(path):
         if g.empty:
             continue
         lean = g.pitch - g.setpoint
-        # Wheel speed over the last half of the step (after the ramp), turns/s
+        # Real speed over the last half of the step (after the ramp), turns/s, from the
+        # encoder counts. Not from speed_l/speed_r: those read 3.3x low (CHANGELOG 2026-10-26)
         late = g.iloc[len(g) // 2:]
-        got_s = ((late.speed_l + late.speed_r) / 2).mean() / COUNTS_PER_REV
-        got_t = ((late.speed_l - late.speed_r)).mean() / COUNTS_PER_REV
+        secs = (late.t_us.iloc[-1] - late.t_us.iloc[0]) / 1e6 or 1
+        got_s = (pos[late.index[-1]] - pos[late.index[0]]) / secs
+        got_t = (head[late.index[-1]] - head[late.index[0]]) / secs
         # Stop: the furthest it rolled on (or kept turning) past where the command ended,
         # during the next pause, in turns. Driving: wheel turns; turning on the spot: heading.
         stop = turn_drift = np.nan

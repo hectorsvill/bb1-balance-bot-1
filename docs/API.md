@@ -80,7 +80,7 @@ Not balancing: `409` and `{"ok":false,"error":"not balancing: arm first (POST /a
 
 Speed and turn ramp toward what you ask (1 turn/s per second, turn twice as fast), so a full jab can't tip it over. Disarming, a fall or a new arm clears the command.
 
-Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are by default (sp 4, si 0.5, th 20). With `th 0` turning still works on feedforward alone (`DRIVE_TURN_FF`, 45 PWM per turn/s), just less exactly. Turning on the spot keeps the position hold, and driving straight keeps the full heading hold (each axis only lets go of its own hold). Speed has its own feedforward, the setting `dff` (PWM per turn/s, default 60): the PWM a speed needs goes straight to the wheels, so the angle loop's I term doesn't have to wind up to it and unwind it when you reverse.
+Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are by default (sp 4, si 0.5, th 20). With `th 0` turning still works on feedforward alone (`DRIVE_TURN_FF`, 15 PWM per turn/s), just less exactly. Turning on the spot keeps the position hold, and driving straight keeps the full heading hold (each axis only lets go of its own hold). Speed has its own feedforward, the setting `dff` (PWM per turn/s, default 60): the PWM a speed needs goes straight to the wheels, so the angle loop's I term doesn't have to wind up to it and unwind it when you reverse.
 
 ### `POST /drive/stop`
 

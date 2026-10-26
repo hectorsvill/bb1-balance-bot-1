@@ -101,7 +101,7 @@ const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about
 // goes straight (the right wheel is about 7% faster at the same PWM). Unit: PWM
 // moved from one wheel to the other per wheel turn of difference. 0 = off.
 const float DEFAULT_TURN_HOLD = 20;
-const float TURN_HOLD_MAX_PWM = 60;  // the steering correction never exceeds this. Was 40: a full turn (1 turn/s) needs about 45 of feedforward alone
+const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
 // Driving (milestone 2, drive.h): the page or the API asks for a wheel speed
 // and a turn rate; drive.h moves the speed loop's and the heading hold's
 // targets, and BB1 leans into it by itself. Like flying a quad in angle mode:
@@ -120,9 +120,9 @@ const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
 // feedforward does the same job for the sticks.
 const float DEFAULT_DRIVE_FF  = 60;
 const float DRIVE_FF_MAX      = 150;
-const float DRIVE_TURN_FF     = 45;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's).
-                                      // Was 15: turned at about 30% of the asked rate (2026-10-26). On wood a wheel needs about 87 PWM per
-                                      // turn/s; a turn T moves each wheel T/2, so about 43 per turn/s
+const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's).
+                                      // Tried 45 on 2026-10-26 from a misread log (logged wheel speed is 3.3x low): real turn rate went
+                                      // 0.5 asked -> 0.80. At 15 it turned 0.42-0.51 (encoder counts)
 const float DRIVE_MAX_LAG     = 0.25;  // wheel turns (about 18 deg of heading): the heading target never runs further ahead of the wheels than this. Was 1.0: BB1 swung 35-90 deg after a turn catching up (floor test 1)
 const unsigned long DRIVE_HOLD_MS     = 500;    // a drive command lasts this long unless sent again (the page re-sends every 100 ms)
 const unsigned long DRIVE_HOLD_MAX_MS = 3000;   // longest a single command may ask for (ms=...)
