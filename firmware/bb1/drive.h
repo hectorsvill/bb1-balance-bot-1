@@ -38,6 +38,7 @@ struct Drive {
   float pos   = 0;      // position target, wheel turns since arming
   float diff  = 0;      // heading target, right-minus-left wheel turns since arming
   bool  stopping = false; // the command ran out (or was stopped) and it is ramping down
+  float lean  = 0;      // deg the speed I (sdi) has built up while driving (control.h)
 };
 
 Drive drive;            // only core 1 touches this

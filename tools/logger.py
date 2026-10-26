@@ -63,7 +63,7 @@ def log_path(note, started, out=None):
 
 # Every setting POST /gains takes, in the order the "# gains_vN" lines list them.
 # handheld.py uses the same list: keep one copy so a new setting reaches every log.
-GAIN_KEYS = ("kp", "ki", "kd", "trim", "cap", "deadband", "sp", "si", "th", "auto", "dff")
+GAIN_KEYS = ("kp", "ki", "kd", "trim", "cap", "deadband", "sp", "si", "th", "auto", "dff", "sdi")
 
 
 def gains_versions(state_json, versions):

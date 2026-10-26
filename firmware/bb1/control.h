@@ -167,7 +167,13 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     r.drive_speed = (int8_t)lroundf(drive.wantSpeed * 100);              // log the operator's command, hundredths of a turn/s
     r.drive_turn  = (int8_t)lroundf(drive.wantTurn * 100);               // (the ramped target follows from it and the # drive_ settings)
     // Faster than asked -> lean back (negative); slower -> lean forward.
-    float shift = -(gainSpeedP * (turnsPerSec - drive.speed) + gainSpeedI * (turns - drive.pos));
+    // Drive speed I (sdi, config.h): while driving, keep adding lean for as
+    // long as BB1 is slower than asked (less when faster). After a stop it
+    // fades out instead of snapping, so the setpoint doesn't jump.
+    if (drive.speed != 0) drive.lean += gainDriveSpeedI * (drive.speed - turnsPerSec) * dt;
+    else                  drive.lean -= drive.lean * min(1.0f, dt / DRIVE_LEAN_FADE_S);
+    drive.lean = constrain(drive.lean, -SPEED_SHIFT_MAX, SPEED_SHIFT_MAX);
+    float shift = -(gainSpeedP * (turnsPerSec - drive.speed) + gainSpeedI * (turns - drive.pos)) + drive.lean;
     setpoint += constrain(shift, -SPEED_SHIFT_MAX, SPEED_SHIFT_MAX);
   }
   r.setpoint_cdeg = (int16_t)(setpoint * 100);

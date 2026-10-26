@@ -41,6 +41,7 @@ bool setBalanceSetting(String name, const String &value) {
   else if (name == "si")                gainSpeedI = constrain(v, 0.0f, SPEED_GAIN_MAX);   // speed loop I (position)
   else if (name == "th")                gainTurnHold = constrain(v, 0.0f, TURN_HOLD_GAIN_MAX);   // heading hold
   else if (name == "dff")               gainDriveFF = constrain(v, 0.0f, DRIVE_FF_MAX);         // drive feedforward
+  else if (name == "sdi")               gainDriveSpeedI = constrain(v, 0.0f, DRIVE_SPEED_I_MAX); // drive speed I
   else if (name == "auto")              autoArm = (v >= 0.5f) ? 1 : 0;                         // auto-arm on / off
   else return false;
   return true;
@@ -52,7 +53,7 @@ bool setBalanceSetting(String name, const String &value) {
 String gainsLine() {
   return "gains v" + String(gainsVersion) + ": kp " + String(gainP, 2) + "  ki " + String(gainI, 2) +
          "  kd " + String(gainD, 2) + "  trim " + String(balanceTrim, 2) + " deg  cap " + String(pwmCap, 0) +
-         "  deadband " + String(motorDeadband, 0) + "  sp " + String(gainSpeedP, 2) + "  si " + String(gainSpeedI, 2) + "  th " + String(gainTurnHold, 1) + "  auto " + String((int)autoArm) + "  dff " + String(gainDriveFF, 0);
+         "  deadband " + String(motorDeadband, 0) + "  sp " + String(gainSpeedP, 2) + "  si " + String(gainSpeedI, 2) + "  th " + String(gainTurnHold, 1) + "  auto " + String((int)autoArm) + "  dff " + String(gainDriveFF, 0) + "  sdi " + String(gainDriveSpeedI, 2);
 }
 
 void printGains() {
@@ -62,7 +63,8 @@ void printGains() {
 const int      SETTINGS_ADDR  = 128;
 // "This really is our data", and its layout version. Fields are only ever
 // added at the end, so an older layout is just a shorter prefix and still loads.
-const uint32_t SETTINGS_MAGIC    = 0xBB1C0005;   // v5: + drive feedforward
+const uint32_t SETTINGS_MAGIC    = 0xBB1C0006;   // v6: + drive speed I
+const uint32_t SETTINGS_MAGIC_V5 = 0xBB1C0005;   // v5: + drive feedforward
 const uint32_t SETTINGS_MAGIC_V4 = 0xBB1C0004;   // v4: + auto-arm
 const uint32_t SETTINGS_MAGIC_V3 = 0xBB1C0003;   // v3: + heading hold
 const uint32_t SETTINGS_MAGIC_V2 = 0xBB1C0002;   // v2: + speed loop gains
@@ -75,6 +77,7 @@ struct SavedSettings {
   float turnHold;                                        // heading hold (layout v3)
   float autoArm;                                         // auto-arm on / off (layout v4)
   float driveFF;                                         // drive feedforward (layout v5)
+  float driveSpeedI;                                     // drive speed I (layout v6)
 };
 
 // Called once on core 0 after wifiStart() (which opens the EEPROM area).
@@ -82,7 +85,7 @@ struct SavedSettings {
 bool settingsLoad() {
   SavedSettings s;
   EEPROM.get(SETTINGS_ADDR, s);
-  int version = s.magic == SETTINGS_MAGIC ? 5 : s.magic == SETTINGS_MAGIC_V4 ? 4 : s.magic == SETTINGS_MAGIC_V3 ? 3 :
+  int version = s.magic == SETTINGS_MAGIC ? 6 : s.magic == SETTINGS_MAGIC_V5 ? 5 : s.magic == SETTINGS_MAGIC_V4 ? 4 : s.magic == SETTINGS_MAGIC_V3 ? 3 :
                 s.magic == SETTINGS_MAGIC_V2 ? 2 : s.magic == SETTINGS_MAGIC_V1 ? 1 : 0;
   if (version == 0) return false;                       // never saved: keep the config.h defaults
   // Through the same limits as serial and the page, in case the flash holds something odd.
@@ -99,6 +102,7 @@ bool settingsLoad() {
   if (version >= 3) setBalanceSetting("th", String(s.turnHold, 4));
   if (version >= 4) setBalanceSetting("auto", String(s.autoArm, 0));
   if (version >= 5) setBalanceSetting("dff", String(s.driveFF, 4));   // older saves keep the config.h default
+  if (version >= 6) setBalanceSetting("sdi", String(s.driveSpeedI, 4));
   gainsVersion = gainsVersion + 1;
   return true;
 }
@@ -106,7 +110,7 @@ bool settingsLoad() {
 // Save what's in use now. Returns an explanation for the page / serial.
 String settingsSave() {
   if (robotArmed || motorTestRunning) return "disarm first: saving pauses the control loop for a moment";
-  SavedSettings s = { SETTINGS_MAGIC, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, autoArm, gainDriveFF };
+  SavedSettings s = { SETTINGS_MAGIC, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, autoArm, gainDriveFF, gainDriveSpeedI };
   EEPROM.put(SETTINGS_ADDR, s);
   EEPROM.commit();                                       // the actual flash write
   return "saved: " + gainsLine();
@@ -118,5 +122,6 @@ void settingsDefaults() {
   balanceTrim = DEFAULT_TRIM; pwmCap = DEFAULT_PWM_CAP; motorDeadband = DEFAULT_DEADBAND;
   gainSpeedP = DEFAULT_SPEED_P; gainSpeedI = DEFAULT_SPEED_I; gainTurnHold = DEFAULT_TURN_HOLD; autoArm = DEFAULT_AUTO_ARM;
   gainDriveFF = DEFAULT_DRIVE_FF;
+  gainDriveSpeedI = DEFAULT_DRIVE_SPEED_I;
   gainsVersion = gainsVersion + 1;
 }

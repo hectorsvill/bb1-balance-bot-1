@@ -9,7 +9,12 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
-## 2026-10-26 - fix: wheel speed read 3.3x low (not flashed yet)
+## 2026-10-26 - drive speed I (`sdi`), not flashed yet
+
+- After the speed fix (flashed): standing as good or better (wobble 0.3 deg), but **forward drive stuck** (0.01 of 0.5 asked) and reverse overshot (−0.75 for −0.5). On wood the angle loop's I term is the real wheel-speed command and the speed loop only moves the setpoint; with P alone the lean it asks for (sp x error, 0.6 deg) never broke BB1 free forward. sp 2.4 didn't help
+- New setting **`sdi`** (drive speed I, default 2): while driving, adds that many degrees of lean per second for every turn/s it is slower than asked (less when faster). Capped by `SPEED_SHIFT_MAX`, fades out over 0.5 s after a stop (`DRIVE_LEAN_FADE_S`), reset on every arm. Live on /tune (**Drive I (sdi)**), serial `sdi N`, `/state` gains `sdi`, saved in flash (settings layout v6; v5 saves load with the default), `# gains_ver` line `drive_speed_i`. Mock, `logger.py`/`handheld.py` `GAIN_KEYS` updated
+
+## 2026-10-26 - fix: wheel speed read 3.3x low (flashed 18:40)
 
 - **Cause:** `bb1.ino` did `constrain(speedL.update(r.enc_l), ...)`. Arduino's `constrain()` is a macro that repeats its first argument up to 3 times, so `update()` ran 3 times a tick and the 10-slot window covered 3 ticks: speed = 20 x counts over 3 ticks, 3.3x low. Since step 5 (2026-10-21). Found by a wheels-in-the-air motor test (PWM 80: encoders 1410 / 1474 counts/s, speed 423 / 442) and the disassembly (3 calls per wheel). Fix: call `update()` once into a variable, then constrain
 - **Scale-dependent settings changed so behavior stays the same:** `DEFAULT_SPEED_P` 4 → 1.2 (4 x 0.3; same standing behavior, and drive targets now mean real turns/s); `ENC_FAULT_MIN_SPEED` 150 → 500 counts/s (same real speed); `DEFAULT_DRIVE_FF` 60 → 25 (real floor slope about 26 PWM per real turn/s)

@@ -120,6 +120,16 @@ const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
 // feedforward does the same job for the sticks.
 const float DEFAULT_DRIVE_FF  = 25;   // was 60 (and "105 PWM per turn/s" above), from the 3.3x-low speed. Real slope on wood: about 26 PWM per real turn/s
 const float DRIVE_FF_MAX      = 150;
+// Drive speed I (setting "sdi", live on /tune, saved in flash): while driving,
+// degrees of lean added per second for every turn/s BB1 is slower than asked
+// (an I term on the speed loop). On wood the angle loop's I term is the real
+// wheel-speed command and the speed loop only moves the setpoint, so with P
+// alone BB1 stayed stuck going forward and overshot in reverse (2026-10-26,
+// after the speed fix). Quad picture: GPS position hold building tilt until
+// you really move. Capped by SPEED_SHIFT_MAX; fades out after a stop. 0 = off.
+const float DEFAULT_DRIVE_SPEED_I = 2.0;
+const float DRIVE_SPEED_I_MAX     = 20;
+const float DRIVE_LEAN_FADE_S     = 0.5;   // after stopping, the built-up lean fades to 0 over about this long
 const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's).
                                       // Tried 45 on 2026-10-26 from a misread log (logged wheel speed is 3.3x low): real turn rate went
                                       // 0.5 asked -> 0.80. At 15 it turned 0.42-0.51 (encoder counts)
