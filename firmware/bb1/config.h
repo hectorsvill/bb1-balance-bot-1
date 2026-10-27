@@ -93,7 +93,7 @@ const float DEFAULT_DEADBAND = 10;  // PWM added so small corrections still turn
 // instead of running away. Units: degrees of target lean per wheel turn per
 // second (speed P) and per wheel turn rolled since arming (speed I = position).
 // 0 = off, which is the angle loop alone, as before step 8.
-const float DEFAULT_SPEED_P = 1.2;   // was 4.0, tuned on a wheel speed that read 3.3x low (constrain() bug, 2026-10-26): 4 x 0.3 = 1.2 keeps the same standing behavior
+const float DEFAULT_SPEED_P = 3.0;   // 1.2 rolled on 0.8 turns and rocked after a reverse stop; 3.0 stops in under 0.25 (drive tests, 2026-10-26 evening). Was 4.0 before the constrain() fix
 const float DEFAULT_SPEED_I = 0.5;
 const float SPEED_SHIFT_MAX = 6.0;   // deg: the speed loop never moves the target more than this
 const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about 0.1 s) so encoder steps don't kick the angle loop
@@ -127,7 +127,7 @@ const float DRIVE_FF_MAX      = 150;
 // alone BB1 stayed stuck going forward and overshot in reverse (2026-10-26,
 // after the speed fix). Quad picture: GPS position hold building tilt until
 // you really move. Capped by SPEED_SHIFT_MAX; fades out after a stop. 0 = off.
-const float DEFAULT_DRIVE_SPEED_I = 2.0;
+const float DEFAULT_DRIVE_SPEED_I = 4.0;   // 2 fell a third short at 0.3 turns/s, 6 overshoots (3 runs each, 2026-10-26)
 const float DRIVE_SPEED_I_MAX     = 20;
 const float DRIVE_LEAN_FADE_S     = 0.5;   // after stopping, the built-up lean fades to 0 over about this long
 
