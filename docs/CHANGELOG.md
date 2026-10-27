@@ -9,6 +9,12 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-26 - heading hold `th` 20 → 60 (turn tests, live; `config.h` default)
+
+- `drive_test.py turn` (on the spot, 0.5 turns/s), 3+ runs per setting, steps with Wi-Fi drops left out: th 20 turned 0.1-0.4 (left weakest), th 40 0.3-0.6, **th 60 0.46-0.56 both ways**; lean ±1.3, PWM about 60
+- `bb1.py drive --turn 0.4 --for 1` now turns 0.16-0.24 both ways (was 0.14 right, 0.05 left). Short turns come out short because the heading target lags the wheels and is reset to "where it faces now" at the stop
+- Wi-Fi drops hit the first moving step of each test (6 of 10) and almost never the second: a clue for the server stalls
+
 ## 2026-10-26 - milestone 3 starts: `tools/bb1.py` (branch `agent-api`)
 
 - New `tools/bb1.py`: command-line control for scripts and AI agents. `state` (summary or `--full`), `arm`, `drive --speed --turn --for`, `stop`, `disarm`; one line of JSON per call; exit code 0 / 1 refused or safety stop / 2 no answer. Uses only the existing HTTP API: no firmware change

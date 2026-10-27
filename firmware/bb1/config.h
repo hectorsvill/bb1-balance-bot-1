@@ -100,7 +100,7 @@ const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about
 // Heading hold (2026-10-24): keeps both wheels rolling the same distance, so BB1
 // goes straight (the right wheel is about 7% faster at the same PWM). Unit: PWM
 // moved from one wheel to the other per wheel turn of difference. 0 = off.
-const float DEFAULT_TURN_HOLD = 20;
+const float DEFAULT_TURN_HOLD = 60;   // 20 turned 0.1-0.4 of turn 0.5 asked; 60 turns 0.46-0.56 both ways, standing unchanged (turn tests, 2026-10-26)
 const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
 // Driving (milestone 2, drive.h): the page or the API asks for a wheel speed
 // and a turn rate; drive.h moves the speed loop's and the heading hold's
