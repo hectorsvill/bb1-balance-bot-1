@@ -35,8 +35,8 @@ import drive_test
 from drive_test import COUNTS_PER_REV, Run, Stop
 from logger import get, log_path, save_log
 
-WHEEL_TURN_M = 0.178   # metres per wheel turn: rolled one turn on the wood floor, 177.8 mm (Hector, 2026-10-26; = 56.6 mm wheel)
-TRACK_M = 0.127        # metres between the tyre centres (Hector, 2026-10-26)
+WHEEL_TURN_M = 0.178   # metres per wheel turn: rolled one turn on the wood floor, 177.8 mm (we measured it 2026-10-26; = 56.6 mm wheel)
+TRACK_M = 0.127        # metres between the tyre centres (measured 2026-10-26)
 SAFE_BOX = 0.8         # use 80% of the box: odometry drifts
 
 

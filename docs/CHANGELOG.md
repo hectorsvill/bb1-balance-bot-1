@@ -11,7 +11,7 @@ Newest first.
 
 ## 2026-10-26 - wheel turn measured: 177.8 mm
 
-- Hector rolled BB1 one full wheel turn on the wood floor: **177.8 mm per turn** (= 56.6 mm wheel, tyre squash included). The tools assumed 204 mm (65 mm wheel), 13% too far. `drive_explore.py` odometry (`WHEEL_TURN_M`, homing spin time), `bb1.py` and `drive_test.py` notes and `docs/TOOLS.md` updated. Track width measured too: **127 mm** between the tyre centres (was 170 assumed): `TRACK_M`, so 1 turn of left-minus-right = 80 deg of heading. Still depends on 520 counts per turn (not measured)
+- We rolled BB1 one full wheel turn on the wood floor: **177.8 mm per turn** (= 56.6 mm wheel, tyre squash included). The tools assumed 204 mm (65 mm wheel), 13% too far. `drive_explore.py` odometry (`WHEEL_TURN_M`, homing spin time), `bb1.py` and `drive_test.py` notes and `docs/TOOLS.md` updated. Track width measured too: **127 mm** between the tyre centres (was 170 assumed): `TRACK_M`, so 1 turn of left-minus-right = 80 deg of heading. Still depends on 520 counts per turn (not measured)
 
 ## 2026-10-26 - heading hold `th` 20 → 60 (turn tests, live; `config.h` default)
 
@@ -28,7 +28,7 @@ Newest first.
 
 ## 2026-10-26 - drive tuning: smode 1 dropped, sp 3, sdi 4 (saved in flash and `config.h` defaults)
 
-- `smode` flashed and confirmed on `/state`. smode 1 drove the wrong way at every ki from 100 to 25 (the body never leans into the drive on wood; the wheel speed loop's PWM goes straight to the wheels), and standing rocked under ki 35. Hector chose smode 0 + sdi; smode 1 stays in the firmware, default 0
+- `smode` flashed and confirmed on `/state`. smode 1 drove the wrong way at every ki from 100 to 25 (the body never leans into the drive on wood; the wheel speed loop's PWM goes straight to the wheels), and standing rocked under ki 35. We chose smode 0 + sdi; smode 1 stays in the firmware, default 0
 - `DEFAULT_SPEED_P` 1.2 → **3.0**: after a reverse stop at 0.5 BB1 rolled on 0.8 turns and rocked (2 s period); sp 3 stops in under 0.25 (3 of 3 runs)
 - `DEFAULT_DRIVE_SPEED_I` 2 → **4**: forward at 0.3 now reaches 0.27-0.32 (was 0.16-0.21); 6 overshoots
 - 10 min unattended `drive_explore.py` at sp 3: no disarms, stayed in the box (was 41 s). Still open: a slow backward roll after some stops (angle I keeps −4 to −9 for a few seconds)
@@ -37,7 +37,7 @@ Newest first.
 ## 2026-10-26 - wheel speed loop (`smode 1`) and log format 11, flashed
 
 - **Why:** the unattended explore run (19:20, 41 s, no fall) rolled backward at 0.45 turns/s with no command, leaning forward, angle I stuck at −12. On wood the angle loop's I term holds the wheel speed; the speed loop only moves the setpoint, the angle loop tracks it (error about 0), so I never changes. `sdi` pushes harder on that same weak lever
-- **New:** setting `smode` (0 = as before, default; 1 = wheel speed loop). In smode 1 the setpoint shift (sp, si, sdi) is off and `wsp` x (speed − target) + `wsi` x (position − target position) is added to the PWM, capped at ±100 (`WHEEL_SPEED_PWM_MAX`). While driving the target position runs at the asked speed, kept within 0.3 wheel turns (`DRIVE_POS_MAX_LAG`), so `wsi` is a speed I with no catch-up debt; it is not snapped on stop, so BB1 stops where it was asked to. Starting values `wsp` 20, `wsi` 10 (= kp 18 x sp 1.2 and x si 0.5). Meant to be used with a lower `ki` (Hector tunes it). Live on /tune, serial, `/state`, saved in flash (settings layout v7; older saves load with the defaults), `# gains_ver` line
+- **New:** setting `smode` (0 = as before, default; 1 = wheel speed loop). In smode 1 the setpoint shift (sp, si, sdi) is off and `wsp` x (speed − target) + `wsi` x (position − target position) is added to the PWM, capped at ±100 (`WHEEL_SPEED_PWM_MAX`). While driving the target position runs at the asked speed, kept within 0.3 wheel turns (`DRIVE_POS_MAX_LAG`), so `wsi` is a speed I with no catch-up debt; it is not snapped on stop, so BB1 stops where it was asked to. Starting values `wsp` 20, `wsi` 10 (= kp 18 x sp 1.2 and x si 0.5). Meant to be used with a lower `ki` (we tune it by hand). Live on /tune, serial, `/state`, saved in flash (settings layout v7; older saves load with the defaults), `# gains_ver` line
 - **Log format 11:** `drive_speed_now`, `drive_turn_now` (the ramped targets) and `speed_pwm` (what the wheel speed loop added), in the record's last 3 padding bytes (still 76 bytes, no extra RAM). Mock and `logger.py`/`handheld.py` `GAIN_KEYS` updated
 
 ## 2026-10-26 - drive speed I (`sdi`), flashed 19:05
@@ -72,8 +72,8 @@ Newest first.
 - **Page:** new **Drive** panel on http://bb1.local: joystick pad, arrow keys / WASD, Max speed slider, asked / target / wheels tiles, hover hints. Sends every 100 ms, one request at a time; hiding the tab or leaving the window stops driving. The mock answers `/drive` and `/drive/stop` too
 - **API docs:** new `docs/API.md`, the full HTTP reference (every endpoint, `/state` fields, units, errors) plus what the AI-agent milestone would still need. `/state` has a new `drive` object
 - **Logs:** format 9 adds `drive_speed`, `drive_turn` (the operator command) and flag 16 (drive stopping); `# drive_...` settings line in the header. Record 76 bytes, +8 KB RAM (heap left about 36 KB)
-- First floor test (Hector, 2026-10-25): drives in all directions, a little slow, small left-right jitter; **fell backward when reversing** at 100% (log `drive-test-20`: the angle I term held about +100 PWM going forward and had to unwind before the wheels could reverse). Fix: speed feedforward setting `dff` (default 60, live on /tune, saved in flash, settings v5; `/state` gains `dff`; `# gains_ver` line `drive_ff`)
-- Floor test 2 (Hector): no visible change, still fell at 45%, and **swayed 35-90 deg when left alone after driving**. Log: after letting go BB1 rolled 2-4 more wheel turns and turned 0.5-3 wheel turns of difference, catching up targets that were allowed 1 turn of lag. Fix: position target rides with the wheels while driving, heading lag 0.25 turns, both snap to where BB1 is when it stops
+- First floor test (2026-10-25): drives in all directions, a little slow, small left-right jitter; **fell backward when reversing** at 100% (log `drive-test-20`: the angle I term held about +100 PWM going forward and had to unwind before the wheels could reverse). Fix: speed feedforward setting `dff` (default 60, live on /tune, saved in flash, settings v5; `/state` gains `dff`; `# gains_ver` line `drive_ff`)
+- Floor test 2: no visible change, still fell at 45%, and **swayed 35-90 deg when left alone after driving**. Log: after letting go BB1 rolled 2-4 more wheel turns and turned 0.5-3 wheel turns of difference, catching up targets that were allowed 1 turn of lag. Fix: position target rides with the wheels while driving, heading lag 0.25 turns, both snap to where BB1 is when it stops
 
 ## 2026-10-25 - encoder fault detector
 
@@ -95,7 +95,7 @@ Newest first.
 
 ## 2026-10-25 - power-on work finished
 
-- Flashed from branch `power-on` with `tools/flash.py`: the low-battery cut-out plus everything from 2026-10-24. Hector: power-on behavior working as intended
+- Flashed from branch `power-on` with `tools/flash.py`: the low-battery cut-out plus everything from 2026-10-24. we checked it: power-on behavior working as intended
 
 ## 2026-10-24 - tools/flash.py
 
@@ -178,7 +178,7 @@ Newest first.
 - Both motors dead: STBY wire (GP9) came unsoldered, re-soldered (BUILD_RECORD, Repair)
 - `find_port()` in `serial_log.py` (used by handheld.py) picks the port with the Raspberry Pi USB vendor ID instead of the first `/dev/cu.usbmodem*`. An Anker dock had taken the first slot, so `a` went to the dock (`ERR: unknown cmd`)
 
-## 2026-10-22 - Hector's tuning, floor run 5
+## 2026-10-22 - our tuning, floor run 5
 
 - Run 8, same gains: 3 of 8 tries stood 10 s; rolls backward then falls. Likely the battery; drift needs step 8 (BUILD_RECORD, floor attempts 8)
 - P 10 / D 0.75 to 0.85: **all 6 tries stood the full 10 s**. Left: slow ±10 deg swing while drifting (needs the step 8 speed loop) (BUILD_RECORD, floor attempts 7)
@@ -199,7 +199,7 @@ Newest first.
 
 ## 2026-10-21 - first floor attempts
 
-- Run 4: cap 150 applied, longest try 7.2 s; rolls up to 2.6 wheel turns, so floor only (not a desk). Hector takes over the PID tuning from here
+- Run 4: cap 150 applied, longest try 7.2 s; rolls up to 2.6 wheel turns, so floor only (not a desk). we tune the PID by hand from here
 
 - Run 3: cap still 80 (the `:` command didn't reach BB1 twice). All 4 tries fell backward at the cap. handheld.py now takes `--kp --kd --cap --trim` at start and shows kp / kd / cap in the status line
 - handheld.py: status line cut to the window width and redrawn only on change (a wrapped line was printing a new line every refresh)
@@ -231,14 +231,14 @@ Newest first.
 
 ## 2026-10-21 - bb1 step 6: arm / disarm + angle loop (not armed on the robot yet)
 
-- Balance trim measured by Hector: −4.39 deg (page, Use current pitch as trim); to become the default in step 7
-- First hand-held arm (Hector, 23:19): armed at +8.8 deg with trim 0.16, wheels drove **forward** at the cap (80), about 420 counts/s: direction correct. It disarmed after 1.24 s at +12.5 deg with no fall, IMU or overrun flag, so the cause (button, space bar or the page heartbeat) wasn't recorded; later ARM presses were refused (not upright)
+- Balance trim measured: −4.39 deg (page, Use current pitch as trim); to become the default in step 7
+- First hand-held arm (23:19): armed at +8.8 deg with trim 0.16, wheels drove **forward** at the cap (80), about 420 counts/s: direction correct. It disarmed after 1.24 s at +12.5 deg with no fall, IMU or overrun flag, so the cause (button, space bar or the page heartbeat) wasn't recorded; later ARM presses were refused (not upright)
 - Added `reason` to every log row (log format 4, in the old padding byte) and a page-hidden disarm (browsers slow hidden tabs to about 1 update a second, which trips the heartbeat)
-- Second hand-held run (Hector, 23:31): 3 arms, each stopped after about 1.1 s with reason 4 (lost the page / heartbeat), never a fall. Cause not known yet: the heartbeat compare is now race-proof (signed), `/state` polls time out after 1 s instead of hanging, and every row logs `web_age_ms` (log format 5) to show whether Wi-Fi stalls while the motors run
+- Second hand-held run (23:31): 3 arms, each stopped after about 1.1 s with reason 4 (lost the page / heartbeat), never a fall. Cause not known yet: the heartbeat compare is now race-proof (signed), `/state` polls time out after 1 s instead of hanging, and every row logs `web_age_ms` (log format 5) to show whether Wi-Fi stalls while the motors run
 - Found it: with the motors off and /state polled about 20 times a second, `web_age_ms` reached 1190 ms (0.19 s of 8 s over 1 s): the Wi-Fi chip's power-save naps. `WiFi.noLowPowerMode()` on the home network: max 600 ms, never over 1 s in 10 s, 0 missing ticks
 - Arm timer: ARM for N s on the page (default 5), `arm N` on serial, `seconds=` on /arm; reason 11
 - Page: Record and Live log combined into one Log panel (recording shows the records as they arrive); gain boxes turn orange when they differ from BB1 and Apply says Apply changes; Enter applies; hover / tap hints on every non-obvious control
-- Page redesign (Hector asked): status bar always on top with mode, arm countdown and STOP; Balance panel with a big countdown and progress bar, gain fields with units; new view-only PID panel (tiles + 10 s chart of P, I, D, output, ±cap); Log as a table with a sticky header, tinted armed rows, short / all columns; tiles instead of tables; panels fold; hints on hover. `/state` gained `arm_left_ms`. Page is now about 47 KB of flash
+- Page redesign: status bar always on top with mode, arm countdown and STOP; Balance panel with a big countdown and progress bar, gain fields with units; new view-only PID panel (tiles + 10 s chart of P, I, D, output, ±cap); Log as a table with a sticky header, tinted armed rows, short / all columns; tiles instead of tables; panels fold; hints on hover. `/state` gained `arm_left_ms`. Page is now about 47 KB of flash
 - docs: Balance panel control by control (WEB_INTERFACE.md), what the hand-held test is for (PID_TUNING.md)
 
 - pid.h (derivative on the gyro rate, clamped integral, no windup while saturated), control.h (disarmed / armed / fallen, arm only within 10 deg of trim and calibrated; disarm on > 45 deg, 5 IMU errors or overruns in a row, or 1 s without the page while armed from it)
@@ -255,7 +255,7 @@ Newest first.
 - LogRecord 40 -> 56 bytes (enc_l, enc_r, speed_l, speed_r, pwm_l, pwm_r); log format 2; `# counts_per_rev...` meta line; buffer 112 KB
 - check_dump.py: wheel summary and a speed / PWM plot; mock_bb1.py fakes the motors (17.5 counts/s per PWM)
 - Compiles: 20% flash, 70% RAM static, heap 64 KB free on the robot
-- Motor test passed on the robot (Hector, 2026-10-21). Uploaded (the Pico came back after Hector replugged it). Self-check with no motors, logger.py 21 s over Wi-Fi while /state was polled at 20 Hz: 4254 records, 0 lost, 0 missing ticks, spacing 4997 to 5002 us, work 500 us avg / 716 max, 0 errors. That also covers step 4's logging path.
+- Motor test passed on the robot (2026-10-21). Uploaded (the Pico came back after we replugged it). Self-check with no motors, logger.py 21 s over Wi-Fi while /state was polled at 20 Hz: 4254 records, 0 lost, 0 missing ticks, spacing 4997 to 5002 us, work 500 us avg / 716 max, 0 errors. That also covers step 4's logging path.
 
 ## 2026-10-21 - bb1 step 4: saving logs, live log view
 
@@ -273,7 +273,7 @@ Newest first.
 - web.h + page.h: page with live pitch / accel pitch chart (10 s), live values, Calibrate, Set alpha, Network panel; endpoints /state, /cal, /alpha, /wifi, /wifi/forget
 - secrets.h (gitignored) + secrets.example.h; `quiet` serial command; docs/WEB_INTERFACE.md
 - Compiles: 19% flash, 109 KB RAM free
-- Tested: Hector joined the page on the own network, then saved his home network; page works at bb1.local. With /state polled at 20 Hz: 0 missing ticks, spacing 4997 to 5003 us (was exactly 5000: core 0's Wi-Fi code now shares the flash cache), work 494 us avg / 659 max, request latency 41 ms median. Step 3 passed.
+- Tested: we joined the page on the own network, then saved our home network; page works at bb1.local. With /state polled at 20 Hz: 0 missing ticks, spacing 4997 to 5003 us (was exactly 5000: core 0's Wi-Fi code now shares the flash cache), work 494 us avg / 659 max, request latency 41 ms median. Step 3 passed.
 
 ## 2026-10-21 - bb1 step 2: two cores + log buffer
 
@@ -281,7 +281,7 @@ Newest first.
 - telemetry.h: 40-byte LogRecord per tick (tick, time, work, mode, flag_bits, raw IMU, pitch, rate, accel pitch), 10 s ring buffer (80 KB) guarded by a mutex; `dump` / `dump N` print it as CSV with settings lines
 - tools/check_dump.py; log columns documented in docs/CALIBRATION_AND_LOGS.md
 - Self-check on the robot: 1800 records, 0 missing ticks, spacing exactly 5000 us, work 451 us avg / 484 max, 0 errors
-- Hector's test (tilting, pitch -15.9 to +88.3): 1800 records, 0 missing ticks, exactly 5000 us, 451 / 474 us, 0 errors. Step 2 passed.
+- Our test (tilting, pitch -15.9 to +88.3): 1800 records, 0 missing ticks, exactly 5000 us, 451 / 474 us, 0 errors. Step 2 passed.
 
 ## 2026-10-21 - bb1 step 1: pitch angle
 
@@ -289,7 +289,7 @@ Newest first.
 - Rerun after the sign fix and `cal`: lying on its front +88.7 deg, rock steady for 20 s with rate 0.0 (bias x -0.50, y +2.07, z -2.20 deg/s); forward tilt positive with positive rate; upright about -2.5 deg; filter within 0.3 deg of the accel angle at rest. Step 1 passed.
 
 - firmware/bb1: config.h, imu.h (gyro +/-500 deg/s, 44 Hz DLPF, 200 Hz, bias calibration), angle.h (complementary filter, alpha 0.98), 200 Hz fixed loop with loop-time stats; motors held off
-- Plan updated with Hector's choices: own network by default plus a saved home-network setting (falls back to own network); web page before PID; logs saved from the browser or tools/logger.py, same CSV
+- Plan updated with our choices: own network by default plus a saved home-network setting (falls back to own network); web page before PID; logs saved from the browser or tools/logger.py, same CSV
 - tools/: Python venv (tools/venv, not committed), requirements.txt, serial_log.py
 
 ## 2026-10-21 - Firmware plan drafted

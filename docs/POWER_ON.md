@@ -2,9 +2,9 @@
 
 What BB1 does from the moment you switch it on, and every edge case around it.
 **Status (2026-10-24):** reworked into `firmware/bb1/auto_arm.h`, flashed, not tested
-yet. Picks made with the recommended defaults while Hector was away
+yet. Picks made with the recommended defaults while we were away
 (1 s hold, lift detector, 3 falls in 30 s); any of them can change.
-**2026-10-25:** case 15 changed (low battery disarms while already balancing). Flashed 2026-10-25; Hector: working as intended.
+**2026-10-25:** case 15 changed (low battery disarms while already balancing). Flashed 2026-10-25; we checked it: working as intended.
 
 ## The two main cases
 
@@ -29,7 +29,7 @@ never gets near the 3 deg window and just waits.
 | # | Situation | Before (first auto-arm) | Now (`auto_arm.h`) |
 |---|---|---|---|
 | 1 | Switched on upright, still | Balances after cal + 1 s | Same |
-| 2 | Switched on lying down | Waits; stand it up + 1 s | Same (`AUTO_ARM_HOLD_MS`, 1 s; Hector asked for 1 to 3 s) |
+| 2 | Switched on lying down | Waits; stand it up + 1 s | Same (`AUTO_ARM_HOLD_MS`, 1 s; we wanted 1 to 3 s) |
 | 3 | Switched on while held or moving (the normal way to switch it on standing up) | Bias cal fails, retries every 3 s; **can't arm until it passes, so it never balanced** (found 2026-10-24) | Starts with the typical bias (`GYRO_BIAS_TYPICAL`, from every log so far) and arms normally; re-measures only while lying down and disarmed |
 | 4 | Switched on mid-fall or leaning | Waits until within 3 deg and still | Same |
 | 5 | Held upright **in the air**, still 1 s | **Arms: wheels spin in your hands** | Arms, then the lift detector stops the wheels after 0.5 s of fast spinning |

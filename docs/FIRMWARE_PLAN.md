@@ -1,6 +1,6 @@
 # Firmware Plan: balancing + Wi-Fi tuning page
 
-Updated 2026-10-21 with Hector's choices (section 7). Built step by step; see the table in section 6.
+Updated 2026-10-21 with our choices (section 7). Built step by step; see the table in section 6.
 
 Goal for this milestone: BB1 balances by itself, and a web page served by the Pico W shows live data, lets you change the PID gains while it runs, and runs safe test actions. Every run can be logged in a format that could later train a model to drive the bot.
 
