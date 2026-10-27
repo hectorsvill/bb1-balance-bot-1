@@ -93,7 +93,13 @@ class Explorer:
         self.meta = get(f"{base}/log/meta")
 
     def state(self):
-        s = json.loads(get(f"{self.base}/state", timeout=1))
+        """/state, or None during a short Wi-Fi stall (ridden out like every other request:
+        one slow answer while the Pico sends a slow /log ended a run after 18 s, 2026-10-26).
+        Odometry loses nothing: it works from encoder counts, so the next answer catches up."""
+        text = self.run.ask(get, f"{self.base}/state", timeout=1)
+        if text is None:
+            return None
+        s = json.loads(text)
         self.odo.update(s["enc_l"], s["enc_r"])
         return s
 
@@ -126,7 +132,9 @@ class Explorer:
             r.record()
             if time.time() - getattr(self, "last_state", 0) > 0.25:   # 4 a second: keep the Pico's load like the page's
                 self.last_state = time.time()
-                self.watch(self.state())
+                s = self.state()
+                if s:
+                    self.watch(s)
             # Heading out of the box: cut the move short so the next one brings it back
             if moving and self.outside(0.9) and speed and math.cos(self.odo.home_angle()) * speed < 0:
                 break
