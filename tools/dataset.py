@@ -41,7 +41,7 @@ ENC_FAULT_MIN_SPEED, ENC_FAULT_RATIO, ENC_FAULT_TICKS = 500, 0.2, 60   # counts/
 OLD_SPEED_SCALE = 10 / 3            # logs before format 10: speed_l/speed_r read 3.3x low (constrain() bug)
 # Disarm reasons (control.h DisarmReason) grouped into the three outcomes a model cares about
 REASON_OUTCOME = {1: "stopped", 2: "fell", 3: "stopped", 4: "stopped", 5: "stopped", 9: "stopped",
-                  10: "stopped", 11: "timer", 12: "stopped", 13: "stopped"}
+                  10: "stopped", 11: "timer", 12: "stopped", 13: "stopped", 14: "stopped"}
 
 
 def header_lines(path):

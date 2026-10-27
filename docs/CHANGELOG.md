@@ -16,6 +16,15 @@ Newest first.
 - `tools/mock_bb1.py` answers `/api` with the same list (`firmware: bb1 MOCK`); its gain limits are now one `GAIN_LIMITS` table shared with `/gains`. Docs: `docs/API.md` (new `GET /api` section), `docs/FIRMWARE_PLAN.md`, `docs/WEB_INTERFACE.md`
 - No log columns changed (log format stays 11)
 
+## 2026-10-27 - firmware updates over Wi-Fi (OTA), branch `ota`, not flashed yet
+
+- **Why:** every firmware change needed the USB cable and the power order. arduino-pico (6.3.0) already has what it takes: its Updater writes the new firmware into LittleFS, and the small OTA bootloader the core always links copies it in at the next start
+- **New `ota.h`, `POST /update`:** multipart field `firmware` (plain or gzipped), Basic auth `bb1` / `BB1_OTA_PASSWORD` (new line in `secrets.h`, template in `secrets.example.h`). Refused while armed, during a motor test, or unless lying down (same rule as `flash.py`). While it runs, `otaActive` (shared.h) makes core 1 refuse every arm (new reason 14 "a firmware update is running") and motor test and skip auto-arm, and core 1 confirms the motors are off before the first flash write (writing flash pauses core 1). A broken-off upload changes nothing; power lost during the copy repeats the copy at the next start; BOOTSEL stays the last resort
+- **Flash layout:** every build now uses Flash Size "Sketch: 1MB, FS: 1MB" (`:flash=2097152_1048576` in `flash.py`, CI and FLASHING.md). The saved settings stay at the same address (the last 4 KB) in both layouts. `ota.h` fails the compile with any other layout. Firmware 547 KB of 1020 KB (OTA adds 28 KB)
+- **`/sys`** gains `fs_total` and `build` (compile time), so a tool can see the new firmware is running
+- **`tools/flash.py --ota [--host]`:** compile, check `/state` (lying down, disarmed), send the build gzipped (336 KB), wait for the new `build` in `/sys`, show auto-arm and gains. The first OTA firmware goes on over USB once
+- Mock answers `/update` (refused: nothing to replace) and the new `/sys` fields; `dataset.py` maps reason 14. Docs: API.md, FLASHING.md (new section), TOOLS.md, CALIBRATION_AND_LOGS.md
+
 ## 2026-10-26 - I-term relax (`irelax`) and the Wi-Fi drops, flashed 23:30
 
 - **Result:** drive commands live 93-98% of the moving time (was 59%); the training explore ran 11.2 min (was 4.8). `irelax` 0.5 works as built (flag 64) but **does not stop the creep**: 3-5 of 10-12 stops still roll back up to 0.32 turns/s. During the drain the I term rebuilds faster than it drains: after a forward drive the setpoint sits about +1 deg forward (speed loop + sdi), the body lags, the error is negative and ki 100 winds I negative again. `drive_explore.py`: the position poll now rides out a slow `/state` (one ended a run after 18 s)

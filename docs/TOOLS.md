@@ -262,6 +262,8 @@ tools/venv/bin/python tools/flash.py
 
 Compiles `firmware/bb1`, finds BB1's port, checks over serial that BB1 is **lying down** (auto-arm would start it balancing on the desk otherwise), uploads, then prints what BB1 says after the reboot (auto-arm state, gains). Stops before uploading if the compile fails or BB1 is upright. Step by step and errors: [FLASHING.md](FLASHING.md#flashing-with-toolsflashpy-the-easy-way). Uses pyserial and `arduino-cli`.
 
+`--ota` does the same over Wi-Fi, no USB cable: checks `/state` (lying down, disarmed), sends the build gzipped to `POST /update` with the password from `secrets.h`, then waits for the new `build` time in `/sys`. `--host <ip>` or `BB1_HOST` when `bb1.local` is slow. [FLASHING.md](FLASHING.md#flashing-over-wi-fi-toolsflashpy---ota-no-usb-cable).
+
 ### wiki_sync.sh: copy the docs to the GitHub wiki
 
 ```bash

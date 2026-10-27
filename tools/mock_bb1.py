@@ -179,6 +179,8 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
     ("POST", "/motor", "left,right,ms", "text", True, "timed motor test, disarmed only, wheels in the air"),
     ("POST", "/wifi", "ssid,password", "text", False, "save a home network and restart"),
     ("POST", "/wifi/forget", "", "text", False, "forget the home network and restart"),
+    ("POST", "/update", "firmware", "json", False,
+     "new firmware over Wi-Fi (multipart file, Basic auth bb1); lying down and disarmed only; restarts"),
     ("GET", "/", "", "html", False, "the main page"),
     ("GET", "/tune", "", "html", False, "the PID tuning page"),
 ]
@@ -186,7 +188,7 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
 
 def api_list():
     return {
-        "api": 1, "firmware": "bb1 MOCK", "log_format": 11,
+        "api": 2, "firmware": "bb1 MOCK", "log_format": 11,
         "units": {"angle": "deg (forward +)", "speed": "wheel turns/s (forward +)",
                   "turn": "wheel turns/s left minus right (right +)", "pwm": "-255..255 (forward +)", "counts_per_rev": 520},
         "limits": {"drive_max_speed": DRIVE_MAX_SPEED, "drive_max_turn": DRIVE_MAX_TURN, "drive_hold_ms": DRIVE_HOLD_MS,
@@ -253,7 +255,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(self.log(int(args.get("since", 0))), "text/csv")
         elif url.path == "/sys":
             self.reply('{"ram_total":262144,"ram_static":181200,"heap_total":80944,"heap_used":%d,'
-                       '"log_buffer":112000,"flash_total":2097152,"flash_used":433000,"page":%d,"cpu_mhz":133}'
+                       '"log_buffer":112000,"flash_total":2097152,"flash_used":433000,"page":%d,"cpu_mhz":133,'
+                       '"fs_total":1048576,"build":"MOCK"}'
                        % (21000 + random.randint(0, 3000), len(read_page()) + 1), "application/json")
         elif url.path == "/wifi":
             self.reply('{"mode":"own","saved_ssid":"","note":"mock"}', "application/json")
@@ -277,6 +280,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         global alpha, armed_from, reason, arm_attempts, arm_until
         length = int(self.headers.get("Content-Length") or 0)
+        if self.path == "/update":             # firmware upload (ota.h): binary, so before the form parsing
+            self.rfile.read(length)
+            if armed_from is not None:
+                return self.reply('{"ok":false,"error":"balancing: disarm and lay it down first"}', "application/json", 409)
+            return self.reply('{"ok":false,"error":"mock: there is no firmware here to replace"}', "application/json", 409)
         form = {k: v[0] for k, v in parse_qs(self.rfile.read(length).decode()).items()}
         if self.path == "/cal":
             self.reply("calibrating, keep the robot still for 2 s (mock)")

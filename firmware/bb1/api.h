@@ -12,8 +12,9 @@
 #include "log_meta.h"
 
 // API_VERSION counts changes to this list (new endpoint, new argument, new
-// limit), so an agent can tell when to re-read it. 1 = first version.
-const int API_VERSION = 1;
+// limit), so an agent can tell when to re-read it. 1 = first version,
+// 2 = POST /update (ota.h).
+const int API_VERSION = 2;
 
 struct ApiEndpoint {
   const char *method;   // "GET" or "POST"
@@ -45,6 +46,7 @@ const ApiEndpoint API_ENDPOINTS[] = {
   {"POST", "/motor",          "left,right,ms",     "text", true,  "timed motor test, disarmed only, wheels in the air"},
   {"POST", "/wifi",           "ssid,password",     "text", false, "save a home network and restart"},
   {"POST", "/wifi/forget",    "",                  "text", false, "forget the home network and restart"},
+  {"POST", "/update",         "firmware",          "json", false, "new firmware over Wi-Fi (multipart file, Basic auth bb1); lying down and disarmed only; restarts"},
   {"GET",  "/",               "",                  "html", false, "the main page"},
   {"GET",  "/tune",           "",                  "html", false, "the PID tuning page"},
 };

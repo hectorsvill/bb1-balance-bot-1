@@ -52,6 +52,11 @@ volatile bool     requestStep   = false;     // step test: core 1 moves the setp
 volatile bool     stepActive    = false;     // status: a step test is running
 volatile uint32_t lastWebHeartbeatMs = 0;    // millis() of the page's latest /state request
 volatile uint16_t batteryMv     = 0;         // battery voltage in mV, from core 0 (battery.h); core 1 logs it
+// Firmware update over Wi-Fi (ota.h). Core 0 sets otaActive when an upload
+// starts; core 1 then refuses every arm and motor test, and answers with
+// otaMotorsOff once nothing drives the motors. Writing flash pauses core 1.
+volatile bool     otaActive     = false;
+volatile bool     otaMotorsOff  = false;
 
 // Driving (milestone 2, drive.h). Core 0 writes the two numbers FIRST, then
 // driveUntilMs; core 1 uses them until millis() passes driveUntilMs, then

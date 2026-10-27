@@ -24,6 +24,7 @@
 //   POST /step        step test while armed: setpoint +2 deg for 1 s
 //   POST /drive       args speed, turn (wheel turns/s), ms: drive while balancing (drive.h). Lasts 500 ms unless re-sent
 //   POST /drive/stop  stop driving now (keeps balancing)
+//   POST /update      new firmware over Wi-Fi (ota.h): lying down and disarmed only, password from secrets.h
 //
 // docs/API.md is the full reference (arguments, answers, units, safety rules).
 // Each handler is short and never touches the IMU or motors directly: it reads
@@ -43,6 +44,7 @@
 #include "battery.h"
 #include "drive.h"
 #include "api.h"
+#include "ota.h"
 
 WebServer server(80);
 
@@ -334,11 +336,13 @@ void handleSys() {
   char json[256];
   snprintf(json, sizeof(json),
            "{\"ram_total\":%lu,\"ram_static\":%lu,\"heap_total\":%lu,\"heap_used\":%lu,"
-           "\"log_buffer\":%lu,\"flash_total\":%lu,\"flash_used\":%lu,\"page\":%lu,\"cpu_mhz\":%lu}",
+           "\"log_buffer\":%lu,\"flash_total\":%lu,\"flash_used\":%lu,\"page\":%lu,\"cpu_mhz\":%lu,"
+           "\"fs_total\":%lu,\"build\":\"%s %s\"}",
            (unsigned long)RAM_TOTAL, (unsigned long)(RAM_TOTAL - heapTotal),
            (unsigned long)heapTotal, (unsigned long)heapUsed,
            (unsigned long)sizeof(logBuffer), (unsigned long)FLASH_TOTAL, (unsigned long)flashUsed,
-           (unsigned long)sizeof(PAGE_HTML), (unsigned long)(rp2040.f_cpu() / 1000000));
+           (unsigned long)sizeof(PAGE_HTML), (unsigned long)(rp2040.f_cpu() / 1000000),
+           (unsigned long)(FS_END - FS_START), __DATE__, __TIME__);   // fs: room for an OTA update; build: when this firmware was compiled
   server.send(200, "application/json", json);
 }
 
@@ -387,6 +391,9 @@ void webBegin() {
   route("/step", HTTP_POST, handleStep);
   route("/drive", HTTP_POST, handleDrive);
   route("/drive/stop", HTTP_POST, handleDriveStop);
+  // Not through route(): an upload needs a second handler for the file's pieces,
+  // and handleUpdateDone() closes the connection itself.
+  server.on("/update", HTTP_POST, handleUpdateDone, handleUpdateUpload);
   server.onNotFound([]() { server.send(404, "text/plain", "not found"); server.client().stop(); });
   server.begin();
 }

@@ -147,8 +147,16 @@ void loop1() {
   }
   if (requestMotorTest) {
     requestMotorTest = false;
-    if (!test.running && !balance.armed) motorTestStart();   // never a motor test while balancing
+    if (!test.running && !balance.armed && !otaActive) motorTestStart();   // never a motor test while balancing or updating
   }
+  // Firmware update over Wi-Fi (ota.h): core 0 only checked "disarmed" a
+  // moment ago, so make sure here, then tell it the motors are off. Writing
+  // flash will pause this core, and the balance loop can't stop in mid-air.
+  if (otaActive) {
+    if (balance.armed) balanceDisarm(REASON_UPDATE);
+    if (test.running) motorTestStop();
+  }
+  otaMotorsOff = otaActive && !balance.armed && !test.running;
   if (requestCalibrate) {
     if (test.running) motorTestStop();         // never calibrate with the wheels spinning
     if (balance.armed) balanceDisarm(REASON_CALIBRATE);
@@ -205,7 +213,7 @@ void loop1() {
   if (test.running && millis() - test.startMs >= test.durationMs) motorTestStop();   // time's up
 
   // Auto-arm (auto_arm.h): stood upright and held still -> start balancing.
-  if (autoArmUpdate(angle, imuOk)) {
+  if (!otaActive && autoArmUpdate(angle, imuOk)) {   // never during a firmware update
     armTimeMs = 0;                             // no arm timer: it balances until it falls, is lifted or you STOP
     armedFromWeb = false;                      // and needs no web page
     balanceArm(angle.pitch, test.running);

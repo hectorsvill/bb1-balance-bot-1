@@ -53,6 +53,9 @@ curl -X POST $B/motor -d left=80 -d right=80 -d ms=1000   # PWM up to ±150, at 
 # Network (BB1 restarts)
 curl -X POST $B/wifi --data-urlencode ssid='MyHome' --data-urlencode password='...'   # join a home network
 curl -X POST $B/wifi/forget                       # forget it, back to its own network "BB1"
+
+# Firmware update over Wi-Fi (BB1 restarts; lying down and disarmed only). tools/flash.py --ota does this for you
+curl -u bb1:<BB1_OTA_PASSWORD> -F firmware=@build/bb1/bb1.ino.bin $B/update
 ```
 
 Answers: `/state`, `/sys`, `GET /wifi` and `/drive` send JSON. The other actions send one line of text. A `409` says why it wasn't allowed (for example `/gains/save` while armed). Add `-w ' %{http_code}\n'` to see the status code.
@@ -146,7 +149,7 @@ The list of every endpoint and its limits, as JSON, so a program or an AI agent 
 
 | Field | Meaning |
 |---|---|
-| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first) |
+| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first, 2 = `POST /update`) |
 | `firmware`, `log_format` | firmware name (the mock says `bb1 MOCK`), log column version |
 | `units` | what `angle`, `speed`, `turn`, `pwm` mean, and `counts_per_rev` |
 | `limits` | `drive_max_speed`, `drive_max_turn` (turns/s), `drive_hold_ms` (default command length), `drive_hold_max_ms`, `arm_seconds_max`, `arm_angle` (must be this close to trim to arm, deg), `fall_angle` (deg), `heartbeat_ms`, `motor_test_max_pwm`, `motor_test_max_ms`, `alpha` [min, max], `log_max_per_request` |
@@ -154,7 +157,7 @@ The list of every endpoint and its limits, as JSON, so a program or an AI agent 
 | `endpoints` | one object per route: `method`, `path`, `args` (names), `answer` (`json`, `text`, `csv`, `html`), `moves` (true = can turn the wheels), `does` |
 
 ```json
-{"api":1,"firmware":"bb1 milestone 2","log_format":11,
+{"api":2,"firmware":"bb1 milestone 2","log_format":11,
  "limits":{"drive_max_speed":1.00,"drive_hold_ms":500, ...},
  "gains":{"kp":[0.000,100.000], ...},
  "endpoints":[{"method":"POST","path":"/drive","args":["speed","turn","ms"],"answer":"json","moves":true,"does":"..."}, ...]}
@@ -164,7 +167,7 @@ Adding an endpoint: route it in `web.h`, add a row to `API_ENDPOINTS` in `api.h`
 
 ### `GET /sys`
 
-RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_buffer`, `flash_total`, `flash_used`, `page`, `cpu_mhz` (bytes, MHz).
+RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_buffer`, `flash_total`, `flash_used`, `page`, `cpu_mhz` (bytes, MHz). `fs_total`: bytes of flash kept for an OTA update (1048576; missing = firmware without OTA). `build`: when this firmware was compiled (`"Oct 27 2026 12:41:07"`), so a tool can see that a new firmware is running.
 
 ## Balancing
 
@@ -195,6 +198,7 @@ RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_bu
 | `POST /wifi/forget` | forget it and restart on the own network |
 | `GET /`, `GET /tune` | the main page and the tuning page |
 | `GET /api` | every endpoint and its limits, JSON (see above) |
+| `POST /update` | new firmware over Wi-Fi (`ota.h`): multipart form field `firmware` = `build/bb1/bb1.ino.bin` (or gzipped), Basic auth user `bb1`, password `BB1_OTA_PASSWORD` from `secrets.h`. Refused (`409`, JSON `error`) while armed, during a motor test, or unless lying down (more than 45 deg from the trim); `401` for a wrong password. On success answers `{"ok":true,"bytes":N,...}` and restarts; the bootloader copies the new firmware in (about 10-20 s until Wi-Fi is back). While it runs, every arm is refused with reason "a firmware update is running" (code 14). A broken-off upload changes nothing |
 
 ## Ready for an AI agent? (next milestone)
 

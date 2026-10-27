@@ -6,6 +6,10 @@
 | `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
+## Firmware updates over Wi-Fi (`ota.h`, 2026-10-27, not flashed yet)
+
+`POST /update` takes a new firmware over Wi-Fi; `tools/flash.py --ota` sends it. Lying down and disarmed only (BB1 checks), password `BB1_OTA_PASSWORD` in `secrets.h`. Needs Flash Size "Sketch: 1MB, FS: 1MB" (`flash.py` and CI use it; the first one goes on over USB). How it works and what to do when it fails: `docs/FLASHING.md`, "Flashing over Wi-Fi".
+
 ## bb1, milestone 2: driving (`drive.h`, 2026-10-25; changes of 2026-10-26 not flashed yet)
 
 BB1 drives by moving the **targets** of the speed loop and heading hold, never by sending PWM straight to the wheels, so the balance loop stays in charge (quad picture: angle mode with position hold, and the sticks move the hold point).
