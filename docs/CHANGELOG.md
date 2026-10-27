@@ -16,7 +16,16 @@ Newest first.
 - `tools/mock_bb1.py` answers `/api` with the same list (`firmware: bb1 MOCK`); its gain limits are now one `GAIN_LIMITS` table shared with `/gains`. Docs: `docs/API.md` (new `GET /api` section), `docs/FIRMWARE_PLAN.md`, `docs/WEB_INTERFACE.md`
 - No log columns changed (log format stays 11)
 
-## 2026-10-27 - firmware updates over Wi-Fi (OTA), branch `ota`, not flashed yet
+## 2026-10-27 - firmware version and build id (version 3.2), branch `ota`
+
+- **Why:** the first `flash.py --ota` worked (BB1 restarted into the copy), but flash.py said it didn't: arduino-cli had reused its cached compile, so `__TIME__` (the `/sys` `build`) never changed. And we had no way to say which firmware is on BB1
+- **New `version.h`:** `FIRMWARE_VERSION` "3.2" (milestone.change, bumped by hand: 3.1 = `GET /api`, 3.2 = OTA) and `BB1_BUILD_ID` from `build_id.h`, which `flash.py` writes before every compile (branch, commit, `+` for uncommitted firmware changes, time; gitignored). The file changes every time, so the sketch always recompiles. Built without flash.py: `"no build id"`
+- **Where it shows:** `/sys` and `/api` (`version`, `build_id`; `API_VERSION` 3), the main page's Pico memory panel (Firmware tile), and a new `# firmware_version,3.2,build_id,...` line in every log file (same log format)
+- **`flash.py`:** prints the version and build id, waits for that exact `build_id` after an OTA restart, and adds a line to `logs/flash_history.csv` (bb1-private) after every flash: time, version, build id, usb/wifi, result. Mock and API.md updated
+
+## 2026-10-27 - firmware updates over Wi-Fi (OTA), branch `ota`, flashed over USB, then over Wi-Fi
+
+- **Result:** flashed over USB once (`/api` lists 23 endpoints; saved home Wi-Fi and gains survived the new split). Tested on BB1, lying down: a wrong password gets `401`; an upload cut off halfway leaves the old firmware running and arming is not blocked afterwards. The first `flash.py --ota` sent 338 KB in 10 s and BB1 restarted into it (the build time check failed only because of the cached compile, fixed above)
 
 - **Why:** every firmware change needed the USB cable and the power order. arduino-pico (6.3.0) already has what it takes: its Updater writes the new firmware into LittleFS, and the small OTA bootloader the core always links copies it in at the next start
 - **New `ota.h`, `POST /update`:** multipart field `firmware` (plain or gzipped), Basic auth `bb1` / `BB1_OTA_PASSWORD` (new line in `secrets.h`, template in `secrets.example.h`). Refused while armed, during a motor test, or unless lying down (same rule as `flash.py`). While it runs, `otaActive` (shared.h) makes core 1 refuse every arm (new reason 14 "a firmware update is running") and motor test and skip auto-arm, and core 1 confirms the motors are off before the first flash write (writing flash pauses core 1). A broken-off upload changes nothing; power lost during the copy repeats the copy at the next start; BOOTSEL stays the last resort

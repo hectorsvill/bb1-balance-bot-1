@@ -45,6 +45,7 @@
 #include "drive.h"
 #include "api.h"
 #include "ota.h"
+#include "version.h"
 
 WebServer server(80);
 
@@ -333,16 +334,17 @@ void handleSys() {
   uint32_t heapTotal = rp2040.getTotalHeap();
   uint32_t heapUsed  = rp2040.getUsedHeap();
   uint32_t flashUsed = (uint32_t)&__flash_binary_end - XIP_BASE;   // XIP_BASE = where flash starts in memory
-  char json[256];
+  char json[384];
   snprintf(json, sizeof(json),
            "{\"ram_total\":%lu,\"ram_static\":%lu,\"heap_total\":%lu,\"heap_used\":%lu,"
            "\"log_buffer\":%lu,\"flash_total\":%lu,\"flash_used\":%lu,\"page\":%lu,\"cpu_mhz\":%lu,"
-           "\"fs_total\":%lu,\"build\":\"%s %s\"}",
+           "\"fs_total\":%lu,\"build\":\"%s %s\",\"version\":\"%s\",\"build_id\":\"%s\"}",
            (unsigned long)RAM_TOTAL, (unsigned long)(RAM_TOTAL - heapTotal),
            (unsigned long)heapTotal, (unsigned long)heapUsed,
            (unsigned long)sizeof(logBuffer), (unsigned long)FLASH_TOTAL, (unsigned long)flashUsed,
            (unsigned long)sizeof(PAGE_HTML), (unsigned long)(rp2040.f_cpu() / 1000000),
-           (unsigned long)(FS_END - FS_START), __DATE__, __TIME__);   // fs: room for an OTA update; build: when this firmware was compiled
+           (unsigned long)(FS_END - FS_START), __DATE__, __TIME__,   // fs: room for an OTA update; build: when this firmware was compiled
+           FIRMWARE_VERSION, BB1_BUILD_ID);                        // version.h
   server.send(200, "application/json", json);
 }
 

@@ -9,6 +9,7 @@
 #include "config.h"
 #include "imu.h"
 #include "shared.h"
+#include "version.h"
 
 // Bump this when the log columns change, so old and new files can be told apart.
 const char *FIRMWARE_NAME = "bb1 milestone 2";
@@ -17,6 +18,7 @@ const int   LOG_FORMAT    = 11;  // 2: step 5 added enc_l..pwm_r; 3: step 6 adde
 String logMetaLines() {
   String m;
   m += "# firmware," + String(FIRMWARE_NAME) + "\n";
+  m += "# firmware_version," + String(FIRMWARE_VERSION) + ",build_id," + String(BB1_BUILD_ID) + "\n";   // version.h
   m += "# log_format," + String(LOG_FORMAT) + "\n";
   m += "# gyro_bias_dps," + String(gyroBias[0], 3) + "," + String(gyroBias[1], 3) + "," + String(gyroBias[2], 3) + "\n";
   m += "# alpha," + String(requestedAlpha, 3) + ",loop_hz," + String(LOOP_HZ) +

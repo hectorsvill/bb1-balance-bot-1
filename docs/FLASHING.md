@@ -60,20 +60,22 @@ BB1 can take a new firmware over Wi-Fi (`firmware/bb1/ota.h`). The new file land
 1. **Lay BB1 down** on its front, battery on, on Wi-Fi (no USB needed).
 2. From the repo folder: `tools/venv/bin/python tools/flash.py --ota` (add `--host 192.168.x.x` if `bb1.local` is slow).
 3. **Expect**, in order:
-   - `== Compiling firmware/bb1` and the `Sketch uses ...` lines
-   - `== Safety check over Wi-Fi`: `pitch +89 deg ... armed False, build ...` and `Lying down: safe to flash.`
+   - `== Compiling firmware/bb1`, `version 3.2, build id <branch> <commit> <time>` and the `Sketch uses ...` lines
+   - `== Safety check over Wi-Fi`: `pitch +89 deg ... armed False, now running version ...` and `Lying down: safe to flash.`
    - `== Sending the firmware over Wi-Fi (3xx KB gzipped)` and `{'ok': True, 'bytes': ...}`
-   - `== BB1 after the restart`: the new `build` time, `auto-arm: waiting...` and the `gains v...` line
-   - `Done: flashed over Wi-Fi.`
+   - `== BB1 after the restart`: the same build id, `auto-arm: waiting...` and the `gains v...` line
+   - `Done: flashed over Wi-Fi.` and `Recorded in logs/flash_history.csv: ...`
 
 **Safety:** BB1 checks it too: it refuses an update while armed, during a motor test, or unless lying down, and blocks arming until the update is done (flash writes pause the control core). Wrong password = refused.
+
+**Which firmware is on BB1:** `curl -s $B/sys` shows `version` (hand-bumped in `firmware/bb1/version.h`, one step per firmware change) and `build_id` (branch, commit, `+` if the firmware folder had uncommitted changes, compile time; written by `flash.py`). The main page shows both in the Pico memory panel, and every log file has them. `logs/flash_history.csv` (bb1-private) has one line per flash, USB or Wi-Fi. Bump `FIRMWARE_VERSION` when a firmware change is ready to go on BB1, and name the version in its CHANGELOG entry.
 
 **When it goes wrong:**
 
 | What happened | What it means / what to do |
 |---|---|
 | `refused: ...` or `upload broke off` | nothing changed, the old firmware runs: fix the reason and run again |
-| `didn't come back with the new firmware within 60 s` | power it off and on. If Wi-Fi still doesn't answer, the new firmware is broken: flash over USB |
+| `isn't running build ... after 60 s` | power it off and on. If Wi-Fi still doesn't answer, the new firmware is broken: flash over USB |
 | power lost while it restarted | harmless: the copy note is still there, and the bootloader copies again at the next power-on |
 | nothing answers on Wi-Fi or USB | BOOTSEL (section 3) always works |
 

@@ -13,8 +13,8 @@
 
 // API_VERSION counts changes to this list (new endpoint, new argument, new
 // limit), so an agent can tell when to re-read it. 1 = first version,
-// 2 = POST /update (ota.h).
-const int API_VERSION = 2;
+// 2 = POST /update (ota.h), 3 = version and build_id (version.h).
+const int API_VERSION = 3;
 
 struct ApiEndpoint {
   const char *method;   // "GET" or "POST"
@@ -75,7 +75,8 @@ String apiArgs(const char *args) {
 String apiJson(uint32_t logMax) {
   String j;
   j.reserve(4600);                              // one allocation instead of many small ones
-  j += "{\"api\":" + String(API_VERSION) + ",\"firmware\":\"" + FIRMWARE_NAME + "\",\"log_format\":" + String(LOG_FORMAT) + ",";
+  j += "{\"api\":" + String(API_VERSION) + ",\"firmware\":\"" + FIRMWARE_NAME + "\",\"version\":\"" + FIRMWARE_VERSION + "\",\"build_id\":\"" + BB1_BUILD_ID +
+       "\",\"log_format\":" + String(LOG_FORMAT) + ",";
   j += "\"units\":{\"angle\":\"deg (forward +)\",\"speed\":\"wheel turns/s (forward +)\",\"turn\":\"wheel turns/s left minus right (right +)\","
        "\"pwm\":\"-255..255 (forward +)\",\"counts_per_rev\":" + String(COUNTS_PER_REV) + "},";
   j += "\"limits\":{\"drive_max_speed\":" + String(DRIVE_MAX_SPEED, 2) + ",\"drive_max_turn\":" + String(DRIVE_MAX_TURN, 2) +

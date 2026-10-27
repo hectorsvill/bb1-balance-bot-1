@@ -146,6 +146,7 @@ def csv_line(r):
 
 def meta_lines():
     return ("# firmware,bb1 MOCK (tools/mock_bb1.py)\n"
+            "# firmware_version,MOCK,build_id,MOCK\n"
             "# log_format,11\n"
             f"# gyro_bias_dps,{bias[0]:.3f},{bias[1]:.3f},{bias[2]:.3f}\n"
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
@@ -188,7 +189,7 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
 
 def api_list():
     return {
-        "api": 2, "firmware": "bb1 MOCK", "log_format": 11,
+        "api": 3, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 11,
         "units": {"angle": "deg (forward +)", "speed": "wheel turns/s (forward +)",
                   "turn": "wheel turns/s left minus right (right +)", "pwm": "-255..255 (forward +)", "counts_per_rev": 520},
         "limits": {"drive_max_speed": DRIVE_MAX_SPEED, "drive_max_turn": DRIVE_MAX_TURN, "drive_hold_ms": DRIVE_HOLD_MS,
@@ -256,7 +257,7 @@ class Handler(BaseHTTPRequestHandler):
         elif url.path == "/sys":
             self.reply('{"ram_total":262144,"ram_static":181200,"heap_total":80944,"heap_used":%d,'
                        '"log_buffer":112000,"flash_total":2097152,"flash_used":433000,"page":%d,"cpu_mhz":133,'
-                       '"fs_total":1048576,"build":"MOCK"}'
+                       '"fs_total":1048576,"build":"MOCK","version":"MOCK","build_id":"MOCK"}'
                        % (21000 + random.randint(0, 3000), len(read_page()) + 1), "application/json")
         elif url.path == "/wifi":
             self.reply('{"mode":"own","saved_ssid":"","note":"mock"}', "application/json")

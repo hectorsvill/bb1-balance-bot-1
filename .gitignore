@@ -1,5 +1,7 @@
 # Build output from arduino-cli (prebuilt .uf2 files live in firmware/uf2/ and ARE tracked)
 build/
+# Written by tools/flash.py before each compile (firmware/bb1/version.h)
+build_id.h
 
 # Photos: iPhone HEIC files can carry GPS location in their metadata
 images/

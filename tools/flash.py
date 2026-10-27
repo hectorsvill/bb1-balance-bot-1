@@ -16,8 +16,14 @@ With --ota, steps 2-4 go over Wi-Fi instead (firmware/bb1/ota.h):
   2. read /state: disarmed, no motor test, lying down (BB1 checks it too)
   3. send build/bb1/bb1.ino.bin, gzipped, to POST /update with the password
      from firmware/bb1/secrets.h (BB1_OTA_PASSWORD)
-  4. wait for BB1 to restart into it (/sys shows the new build time), then
+  4. wait for BB1 to restart into it (/sys shows the new build id), then
      show the auto-arm state and the gains
+
+Versions: before compiling it writes firmware/bb1/build_id.h (gitignored):
+branch, git commit, "+" if there are uncommitted changes, and the time. BB1
+reports it with FIRMWARE_VERSION (version.h) in /sys, /api and every log file.
+After every flash it adds a line to logs/flash_history.csv (in bb1-private):
+when, version, build id, USB or Wi-Fi, and how it went.
 The first OTA-capable firmware goes on over USB once: it changes the flash
 layout (Flash Size "Sketch: 1MB, FS: 1MB", see FQBN). After that, either way works.
 
@@ -65,10 +71,54 @@ def step(text):
     print(f"\n== {text}")
 
 
+def git(*args):
+    return subprocess.run(["git", "-C", str(REPO), *args], capture_output=True, text=True).stdout.strip()
+
+
+def write_build_id():
+    """build_id.h: which source this build came from. It changes every time, so
+    arduino-cli always recompiles the sketch (and never reuses an old build)."""
+    dirty = "+" if git("status", "--porcelain", "--", "firmware") else ""
+    build_id = f"{git('branch', '--show-current') or 'detached'} {git('rev-parse', '--short', 'HEAD')}{dirty} " \
+               f"{time.strftime('%Y-%m-%d %H:%M')}"
+    (SKETCH / "build_id.h").write_text(
+        "// Written by tools/flash.py before each compile (see version.h). Not in git.\n"
+        f'#define BB1_BUILD_ID "{build_id}"\n')
+    return build_id
+
+
+def last_build_id():
+    """The build id of the last compile (for --skip-compile)."""
+    try:
+        return re.search(r'BB1_BUILD_ID "([^"]*)"', (SKETCH / "build_id.h").read_text()).group(1)
+    except (OSError, AttributeError):
+        return "no build id"
+
+
+def firmware_version():
+    return re.search(r'FIRMWARE_VERSION = "([^"]*)"', (SKETCH / "version.h").read_text()).group(1)
+
+
+def record_flash(build_id, method, result):
+    """One line per flash in logs/flash_history.csv: what went on BB1, when, and how."""
+    history = REPO / "logs" / "flash_history.csv"
+    if not history.parent.is_dir():
+        print(f"(no logs folder here, so not recorded in {history.name})")
+        return
+    new = not history.exists()
+    with history.open("a") as f:
+        if new:
+            f.write("time,version,build_id,method,result\n")
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')},{firmware_version()},{build_id},{method},{result}\n")
+    print(f"Recorded in logs/{history.name}: version {firmware_version()}, {build_id}, {method}, {result}")
+
+
 def compile_firmware():
     step("Compiling firmware/bb1")
     if not (SKETCH / "secrets.h").exists():
         sys.exit("firmware/bb1/secrets.h is missing: copy secrets.example.h to secrets.h first.")
+    build_id = write_build_id()
+    print(f"version {firmware_version()}, build id {build_id}")
     result = subprocess.run(["arduino-cli", "compile", "--fqbn", FQBN, "--output-dir", str(BUILD), str(SKETCH)],
                             capture_output=True, text=True)
     if result.returncode != 0:
@@ -77,6 +127,7 @@ def compile_firmware():
     for line in result.stdout.splitlines():
         if line.startswith(("Sketch uses", "Global variables")):
             print(line)
+    return build_id
 
 
 def read_lines(port, seconds, send=None):
@@ -168,14 +219,14 @@ def ota_check(base):
     if "fs_total" not in sys_info:
         sys.exit("BB1's firmware has no OTA yet: flash this one over USB once (without --ota).")
     pitch, trim = s["pitch"], s["gains"]["trim"]
-    print(f"pitch {pitch:+.1f} deg, trim {trim:+.1f} deg, armed {s['armed']}, build {sys_info['build']}")
+    print(f"pitch {pitch:+.1f} deg, trim {trim:+.1f} deg, armed {s['armed']}, "
+          f"now running version {sys_info.get('version', '?')} ({sys_info.get('build_id', sys_info['build'])})")
     if s["armed"] or s["test_running"]:
         sys.exit("BB1 is balancing or running a motor test: stop it and lay it down first.")
     if abs(pitch - trim) <= LYING_DOWN_DEG:
         sys.exit("BB1 is upright: after the restart it would start balancing on the spot. "
                  "Lay it down (on its front) and run this again.")
     print("Lying down: safe to flash.")
-    return sys_info["build"]
 
 
 def ota_upload(base):
@@ -196,25 +247,29 @@ def ota_upload(base):
         sys.exit("BB1 refused or the check failed: it keeps its old firmware.")
 
 
-def ota_show_status(base, old_build):
+def ota_show_status(base, build_id):
+    """Wait for BB1 to come back running this build. Returns True if it did."""
     step("BB1 after the restart")
     end = time.time() + 60                     # copying 0.5 MB and joining Wi-Fi again takes a while
+    running = None
     while time.time() < end:
         time.sleep(2)
         try:
-            build = http_json(f"{base}/sys", timeout=2)["build"]
-        except (OSError, ValueError, KeyError):
+            running = http_json(f"{base}/sys", timeout=2).get("build_id")
+        except (OSError, ValueError):
             continue                           # still restarting
-        if build != old_build:
+        if running == build_id:
             break
     else:
-        sys.exit("BB1 didn't come back with the new firmware within 60 s. Check it over USB (serial), "
-                 "or flash over USB. The old firmware still runs if the copy never started.")
+        print(f"BB1 isn't running build {build_id} after 60 s (it says: {running}). "
+              "Check it over USB (serial), or flash over USB. The old firmware still runs if the copy never started.")
+        return False
     s = http_json(f"{base}/state")
     g = s["gains"]
-    print(f"build {build}, uptime {s['uptime_s']} s, auto-arm: {s['auto_state']}")
+    print(f"version {firmware_version()}, build {build_id}, uptime {s['uptime_s']} s, auto-arm: {s['auto_state']}")
     print(f"gains v{g['ver']}: kp {g['kp']:g} ki {g['ki']:g} kd {g['kd']:g} trim {g['trim']:g}")
     print("\nDone: flashed over Wi-Fi.")
+    return True
 
 
 def resolve(host):
@@ -236,19 +291,26 @@ def main():
     args = ap.parse_args()
 
     if not args.skip_compile:
-        compile_firmware()
+        build_id = compile_firmware()
     elif not any(BUILD.glob("*.uf2")):
         sys.exit("No build in build/bb1 yet: run without --skip-compile.")
+    else:
+        build_id = last_build_id()
     if args.ota:
         base = resolve(args.host)
-        old_build = ota_check(base) if not args.force else http_json(f"{base}/sys").get("build")
+        if not args.force:
+            ota_check(base)
         ota_upload(base)
-        ota_show_status(base, old_build)
+        ok = ota_show_status(base, build_id)
+        record_flash(build_id, "wifi", "ok" if ok else "not confirmed")
+        if not ok:
+            sys.exit(1)
         return
     port = args.port or find_port()
     if not args.force:
         check_lying_down(port)
     upload(port)
+    record_flash(build_id, "usb", "uploaded")
     show_status()
 
 

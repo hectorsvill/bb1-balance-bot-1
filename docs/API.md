@@ -149,15 +149,15 @@ The list of every endpoint and its limits, as JSON, so a program or an AI agent 
 
 | Field | Meaning |
 |---|---|
-| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first, 2 = `POST /update`) |
-| `firmware`, `log_format` | firmware name (the mock says `bb1 MOCK`), log column version |
+| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first, 2 = `POST /update`, 3 = `version`, `build_id`) |
+| `firmware`, `version`, `build_id`, `log_format` | firmware name (the mock says `bb1 MOCK`), version and build id (see `GET /sys`), log column version |
 | `units` | what `angle`, `speed`, `turn`, `pwm` mean, and `counts_per_rev` |
 | `limits` | `drive_max_speed`, `drive_max_turn` (turns/s), `drive_hold_ms` (default command length), `drive_hold_max_ms`, `arm_seconds_max`, `arm_angle` (must be this close to trim to arm, deg), `fall_angle` (deg), `heartbeat_ms`, `motor_test_max_pwm`, `motor_test_max_ms`, `alpha` [min, max], `log_max_per_request` |
 | `gains` | each `/gains` setting and its [min, max]; values outside are clamped. `auto` and `smode` are 0 or 1; `trim` also takes `here` |
 | `endpoints` | one object per route: `method`, `path`, `args` (names), `answer` (`json`, `text`, `csv`, `html`), `moves` (true = can turn the wheels), `does` |
 
 ```json
-{"api":2,"firmware":"bb1 milestone 2","log_format":11,
+{"api":3,"firmware":"bb1 milestone 2","version":"3.2","build_id":"ota 1a2b3c4+ 2026-10-27 14:05","log_format":11,
  "limits":{"drive_max_speed":1.00,"drive_hold_ms":500, ...},
  "gains":{"kp":[0.000,100.000], ...},
  "endpoints":[{"method":"POST","path":"/drive","args":["speed","turn","ms"],"answer":"json","moves":true,"does":"..."}, ...]}
@@ -167,7 +167,7 @@ Adding an endpoint: route it in `web.h`, add a row to `API_ENDPOINTS` in `api.h`
 
 ### `GET /sys`
 
-RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_buffer`, `flash_total`, `flash_used`, `page`, `cpu_mhz` (bytes, MHz). `fs_total`: bytes of flash kept for an OTA update (1048576; missing = firmware without OTA). `build`: when this firmware was compiled (`"Oct 27 2026 12:41:07"`), so a tool can see that a new firmware is running.
+RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_buffer`, `flash_total`, `flash_used`, `page`, `cpu_mhz` (bytes, MHz). `fs_total`: bytes of flash kept for an OTA update (1048576; missing = firmware without OTA). `build`: when this firmware was compiled (`"Oct 27 2026 12:41:07"`), (arduino-cli can reuse a cached compile, so it may not change: use `build_id`). `version`: the firmware version (`"3.2"`, `firmware/bb1/version.h`, bumped by hand per firmware change). `build_id`: written by `tools/flash.py` before each compile: branch, git commit, `+` if there were uncommitted changes, and the time (`"ota 1a2b3c4+ 2026-10-27 14:05"`); `"no build id"` when built without flash.py. Both are also in `/api` and every log file's `# firmware_version` line.
 
 ## Balancing
 
