@@ -9,6 +9,12 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-26 - I-term relax (`irelax`) and the Wi-Fi drops, not flashed yet
+
+- **Why:** the first training run (gains v26) stopped after 4.8 min at the box edge: told "home fwd 0.25", BB1 rolled backward 0.1-0.4 turns/s, angle I at −4 to −9 PWM. And 41% of the moving time the drive command had run out
+- **New setting `irelax`** (s, default 0.5, 0 = off): when a drive command has ramped down to a stop, the angle I term decays toward 0 with that time constant for 2 x irelax; driving again cancels it. Log flag 64 (`FLAG_I_RELAX`, same log format). Live on /tune, serial, `/state` gains, `# gains_ver` line `i_relax`, saved in flash (settings layout v8; older saves load with the default). Mock and `logger.py` `GAIN_KEYS` updated
+- **Wi-Fi drops found:** measured from the Mac with BB1 standing, `/drive` and `/state` always answer within 0.15 s, but about every 10 s one `GET /log` answer takes 1-2.5 s, and the Pico serves nothing else meanwhile. `drive_test.py` and `drive_explore.py` send everything from one loop, so the 1 s drive command ran out. Fix (tools only): each command now lasts 3 s (`CMD_MS`, still re-sent every 100 ms, stopped after every move); if the script dies BB1 stops within 3 s. Why `/log` is slow on the Pico is still open (the server already sets no-delay)
+
 ## 2026-10-26 - logs backed up in the private repo `bb1-private`
 
 - New private GitHub repo `hectorsvill/bb1-private` (`~/Documents/GitHub/bb1-private`): `logs/` (all 159 real runs, 290 MB), plus `models/`, `media/` and `business/` for what we don't publish. Its README has the rules (real runs only, no secrets, photos without GPS, Git LFS before any file reaches 100 MB)

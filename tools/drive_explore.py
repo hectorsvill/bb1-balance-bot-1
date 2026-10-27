@@ -10,11 +10,11 @@ of --box metres around where it started: it tracks x, y and heading from the
 encoders (odometry) and, near the edge, turns toward the middle and drives
 back. Every command is a "# step" line in the log, like drive_test.py.
 
-Safety (same commands as drive_test.py: 1 s each, re-sent every 100 ms):
+Safety (same commands as drive_test.py: 3 s each, re-sent every 100 ms, stopped after every move):
   - stops for good on a fall, an encoder fault, battery under --min-cell volts
     per cell, or BB1 past the box edge (odometry drifts: the box is shrunk to
     80% to leave room)
-  - a Wi-Fi stall only pauses driving (BB1 stops by itself within 1 s); after
+  - a Wi-Fi stall only pauses driving (BB1 stops by itself within 3 s); after
     30 s with no answer it gives up
   - Ctrl-C stops driving and saves
 

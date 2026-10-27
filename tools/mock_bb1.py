@@ -49,7 +49,7 @@ START = time.time()
 alpha = 0.98
 bias = [-0.50, 2.07, -2.20]      # deg/s, like a real calibration
 tests = []                        # motor tests: [first_tick, end_tick, left_pwm, right_pwm]
-gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": -4.39, "cap": 80.0, "deadband": 0.0, "sp": 0.0, "si": 0.0, "th": 0.0, "auto": 1, "dff": 25.0, "sdi": 2.0, "smode": 0, "wsp": 20.0, "wsi": 10.0}
+gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": -4.39, "cap": 80.0, "deadband": 0.0, "sp": 0.0, "si": 0.0, "th": 0.0, "auto": 1, "dff": 25.0, "sdi": 2.0, "smode": 0, "wsp": 20.0, "wsi": 10.0, "irelax": 0.5}
 armed_from = None                 # tick it was armed at, or None
 reason = ""                       # why it last disarmed / refused, like disarmReason in control.h
 arm_attempts = 0
@@ -270,7 +270,7 @@ class Handler(BaseHTTPRequestHandler):
                 reason = "the page was hidden (tab switched or screen locked)" if hidden else "disarmed by you"
             self.reply("disarmed")
         elif self.path == "/gains":
-            limits = {"kp": (0, 100), "ki": (0, 100), "kd": (0, 20), "cap": (0, 255), "deadband": (0, 100), "trim": (-20, 20), "sp": (0, 20), "si": (0, 20), "th": (0, 200), "auto": (0, 1), "dff": (0, 150), "sdi": (0, 20), "smode": (0, 1), "wsp": (0, 200), "wsi": (0, 200)}
+            limits = {"kp": (0, 100), "ki": (0, 100), "kd": (0, 20), "cap": (0, 255), "deadband": (0, 100), "trim": (-20, 20), "sp": (0, 20), "si": (0, 20), "th": (0, 200), "auto": (0, 1), "dff": (0, 150), "sdi": (0, 20), "smode": (0, 1), "wsp": (0, 200), "wsi": (0, 200), "irelax": (0, 5)}
             for k, (lo, hi) in limits.items():
                 v = form.get(k)
                 if k == "trim" and v == "here":
@@ -278,7 +278,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif v:
                     gains[k] = max(lo, min(hi, float(v)))
             gains["ver"] += 1
-            self.reply("gains v{ver}: kp {kp}  ki {ki}  kd {kd}  trim {trim} deg  cap {cap}  deadband {deadband}  sp {sp}  si {si}  th {th}  auto {auto}  dff {dff:g}  sdi {sdi:g}  smode {smode:g}  wsp {wsp:g}  wsi {wsi:g}".format(**gains))
+            self.reply("gains v{ver}: kp {kp}  ki {ki}  kd {kd}  trim {trim} deg  cap {cap}  deadband {deadband}  sp {sp}  si {si}  th {th}  auto {auto}  dff {dff:g}  sdi {sdi:g}  smode {smode:g}  wsp {wsp:g}  wsi {wsi:g}  irelax {irelax:g}".format(**gains))
         elif self.path == "/gains/save":
             if armed_from is not None:
                 return self.reply("disarm first: saving pauses the control loop for a moment", status=409)

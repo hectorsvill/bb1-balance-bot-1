@@ -37,6 +37,7 @@ volatile float    gainSpeedI    = DEFAULT_SPEED_I;   // speed loop, deg per whee
 volatile float    gainTurnHold  = DEFAULT_TURN_HOLD; // heading hold, PWM per wheel turn of left/right difference
 volatile float    gainDriveFF   = DEFAULT_DRIVE_FF;  // drive feedforward, PWM per turn/s of speed target (drive.h)
 volatile float    gainDriveSpeedI = DEFAULT_DRIVE_SPEED_I;  // drive speed I, deg per turn/s per s (control.h)
+volatile float    gainIRelax      = DEFAULT_I_RELAX_S;      // I-term relax after a drive, s time constant, 0 = off (control.h)
 volatile float    speedMode       = DEFAULT_SPEED_MODE;     // 0 = speed loop moves the setpoint, 1 = wheel speed loop on the PWM (config.h)
 volatile float    gainWheelSpeedP = DEFAULT_WHEEL_SPEED_P;  // smode 1: PWM per turn/s too fast
 volatile float    gainWheelSpeedI = DEFAULT_WHEEL_SPEED_I;  // smode 1: PWM per wheel turn ahead

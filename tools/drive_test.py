@@ -10,9 +10,9 @@ Tests: stand, fwd-back-30, fwd-back-50, turn, arc, all (the five in a row).
 
 Safety, in this order of importance:
   - refuses to start unless /state says armed and enc_fault 0
-  - every /drive command lasts CMD_MS (1 s) and is re-sent every 100 ms,
-    like the page; nothing longer than MAX_CMD_MS (1 s) is ever sent. If this
-    script dies, BB1 stops by itself within 1 s (the firmware failsafe)
+  - every /drive command lasts CMD_MS (3 s) and is re-sent every 100 ms,
+    like the page; nothing longer than MAX_CMD_MS (3 s) is ever sent. If this
+    script dies, BB1 stops by itself within 3 s (the firmware failsafe)
   - POST /drive/stop between steps, and on any error, fall or Ctrl-C
   - checks /state twice a second: disarmed (fell, STOP), encoder fault, or more than
     MAX_TRAVEL (3) wheel turns from the start ends the test
@@ -36,9 +36,12 @@ from check_dump import find_file, load_dump
 from logger import MAX_PER_REQUEST, fetch_log, gains_versions, get, log_path, post, save_log
 
 COUNTS_PER_REV = 520           # config.h, assumed
-CMD_MS = 1000                  # how long each /drive command lasts. The Pico's server sometimes goes quiet
-                               # for 1-2.5 s (2026-10-26): at 300 and 500 ms the command ran out mid-step
-MAX_CMD_MS = 1000              # hard limit: never ask for more than this
+CMD_MS = 3000                  # how long each /drive command lasts (re-sent every 100 ms). Was 1000: about
+                               # every 10 s one GET /log answer takes 1-2.5 s, the Pico serves nothing else
+                               # meanwhile, and a 1 s command ran out: 41% of the moving time in the first
+                               # training run (2026-10-26). 3 s rides over that. Cost: if this script dies,
+                               # BB1 drives on up to 3 s (0.21 m at 0.4 turns/s) before its failsafe stops it
+MAX_CMD_MS = 3000              # hard limit: never ask for more than this (= the firmware's DRIVE_HOLD_MAX_MS)
 RESEND_S = 0.1                 # re-send the command this often (the page does too)
 FLAG_SAT, FLAG_STOPPING, FLAG_ENC_FAULT = 8, 16, 32   # telemetry.h
 MAX_TRAVEL = 3.0               # wheel turns (about 0.53 m) from where the test started: stop the test.

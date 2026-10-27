@@ -236,6 +236,14 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   pid.gainP = gainP;  pid.gainI = gainI;  pid.gainD = gainD;
   pid.limit = pwmCap;
   float error = a.pitch - setpoint;             // forward lean past the balance point = positive
+  // I-term relax (irelax, config.h): just after a drive, drain the I term
+  // toward 0 so it can't keep the wheels rolling the old way. Before the
+  // update, so this tick's P, I, D already use the drained value.
+  if (drive.relaxLeft > 0 && gainIRelax > 0) {
+    pid.integral *= 1.0f - min(1.0f, dt / gainIRelax);
+    drive.relaxLeft -= dt;
+    r.flags |= FLAG_I_RELAX;
+  }
   float out = pid.update(error, a.pitchRate, dt);
   // Drive feedforward: while driving, the PWM that speed needs goes straight
   // in, so the I term only fixes what's left (and has little to unwind when
