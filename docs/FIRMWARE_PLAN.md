@@ -50,6 +50,7 @@ firmware/bb1/
   telemetry.h      the log record and the ring buffer that holds the last few seconds
   wifi_setup.h     own network or home network, saved settings
   web.h            web server routes
+  api.h            GET /api: every endpoint and its limits, for programs and AI agents
   secrets.h        own-network password (not in git; copy secrets.example.h)
   page.h           the HTML/JS page as one string
   log_meta.h       the "# setting" lines at the top of every log file

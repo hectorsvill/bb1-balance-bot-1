@@ -9,6 +9,13 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-27 - `GET /api` (milestone 3 step 2), not flashed yet
+
+- **Why:** so a program or an AI agent can discover every endpoint, its arguments, whether it moves the wheels, and the limits (drive speed, command length, gain ranges) without reading `docs/API.md`
+- **New file `firmware/bb1/api.h`:** one table `API_ENDPOINTS` (method, path, args, answer type, moves, one-line description) and `apiJson()`. The limits are read from `config.h`, so they can't drift from what the firmware enforces. `API_VERSION` 1 goes up whenever the list changes. Routed in `web.h`; the table lives in flash (RAM use unchanged: 225,696 bytes static)
+- `tools/mock_bb1.py` answers `/api` with the same list (`firmware: bb1 MOCK`); its gain limits are now one `GAIN_LIMITS` table shared with `/gains`. Docs: `docs/API.md` (new `GET /api` section), `docs/FIRMWARE_PLAN.md`, `docs/WEB_INTERFACE.md`
+- No log columns changed (log format stays 11)
+
 ## 2026-10-26 - I-term relax (`irelax`) and the Wi-Fi drops, flashed 23:30
 
 - **Result:** drive commands live 93-98% of the moving time (was 59%); the training explore ran 11.2 min (was 4.8). `irelax` 0.5 works as built (flag 64) but **does not stop the creep**: 3-5 of 10-12 stops still roll back up to 0.32 turns/s. During the drain the I term rebuilds faster than it drains: after a forward drive the setpoint sits about +1 deg forward (speed loop + sdi), the body lags, the error is negative and ki 100 winds I negative again. `drive_explore.py`: the position poll now rides out a slow `/state` (one ended a run after 18 s)

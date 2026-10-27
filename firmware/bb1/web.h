@@ -3,6 +3,7 @@
 // Runs on core 0. The browser asks for things with plain HTTP:
 //
 //   GET  /            the page (page.h)
+//   GET  /api         every endpoint and its limits as JSON (api.h), for programs and AI agents
 //   GET  /tune        the small PID tuning page (tune_page.h): gains + live P/I/D, never arms
 //   GET  /state       newest values as JSON, polled ~20 times a second by the page
 //   POST /cal         recalibrate the gyro (same as typing "cal")
@@ -41,6 +42,7 @@
 #include "tune_page.h"
 #include "battery.h"
 #include "drive.h"
+#include "api.h"
 
 WebServer server(80);
 
@@ -340,6 +342,13 @@ void handleSys() {
   server.send(200, "application/json", json);
 }
 
+// GET /api -> every endpoint and its limits (api.h). About 4 KB of heap for
+// a moment; programs ask once, not 20 times a second like /state.
+void handleApi() {
+  String json = apiJson(LOG_MAX_PER_REQUEST);
+  server.send(200, "application/json", json);
+}
+
 // Why every route goes through route() instead of server.on():
 // the WebServer library serves one browser connection at a time. After it
 // answers, it waits up to 5 s (HTTP_MAX_CLOSE_WAIT) for the browser to close
@@ -358,6 +367,7 @@ void route(const char *path, HTTPMethod method, void (*handler)()) {
 void webBegin() {
   route("/", HTTP_GET, handlePage);
   route("/tune", HTTP_GET, handleTunePage);
+  route("/api", HTTP_GET, handleApi);
   route("/state", HTTP_GET, handleState);
   route("/cal", HTTP_POST, handleCal);
   route("/alpha", HTTP_POST, handleAlpha);

@@ -5,7 +5,7 @@ Everything the web pages do goes through this API, so anything else (curl, a Pyt
 - **Address:** `http://bb1.local` on the home network, or `http://192.168.42.1` on BB1's own network "BB1". (Some computers don't resolve `bb1.local`; use the IP from `wifi` on serial or the page's status bar.)
 - **Style:** plain HTTP. `GET` reads, `POST` does something. Arguments go in the query string or as a form body (`-d name=value`), never JSON. No login: anyone on the same network can drive BB1.
 - **One at a time:** the Pico serves one request at a time and closes each connection after answering. Keep requests short and don't open many in parallel. About 20 `/state` a second plus 10 `/drive` a second is what the page uses.
-- **Answers:** `/state`, `/sys`, `/wifi` (GET) and `/drive` answer JSON. Older actions answer one line of plain text meant for a person. Errors use the status code: `400` bad argument, `409` not allowed right now (the text says why), `404` unknown path.
+- **Answers:** `/api`, `/state`, `/sys`, `/wifi` (GET) and `/drive` answer JSON. Older actions answer one line of plain text meant for a person. Errors use the status code: `400` bad argument, `409` not allowed right now (the text says why), `404` unknown path.
 - **Units:** degrees, deg/s, PWM (-255..255, forward +), wheel turns per second (520 encoder counts = 1 turn, assumed). Forward and turn right are positive.
 
 ## Every endpoint with curl
@@ -16,6 +16,7 @@ Copy-paste versions of every route in `web.h`. Set `B` once per terminal. Use th
 B=http://bb1.local                      # or http://192.168.1.240, http://192.168.42.1, http://localhost:8080
 
 # Reading (safe any time)
+curl -s $B/api | python3 -m json.tool   # every endpoint and its limits, JSON (start here)
 curl -s $B/state                        # everything now, JSON (also the heartbeat)
 curl -s $B/state | python3 -m json.tool # the same, readable
 curl -s "$B/log?since=0"                # log records as CSV (up to 1000; ask since=<to> next)
@@ -139,6 +140,28 @@ tick,t_us,work_us,...,drive_speed,drive_turn
 
 `/log/meta` gives the `# setting,value` lines that go at the top of a saved log file. Columns are in `docs/CALIBRATION_AND_LOGS.md`. `tools/logger.py` is a ready-made client; `tools/drive_test.py` drives a scripted test with the same calls and records it.
 
+### `GET /api`
+
+The list of every endpoint and its limits, as JSON, so a program or an AI agent can find out what BB1 understands without reading this file. The code is `firmware/bb1/api.h`; the limits are read from `config.h`, so they always match what the firmware enforces.
+
+| Field | Meaning |
+|---|---|
+| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first) |
+| `firmware`, `log_format` | firmware name (the mock says `bb1 MOCK`), log column version |
+| `units` | what `angle`, `speed`, `turn`, `pwm` mean, and `counts_per_rev` |
+| `limits` | `drive_max_speed`, `drive_max_turn` (turns/s), `drive_hold_ms` (default command length), `drive_hold_max_ms`, `arm_seconds_max`, `arm_angle` (must be this close to trim to arm, deg), `fall_angle` (deg), `heartbeat_ms`, `motor_test_max_pwm`, `motor_test_max_ms`, `alpha` [min, max], `log_max_per_request` |
+| `gains` | each `/gains` setting and its [min, max]; values outside are clamped. `auto` and `smode` are 0 or 1; `trim` also takes `here` |
+| `endpoints` | one object per route: `method`, `path`, `args` (names), `answer` (`json`, `text`, `csv`, `html`), `moves` (true = can turn the wheels), `does` |
+
+```json
+{"api":1,"firmware":"bb1 milestone 2","log_format":11,
+ "limits":{"drive_max_speed":1.00,"drive_hold_ms":500, ...},
+ "gains":{"kp":[0.000,100.000], ...},
+ "endpoints":[{"method":"POST","path":"/drive","args":["speed","turn","ms"],"answer":"json","moves":true,"does":"..."}, ...]}
+```
+
+Adding an endpoint: route it in `web.h`, add a row to `API_ENDPOINTS` in `api.h` (and bump `API_VERSION`), the same row in `tools/mock_bb1.py`, and a row here.
+
 ### `GET /sys`
 
 RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_buffer`, `flash_total`, `flash_used`, `page`, `cpu_mhz` (bytes, MHz).
@@ -171,6 +194,7 @@ RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_bu
 | `POST /wifi` | `ssid`, `password`: save a home network and restart |
 | `POST /wifi/forget` | forget it and restart on the own network |
 | `GET /`, `GET /tune` | the main page and the tuning page |
+| `GET /api` | every endpoint and its limits, JSON (see above) |
 
 ## Ready for an AI agent? (next milestone)
 
@@ -178,7 +202,7 @@ The API is already usable by a script or an agent with plain HTTP: `/state` to s
 
 1. **A small client and CLI** (`tools/bb1.py`, **built 2026-10-26**, see `docs/TOOLS.md`): `state`, `arm`, `drive --speed 0.3 --for 2`, `stop`, `disarm`, one JSON line out, exit codes for scripts. An agent can call a CLI or the HTTP API; an MCP server wrapping the same calls is the next step after that.
 2. **Real-world units:** measure the wheel diameter and track width so `speed` can be m/s and `turn` deg/s of heading, plus odometry in `/state` (distance and heading since arming).
-3. **Machine-readable answers everywhere:** the older actions answer human text. Add JSON answers (for example with `Accept: application/json`) and a `GET /api` that lists every endpoint and its limits, so an agent can discover them.
+3. **Machine-readable answers everywhere:** `GET /api` (**built 2026-10-27**) lists every endpoint and its limits, so an agent can discover them. Still to do: the older actions answer human text; add JSON answers (for example with `Accept: application/json`).
 4. **Safety for unattended use:** an "agent mode" with a lower speed limit, a maximum distance from where it armed, and maybe a token so only the agent (and you) can drive. Today anyone on the network can.
 5. **Events:** a way to know "it fell" or "it stopped" without polling (for example a counter in `/state` an agent can watch, or a WebSocket later).
 6. **Sensors that let an agent see:** the HC-SR04 distance (and later the Pi Zero camera) in `/state`, so it can avoid hitting things.
