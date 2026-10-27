@@ -44,6 +44,8 @@ RESEND_S = 0.1           # re-send the command this often, like the page
 MAX_FOR_S = 10.0         # longest single drive
 MAX_TRAVEL = 3.0         # wheel turns (about 0.6 m) from where the drive started: stop
 STALL_S = 2.0            # no answer at all from BB1 for this long: stop and give up
+SETTLE_S = 2.0           # after a drive, wait up to this long for the wheels to stop before answering
+SETTLED_SPEED = 0.05     # wheel turns/s: slower than this counts as stopped
 ARM_WAIT_S = 1.5         # how long to wait for an arm to be accepted or refused
 
 
@@ -78,6 +80,15 @@ def turns(s):
     return (s["enc_l"] + s["enc_r"]) / 2 / COUNTS_PER_REV
 
 
+def diff(s):
+    """Left-minus-right wheel difference, turns from boot (right turn +): how far it has turned."""
+    return (s["enc_l"] - s["enc_r"]) / 2 / COUNTS_PER_REV
+
+
+def wheel_speed(s):
+    return (s["speed_l"] + s["speed_r"]) / 2 / COUNTS_PER_REV
+
+
 def summary(s):
     """The fields an agent needs to decide what to do next, in plain units."""
     cells = s.get("batt_cells", 2) or 2
@@ -86,7 +97,7 @@ def summary(s):
         "reason": s["reason"],                    # why it last stopped or refused ("" if none)
         "auto_state": s["auto_state"],
         "pitch_deg": s["pitch"],
-        "speed": round((s["speed_l"] + s["speed_r"]) / 2 / COUNTS_PER_REV, 2),   # wheel turns/s now
+        "speed": round(wheel_speed(s), 2),            # wheel turns/s now
         "position_turns": round(turns(s), 2),     # since boot; differences matter, not the value
         "drive": {k: s["drive"][k] for k in ("speed", "turn", "left_ms")},
         "enc_fault": s["enc_fault"],
@@ -143,7 +154,7 @@ def cmd_drive(base, args):
         out(ok=False, error=f"encoder fault {s['enc_fault']}: check that encoder's wires")
         return 1
 
-    start = turns(s)
+    start, start_diff = turns(s), diff(s)
     end = time.time() + secs
     next_check = 0.0
     last_answer = time.time()
@@ -177,10 +188,17 @@ def cmd_drive(base, args):
             post(f"{base}/drive/stop")
         except OSError:
             pass                                # the command runs out by itself within CMD_MS
-    time.sleep(0.3)                             # let the speed readout catch up
+    # BB1 ramps down and rolls on a little after a stop (up to about 0.5 turn):
+    # wait for it, so moved/turned are where it really ended up.
+    settle_end = time.time() + SETTLE_S
+    time.sleep(0.3)                             # the speed readout lags about 0.1 s
     s = read_state(base)
+    while abs(wheel_speed(s)) > SETTLED_SPEED and time.time() < settle_end:
+        time.sleep(0.1)
+        s = read_state(base)
     out(ok=why is None, error=why, asked={"speed": speed, "turn": turn, "secs": secs},
-        moved_turns=round(turns(s) - start, 2), state=summary(s))
+        moved_turns=round(turns(s) - start, 2), turned_turns=round(diff(s) - start_diff, 2),
+        settled=abs(wheel_speed(s)) <= SETTLED_SPEED, state=summary(s))
     return 0 if why is None else 1
 
 

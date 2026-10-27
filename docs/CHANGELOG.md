@@ -13,7 +13,8 @@ Newest first.
 
 - New `tools/bb1.py`: command-line control for scripts and AI agents. `state` (summary or `--full`), `arm`, `drive --speed --turn --for`, `stop`, `disarm`; one line of JSON per call; exit code 0 / 1 refused or safety stop / 2 no answer. Uses only the existing HTTP API: no firmware change
 - Safety: drive refuses unless armed with no encoder fault, caps speed and turn at `--max` (0.5), at most 10 s, 1 s commands re-sent every 100 ms (BB1's failsafe stops it within 1 s if the tool dies), stops on a disarm, an encoder fault or 3 wheel turns of travel, Ctrl-C sends `/drive/stop`
-- Tested on the mock; docs in `docs/TOOLS.md`, `docs/API.md` (agent list item 1)
+- After a drive it waits (up to 2 s) for the wheels to stop, then answers `moved_turns`, `turned_turns` and `settled`. First run on BB1: all commands, the 0.5 cap and the stops worked; forward 2 s at 0.3 moved 0.27, back 0.51; 1 s turns at 0.4 turned 0.14 right, 0.05 left
+- Tested on the mock and on BB1; docs in `docs/TOOLS.md`, `docs/API.md` (agent list item 1)
 
 ## 2026-10-26 - drive tuning: smode 1 dropped, sp 3, sdi 4 (saved in flash and `config.h` defaults)
 
