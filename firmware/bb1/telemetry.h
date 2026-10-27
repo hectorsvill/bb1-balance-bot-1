@@ -30,8 +30,10 @@ const uint8_t FLAG_IMU_ERROR = 1 << 0;   // the IMU read failed this tick (senso
 const uint8_t FLAG_OVERRUN   = 1 << 1;   // the previous tick's work took longer than 5 ms
 const uint8_t FLAG_NO_BIAS   = 1 << 2;   // no successful gyro calibration yet: using GYRO_BIAS_TYPICAL (config.h)
 const uint8_t FLAG_SATURATED = 1 << 3;   // armed and the PID output hit the PWM cap
+const uint8_t FLAG_DRIVE_STOPPING = 1 << 4;   // a drive command ran out or was stopped: ramping to a stop (drive.h)
+const uint8_t FLAG_ENC_FAULT = 1 << 5;   // an encoder isn't counting (control.h): heading hold off, driving refused
 
-// One control tick. 72 bytes; 2000 of them (10 s) use 144 KB of the 264 KB RAM.
+// One control tick. 76 bytes (since log format 9); 2000 of them (10 s) use 144 KB of the 264 KB RAM.
 // (Step 5 added 16 bytes: encoders, wheel speeds, motor commands. Step 6 added
 // 12: the controller. Its terms are stored x10 as whole numbers, 2 bytes each
 // instead of 4 for a float, to keep the 10 s buffer within RAM.)
@@ -66,6 +68,13 @@ struct LogRecord {
   uint16_t batt_mv;       // battery voltage in mV (battery.h; 0 = no wire / switch off)
   // 2026-10-24: auto-arm (log format 7). Uses 1 of the 2 padding bytes: still 72 bytes.
   uint8_t  auto_state;    // AutoState in auto_arm.h: why it is or isn't starting by itself
+  // 2026-10-25: driving (log format 9). Makes the record 76 bytes (+8 KB for the 10 s buffer).
+  int8_t   drive_speed;   // operator command in force: speed, hundredths of a wheel turn/s, forward + (drive.h; 0 once it runs out)
+  int8_t   drive_turn;    // operator command: turn, hundredths of a turn/s, right + (the "action" a model would learn to copy)
+  // 2026-10-26 (log format 11): the controller's own state, in the last 3 padding bytes (still 76 bytes)
+  int8_t   drive_speed_now; // ramped speed target BB1 really aims for, hundredths of a turn/s
+  int8_t   drive_turn_now;  // ramped turn target, hundredths of a turn/s
+  int8_t   speed_pwm;       // PWM the wheel speed loop added this tick (smode 1; 0 in smode 0)
 };
 
 // ---------- the ring buffer ----------
@@ -119,7 +128,7 @@ uint32_t logOldest() {
 
 const char *CSV_HEADER =
   "tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state";
+  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm";
 
 void csvHeader(Print &p) {
   p.println(CSV_HEADER);
@@ -127,12 +136,13 @@ void csvHeader(Print &p) {
 
 // Write one record as a CSV line (with "\n") into buf. Returns the length.
 int formatCsv(char *buf, size_t size, const LogRecord &r) {
-  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u,%.2f,%u\n",
+  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u,%.2f,%u,%.2f,%.2f,%.2f,%.2f,%d\n",
                   (unsigned long)r.tick, (unsigned long)r.t_us, r.work_us, r.mode, r.flags,
                   r.raw[0], r.raw[1], r.raw[2], r.raw[3], r.raw[4], r.raw[5], r.raw[6],
                   r.pitch, r.pitch_rate, r.accel_pitch,
                   (long)r.enc_l, (long)r.enc_r, r.speed_l, r.speed_r, r.pwm_l, r.pwm_r,
-                  r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10, r.batt_mv / 1000.0, r.auto_state);
+                  r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10, r.batt_mv / 1000.0, r.auto_state, r.drive_speed / 100.0, r.drive_turn / 100.0,
+                  r.drive_speed_now / 100.0, r.drive_turn_now / 100.0, r.speed_pwm);
 }
 
 void printCsv(Print &p, const LogRecord &r) {

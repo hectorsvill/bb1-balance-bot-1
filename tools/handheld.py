@@ -50,7 +50,7 @@ from datetime import datetime
 
 import serial  # pyserial
 
-from logger import MAX_PER_REQUEST, fetch_log, get, log_path, post, save_log
+from logger import GAIN_KEYS, MAX_PER_REQUEST, fetch_log, get, log_path, post, save_log
 from serial_log import find_port
 
 
@@ -119,7 +119,7 @@ class SerialLink(threading.Thread):
                     # The CSV only has gains_ver per row, so keep what each version
                     # meant (changes from the /tune page arrive here too).
                     ver = int(w[1].lstrip("v").rstrip(":"))
-                    self.versions[ver] = " ".join(f"{k} {pick(k)}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband", "sp", "si", "th", "auto") if k in w)
+                    self.versions[ver] = " ".join(f"{k} {pick(k)}" for k in GAIN_KEYS if k in w)
                 say(f"BB1: {line}")
 
 
@@ -161,7 +161,7 @@ class WifiLink(threading.Thread):
             self.post("/disarm")
         elif key == "gains":
             say(f"BB1: gains: {self.versions.get(max(self.versions), '...') if self.versions else '...'}")
-        elif key in ("kp", "ki", "kd", "trim", "cap", "deadband", "sp", "si", "th", "auto") and len(words) == 2:
+        elif key in GAIN_KEYS and len(words) == 2:
             say("BB1: " + self.post("/gains", **{key: words[1]}))      # "trim here" works too
         elif key == "save":
             say("BB1: " + self.post("/gains/save"))
@@ -184,7 +184,7 @@ class WifiLink(threading.Thread):
             if s.get("batt_ok"):
                 self.readout += f" | batt {s['batt_v'] / s.get('batt_cells', 2):.2f} V/cell"
             self.gains = f"kp {g['kp']:g} kd {g['kd']:g} cap {g['cap']:g}" + (f" sp {g['sp']:g} si {g['si']:g}" if "sp" in g else "")
-            self.versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband", "sp", "si", "th", "auto") if k in g)
+            self.versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in GAIN_KEYS if k in g)
             if s["armed"] != self.armed:                           # print each change once
                 if self.armed is not None:
                     say("BB1: ARMED" if s["armed"] else f"BB1: DISARMED: {s['reason']}")

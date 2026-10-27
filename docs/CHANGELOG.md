@@ -9,6 +9,60 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-26 - drive tuning: smode 1 dropped, sp 3, sdi 4 (saved in flash and `config.h` defaults)
+
+- `smode` flashed and confirmed on `/state`. smode 1 drove the wrong way at every ki from 100 to 25 (the body never leans into the drive on wood; the wheel speed loop's PWM goes straight to the wheels), and standing rocked under ki 35. Hector chose smode 0 + sdi; smode 1 stays in the firmware, default 0
+- `DEFAULT_SPEED_P` 1.2 → **3.0**: after a reverse stop at 0.5 BB1 rolled on 0.8 turns and rocked (2 s period); sp 3 stops in under 0.25 (3 of 3 runs)
+- `DEFAULT_DRIVE_SPEED_I` 2 → **4**: forward at 0.3 now reaches 0.27-0.32 (was 0.16-0.21); 6 overshoots
+- 10 min unattended `drive_explore.py` at sp 3: no disarms, stayed in the box (was 41 s). Still open: a slow backward roll after some stops (angle I keeps −4 to −9 for a few seconds)
+- Results: vault `Logs/2026-10-26 bb1 drive tuning.md` (20:31 onward)
+
+## 2026-10-26 - wheel speed loop (`smode 1`) and log format 11, flashed
+
+- **Why:** the unattended explore run (19:20, 41 s, no fall) rolled backward at 0.45 turns/s with no command, leaning forward, angle I stuck at −12. On wood the angle loop's I term holds the wheel speed; the speed loop only moves the setpoint, the angle loop tracks it (error about 0), so I never changes. `sdi` pushes harder on that same weak lever
+- **New:** setting `smode` (0 = as before, default; 1 = wheel speed loop). In smode 1 the setpoint shift (sp, si, sdi) is off and `wsp` x (speed − target) + `wsi` x (position − target position) is added to the PWM, capped at ±100 (`WHEEL_SPEED_PWM_MAX`). While driving the target position runs at the asked speed, kept within 0.3 wheel turns (`DRIVE_POS_MAX_LAG`), so `wsi` is a speed I with no catch-up debt; it is not snapped on stop, so BB1 stops where it was asked to. Starting values `wsp` 20, `wsi` 10 (= kp 18 x sp 1.2 and x si 0.5). Meant to be used with a lower `ki` (Hector tunes it). Live on /tune, serial, `/state`, saved in flash (settings layout v7; older saves load with the defaults), `# gains_ver` line
+- **Log format 11:** `drive_speed_now`, `drive_turn_now` (the ramped targets) and `speed_pwm` (what the wheel speed loop added), in the record's last 3 padding bytes (still 76 bytes, no extra RAM). Mock and `logger.py`/`handheld.py` `GAIN_KEYS` updated
+
+## 2026-10-26 - drive speed I (`sdi`), flashed 19:05
+
+- After the speed fix (flashed): standing as good or better (wobble 0.3 deg), but **forward drive stuck** (0.01 of 0.5 asked) and reverse overshot (−0.75 for −0.5). On wood the angle loop's I term is the real wheel-speed command and the speed loop only moves the setpoint; with P alone the lean it asks for (sp x error, 0.6 deg) never broke BB1 free forward. sp 2.4 didn't help
+- New setting **`sdi`** (drive speed I, default 2): while driving, adds that many degrees of lean per second for every turn/s it is slower than asked (less when faster). Capped by `SPEED_SHIFT_MAX`, fades out over 0.5 s after a stop (`DRIVE_LEAN_FADE_S`), reset on every arm. Live on /tune (**Drive I (sdi)**), serial `sdi N`, `/state` gains `sdi`, saved in flash (settings layout v6; v5 saves load with the default), `# gains_ver` line `drive_speed_i`. Mock, `logger.py`/`handheld.py` `GAIN_KEYS` updated
+
+## 2026-10-26 - fix: wheel speed read 3.3x low (flashed 18:40)
+
+- **Cause:** `bb1.ino` did `constrain(speedL.update(r.enc_l), ...)`. Arduino's `constrain()` is a macro that repeats its first argument up to 3 times, so `update()` ran 3 times a tick and the 10-slot window covered 3 ticks: speed = 20 x counts over 3 ticks, 3.3x low. Since step 5 (2026-10-21). Found by a wheels-in-the-air motor test (PWM 80: encoders 1410 / 1474 counts/s, speed 423 / 442) and the disassembly (3 calls per wheel). Fix: call `update()` once into a variable, then constrain
+- **Scale-dependent settings changed so behavior stays the same:** `DEFAULT_SPEED_P` 4 → 1.2 (4 x 0.3; same standing behavior, and drive targets now mean real turns/s); `ENC_FAULT_MIN_SPEED` 150 → 500 counts/s (same real speed); `DEFAULT_DRIVE_FF` 60 → 25 (real floor slope about 26 PWM per real turn/s)
+- **Lift detector:** `LIFT_TURNS_PER_SEC` stays 4, which is now 4 real turns/s. Before, it needed about 13 real turns/s and could never trip (in the air: about 3.4 at PWM 100)
+- **Log format 10.** Older logs' `speed_l`/`speed_r` are 3.3x low; `dataset.py` multiplies them by 10/3. `drive_test.py` already uses encoder counts
+- **After flashing:** the flash still holds sp 8 / dff 90 (saved earlier today on the wrong scale). Set the defaults and save before standing BB1 up
+
+## 2026-10-26 - drive tests, drive tuning, training set
+
+- **Correction (later the same day): the logged wheel speed reads 3.3x too low.** In every log `speed_l`/`speed_r` = 20 x (counts over the last **3** ticks), not 10 as `WheelSpeed`/`SPEED_WINDOW` say (the compiled object has the 10-deep window; cause not found yet). Encoder counts are right. So BB1 really drives 2-3x faster than asked, and the speed findings below are wrong: sp 8 / dff 90 made the overspeed worse (put back to sp 4 / dff 60 live, not saved), and turning was fine (0.42-0.51 real for 0.5), so `DRIVE_TURN_FF` 45 now overshoots (0.80) and is back to 15 (`TURN_HOLD_MAX_PWM` back to 40). `drive_test.py`'s report now takes speed from the encoder counts. The speed loop, the lift detector and the encoder fault rule all use this speed
+
+- **`tools/drive_test.py`**: named drive tests over Wi-Fi (stand, fwd-back-30/50, turn, arc), recorded like `logger.py` with one `# step` line per step, and a per-step report (asked vs got, stop distance, heading drift, lean, saturation, Wi-Fi drops). Refuses unless armed with `enc_fault` 0; 1 s commands re-sent every 100 ms; `/drive/stop` between steps and on any error; ends the test at 3 wheel turns from the start (after BB1 crept into a wall), on a disarm, an encoder fault or 2 s without an answer
+- **Floor runs (wood, 15 logs, all kept, one fall after hitting the wall):** stand: wobble 0.5 deg, no drift. Drive was slow because the speed loop is P-only while driving: it runs short by (lean needed) / sp. Live changes: `dff` 60 → 90 (mixed alone), `sp` 4 → 8 (**clearly better**: 0.3 asked → 0.19 forward / 0.28 back, stops within 0.5 turn at 0.3, calmer standing), `sp` 12 and `si` 1.5 and `th` 40 not better, put back. At 0.5 turns/s stops still overshoot (0.6 forward, 0.8-0.95 back). Turning reaches about 30% of the asked rate, and it rolls back 1-2 turns per turn test. Run table: vault `Logs/2026-10-26 bb1 drive tuning.md`
+- **Firmware (not flashed yet):** `DRIVE_TURN_FF` 15 → 45 (each wheel needs about 87 PWM per turn/s on wood), `TURN_HOLD_MAX_PWM` 40 → 60. Each axis only lets go of its own hold: turning on the spot keeps the position hold, and driving straight keeps the full heading hold (review: the lag clamp capped straight-line heading hold at 5 PWM). Review fixes: an encoder fault now ends the command already running; `driveCommand()` in `drive.h` is the one clamp for HTTP and serial, refusing `nan` (HTTP 400); `static_assert` that the drive limits fit the int8 log fields (`DRIVE_MAX_SPEED`/`TURN` now `constexpr`); arrow keys scroll the main page again unless BB1 is balancing
+- **Tools:** `logger.py` `GAIN_KEYS` shared with `handheld.py`, so `dff` reaches handheld logs and its `--wifi` `dff N` works. Mock: a drive command never outlives its arm, and `/drive` parses like the firmware (`ms=500.5` ok, `nan` → 400)
+- **`tools/dataset.py`**: every real format-9 log as one table (`logs/dataset/bb1_dataset.csv.gz`) with outcome labels (timer / stopped / fell / log_ended), context columns, IMU-error and encoder-fault rows dropped (also re-detected on old logs). What training still lacks: FIRMWARE_PLAN.md section 6
+- **API docs:** `docs/API.md` starts with a curl command for every endpoint (all 21 routes in `web.h`), including disarm + `/gains/save`
+- **Open:** the Pico's web server goes quiet for 1-2.5 s now and then (`web_age_ms` up to 2550; Wi-Fi power save is already off); and one stuck browser tab blocked every other client until it was closed
+
+## 2026-10-25 - milestone 2: drive from the web page
+
+- **Driving** (`firmware/bb1/drive.h`): `POST /drive` with `speed` and `turn` (wheel turns/s, ±1.0) moves the speed loop's and heading hold's targets; BB1 leans into it by itself. Targets ramp (1 turn/s per s; turn 2). Turn feedforward `DRIVE_TURN_FF` 15 PWM per turn/s. `POST /drive/stop`, serial `drive S T [ms]` / `drive stop`
+- **Failsafe:** each command lasts 500 ms (or `ms=`, max 3000). Not re-sent = ramp to a stop and keep balancing (no disarm). Disarm, fall and arm clear it. While driving the position target rides with the wheels and the heading target stays within 0.25 wheel turns; on stopping both snap to where BB1 is
+- **Page:** new **Drive** panel on http://bb1.local: joystick pad, arrow keys / WASD, Max speed slider, asked / target / wheels tiles, hover hints. Sends every 100 ms, one request at a time; hiding the tab or leaving the window stops driving. The mock answers `/drive` and `/drive/stop` too
+- **API docs:** new `docs/API.md`, the full HTTP reference (every endpoint, `/state` fields, units, errors) plus what the AI-agent milestone would still need. `/state` has a new `drive` object
+- **Logs:** format 9 adds `drive_speed`, `drive_turn` (the operator command) and flag 16 (drive stopping); `# drive_...` settings line in the header. Record 76 bytes, +8 KB RAM (heap left about 36 KB)
+- First floor test (Hector, 2026-10-25): drives in all directions, a little slow, small left-right jitter; **fell backward when reversing** at 100% (log `drive-test-20`: the angle I term held about +100 PWM going forward and had to unwind before the wheels could reverse). Fix: speed feedforward setting `dff` (default 60, live on /tune, saved in flash, settings v5; `/state` gains `dff`; `# gains_ver` line `drive_ff`)
+- Floor test 2 (Hector): no visible change, still fell at 45%, and **swayed 35-90 deg when left alone after driving**. Log: after letting go BB1 rolled 2-4 more wheel turns and turned 0.5-3 wheel turns of difference, catching up targets that were allowed 1 turn of lag. Fix: position target rides with the wheels while driving, heading lag 0.25 turns, both snap to where BB1 is when it stops
+
+## 2026-10-25 - encoder fault detector
+
+- Floor tests 2 and 3 (circles on startup, falls when reversing): the drive log shows the **left encoder reading exactly 0 whenever the wheels roll backward** (right: −300 to −800 counts/s), while yesterday's logs have it counting both ways. A hardware fault (loose wire), not the branch; heading hold then thinks the right wheel is turns behind and spins BB1
+- `control.h`: going straight, one wheel under 20% of the other's speed while that one does over 150 counts/s, for 0.3 s = `encoderFault` (1 left, 2 right; `ENC_FAULT_*` in config.h). Heading hold off, `/drive` and serial `drive` refused, log flag 32, `/state` `enc_fault`, orange warning in the Balance panel, pad greyed. Cleared by the next arm
+
 ## 2026-10-25 - low battery disarms while armed
 
 - **Safety:** a pack under `BATTERY_LOW_V` (6.6 V, 3.3 V per cell) only blocked auto-arm. Once balancing, the motors kept driving as the voltage sagged. `balanceTick()` now disarms with `REASON_BATTERY` (13): motors braked, STBY low. `balanceArm()` refuses with the same reason. Both use `batteryTooLow()` in `battery.h` (moved out of `auto_arm.h`)

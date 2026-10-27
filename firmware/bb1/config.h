@@ -93,7 +93,7 @@ const float DEFAULT_DEADBAND = 10;  // PWM added so small corrections still turn
 // instead of running away. Units: degrees of target lean per wheel turn per
 // second (speed P) and per wheel turn rolled since arming (speed I = position).
 // 0 = off, which is the angle loop alone, as before step 8.
-const float DEFAULT_SPEED_P = 4.0;
+const float DEFAULT_SPEED_P = 3.0;   // 1.2 rolled on 0.8 turns and rocked after a reverse stop; 3.0 stops in under 0.25 (drive tests, 2026-10-26 evening). Was 4.0 before the constrain() fix
 const float DEFAULT_SPEED_I = 0.5;
 const float SPEED_SHIFT_MAX = 6.0;   // deg: the speed loop never moves the target more than this
 const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about 0.1 s) so encoder steps don't kick the angle loop
@@ -102,6 +102,58 @@ const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about
 // moved from one wheel to the other per wheel turn of difference. 0 = off.
 const float DEFAULT_TURN_HOLD = 20;
 const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
+// Driving (milestone 2, drive.h): the page or the API asks for a wheel speed
+// and a turn rate; drive.h moves the speed loop's and the heading hold's
+// targets, and BB1 leans into it by itself. Like flying a quad in angle mode:
+// you ask for a speed, the loops work out the lean. Needs sp/si and th on.
+// Units are wheel turns per second (520 counts = 1 turn) until the wheel size is measured.
+constexpr float DRIVE_MAX_SPEED = 1.0;   // turns/s, forward or back. On the floor BB1 stays under about 2; the lift detector trips at 4
+constexpr float DRIVE_MAX_TURN  = 1.0;   // turns/s of left-minus-right wheel difference (+ = turn right)
+const float DRIVE_ACCEL       = 1.0;   // turns/s per second: how fast the speed target ramps (0 to full in 1 s)
+const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
+// Drive feedforward (setting "dff", live on /tune, saved in flash): PWM per
+// turn/s of speed target, added straight to both wheels. These motors are
+// speed knobs: holding 1 turn/s takes about 105 PWM (first drive log,
+// 2026-10-25). Without it the angle loop's I term has to wind up to that
+// PWM, and when you reverse it has to unwind all of it first: meanwhile the
+// wheels keep rolling the old way, BB1 tips back and falls. Betaflight's
+// feedforward does the same job for the sticks.
+const float DEFAULT_DRIVE_FF  = 25;   // was 60 (and "105 PWM per turn/s" above), from the 3.3x-low speed. Real slope on wood: about 26 PWM per real turn/s
+const float DRIVE_FF_MAX      = 150;
+// Drive speed I (setting "sdi", live on /tune, saved in flash): while driving,
+// degrees of lean added per second for every turn/s BB1 is slower than asked
+// (an I term on the speed loop). On wood the angle loop's I term is the real
+// wheel-speed command and the speed loop only moves the setpoint, so with P
+// alone BB1 stayed stuck going forward and overshot in reverse (2026-10-26,
+// after the speed fix). Quad picture: GPS position hold building tilt until
+// you really move. Capped by SPEED_SHIFT_MAX; fades out after a stop. 0 = off.
+const float DEFAULT_DRIVE_SPEED_I = 4.0;   // 2 fell a third short at 0.3 turns/s, 6 overshoots (3 runs each, 2026-10-26)
+const float DRIVE_SPEED_I_MAX     = 20;
+const float DRIVE_LEAN_FADE_S     = 0.5;   // after stopping, the built-up lean fades to 0 over about this long
+
+// Speed loop mode (setting "smode", 2026-10-26).
+//   0 = the speed loop moves the angle setpoint (sp, si, sdi), as since step 8.
+//   1 = wheel speed loop: speed and position errors go straight to the PWM
+//       (wsp, wsi), the classic balance-car layout. Why: on wood the angle
+//       loop's I term holds the wheel speed, and moving the setpoint never
+//       changes it (the angle loop tracks the setpoint, error about 0), so BB1
+//       got stuck rolling backward with no command (explore run, 2026-10-26).
+//       Meant to be used with a lower ki: the speed loop takes over the "hold
+//       the wheel speed" job the angle I term was doing.
+// Sign, both modes: too fast forward -> wheels pushed further forward -> they
+// run out ahead of the body, it tips back, and the angle loop brakes.
+const float DEFAULT_SPEED_MODE     = 0;
+const float DEFAULT_WHEEL_SPEED_P  = 20;    // PWM per turn/s faster than the target (= kp 18 x sp 1.2, today's strength)
+const float DEFAULT_WHEEL_SPEED_I  = 10;    // PWM per wheel turn ahead of the target position (= kp 18 x si 0.5)
+const float WHEEL_SPEED_GAIN_MAX   = 200;
+const float WHEEL_SPEED_PWM_MAX    = 100;   // the wheel speed loop never adds more than this (fits the log's int8)
+const float DRIVE_POS_MAX_LAG      = 0.3;   // smode 1: the target position runs at the asked speed, at most this many wheel turns from the wheels
+const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's).
+                                      // Tried 45 on 2026-10-26 from a misread log (logged wheel speed is 3.3x low): real turn rate went
+                                      // 0.5 asked -> 0.80. At 15 it turned 0.42-0.51 (encoder counts)
+const float DRIVE_MAX_LAG     = 0.25;  // wheel turns (about 18 deg of heading): the heading target never runs further ahead of the wheels than this. Was 1.0: BB1 swung 35-90 deg after a turn catching up (floor test 1)
+const unsigned long DRIVE_HOLD_MS     = 500;    // a drive command lasts this long unless sent again (the page re-sends every 100 ms)
+const unsigned long DRIVE_HOLD_MAX_MS = 3000;   // longest a single command may ask for (ms=...)
 // Auto-arm (auto_arm.h, docs/POWER_ON.md): after power-up or a fall, BB1 starts
 // balancing by itself once it's stood upright and held still. STOP turns it off
 // until the next ARM or power-up, so STOP always means stop.
@@ -111,9 +163,19 @@ const float AUTO_ARM_RATE      = 30.0;  // deg/s: ...turning slower than this...
 const unsigned long AUTO_ARM_HOLD_MS = 1000;   // ...for this long, then it arms (no arm timer)
 const int   AUTO_MAX_FALLS     = 3;     // this many falls...
 const unsigned long AUTO_FALL_WINDOW_MS = 30000;  // ...within this long: auto-arm off until ARM
+// Encoder fault detector (control.h, 2026-10-25): one wheel reads near 0 while
+// the other spins, for this long, and no turn is asked for = that encoder is
+// not counting (a loose wire: the left one stopped counting backward today).
+// Bad counts make the heading hold spin BB1 in circles and the speed loop
+// under-brake, so while faulted the hold is off, driving is refused, and the
+// page and log say so. Cleared by the next arm.
+const float ENC_FAULT_MIN_SPEED = 500;   // counts/s the good wheel must be doing (was 150 on the 3.3x-low speed: same real speed)
+const float ENC_FAULT_RATIO     = 0.2;   // the other wheel reads under this fraction of it
+const unsigned long ENC_FAULT_MS = 300;
 // Lift detector (control.h): wheels faster than this for this long while armed
 // = picked up or in the air, motors off. On the floor it stays under about 2.
-const float LIFT_TURNS_PER_SEC = 4.0;   // wheel turns per second, average of both wheels
+const float LIFT_TURNS_PER_SEC = 4.0;   // wheel turns per second, average of both wheels. Until 2026-10-26 the speed read 3.3x low,
+                                        // so this really needed about 13 turns/s and never tripped (in the air: about 3.4 at PWM 100)
 const unsigned long LIFT_MS    = 500;
 // Limits for the settings above, wherever they're set from (serial, the pages, flash).
 const float GAIN_P_MAX = 100;

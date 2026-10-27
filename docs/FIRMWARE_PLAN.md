@@ -173,7 +173,7 @@ What a model needs, and where it is in our logs:
 |---|---|---|
 | What BB1 sensed (observation) | yes | raw IMU, pitch, pitch rate, accel pitch, encoders, wheel speeds, every 5 ms |
 | What it did (action) | yes | `pwm_l`, `pwm_r` (after the cap and deadband) |
-| What it was trying to do | partly | `setpoint` (trim) now; operator throttle / turn columns come with milestone 2 (driving) |
+| What it was trying to do | yes | `setpoint` (trim + speed loop shift), and the operator's drive command `drive_speed`, `drive_turn` (log format 9, milestone 2) |
 | Which controller made the action | yes | `gains_ver` per row + one `# gains_vN,...` line per version (handheld.py and logger.py; the page's Download only has the gains at the start) |
 | Outcome of each try | yes | `mode` (armed / fallen), `reason` (timer, fell, you, Wi-Fi lost...) |
 | Conditions | partly | `# surface` and `# note` lines (use `--surface` and `-n`); `batt_v` every row (log format 6, 2026-10-24; D153C `ADC` pin to GP26) |
@@ -187,7 +187,23 @@ What a model needs, and where it is in our logs:
 4. Never mix mock logs (`firmware,bb1 MOCK`) into real data.
 5. When firmware adds a column: new field at the end of `LogRecord`, bump `LOG_FORMAT`, add it to `docs/CALIBRATION_AND_LOGS.md`.
 
-**Still to do:** a backup of `logs/` (gitignored, about 113 MB on one laptop so far; decided 2026-10-23: its own git repo once BB1 balances);  operator command columns (milestone 2); maybe a "hand touched" event key in handheld.py.
+**Still to do:** a backup of `logs/` (gitignored, about 113 MB on one laptop so far; decided 2026-10-23: its own git repo once BB1 balances);  maybe a "hand touched" event key in handheld.py.
+
+### Training set: checked on the real logs (2026-10-26, `tools/dataset.py`)
+
+Every format-9 row has the observation (raw IMU, pitch, pitch rate, encoders, speeds), the operator action (`drive_speed`, `drive_turn`), the controller output (`pwm_l`, `pwm_r`, setpoint, P/I/D) and the context (`gains_ver` with its `# gains_vN` line, surface, note, `batt_v`, reason, flags). No empty cells. `dataset.py` writes them as one table with outcome labels. First build: 316k rows (26 min) from 20 logs, 58 older logs skipped (format under 9).
+
+What is still missing, smallest fix first:
+
+| Gap | Why it matters | Smallest fix |
+|---|---|---|
+| Very little driving: 100 s of rows with a drive command, all from `drive_test.py`; 77% of rows are one idle carpet run | a model learns what's in the data | record page-pad driving with `logger.py --surface wood -n ...` running; vary surfaces (tooling only) |
+| The ramped targets BB1 really aims for weren't in the log | a model of the controller can't see its own state; the dff part of the PWM can't be rebuilt from the log | done (log format 11): `drive_speed_now`, `drive_turn_now`, `speed_pwm`, in spare padding bytes |
+| Wi-Fi stalls: 1,810 rows where a drive step was running but the command had run out | the action column says 0 while the operator meant to drive: label noise | tooling done for scripted runs (`step` column says what was asked); the stall itself is an open item (CHANGELOG) |
+| Logs from before the encoder detector (2026-10-25) have a dead left encoder with no flag 32 | wrong wheel data | done in tooling: `dataset.py` re-runs the firmware's fault rule and drops those rows (3,271) |
+| Old `# gains_vN` lines have no `dff` | can't tell feedforward settings apart | done: `dataset.py` fills it from the header; `logger.py` and `handheld.py` now share one `GAIN_KEYS` list |
+| `speed_l`/`speed_r` read 3.3x low before log format 10 (`constrain()` bug, CHANGELOG 2026-10-26) | wrong speeds, and the controller acted on them | done: firmware fixed (format 10); `dataset.py` rescales old logs by 10/3 |
+| Units: 520 counts per turn is assumed, wheel size and track width unmeasured | speeds and turns in real units (m/s, deg/s) for a model that moves in the room | measure them (docs/API.md, AI-agent milestone item 2) |
 
 ## 7. Steps (one at a time, tested on the bot between each)
 
@@ -201,7 +217,7 @@ What a model needs, and where it is in our logs:
 | 6 | Arm/disarm, safety checks, angle PD loop | hand-held, then on the floor | yes |
 | 7 | Live gain tuning, step test, save gains | tune per PID_TUNING.md | yes |
 | 8 | Speed loop on the encoders, stop drift | stands still in place | yes |
-| 9 | (milestone 2) Drive pad: forward/back, turn | drives around | yes |
+| 9 | (milestone 2) Drive pad: forward/back, turn (`drive.h`, `POST /drive`, docs/API.md; built 2026-10-25) | drives around | yes |
 
 Each step is its own commit. Before any step that can move the motors I'll ask first, and you confirm the wheels are off the table.
 

@@ -35,6 +35,11 @@ volatile float    motorDeadband = DEFAULT_DEADBAND;
 volatile float    gainSpeedP    = DEFAULT_SPEED_P;   // speed loop (control.h), deg per wheel turn/s
 volatile float    gainSpeedI    = DEFAULT_SPEED_I;   // speed loop, deg per wheel turn rolled since arming
 volatile float    gainTurnHold  = DEFAULT_TURN_HOLD; // heading hold, PWM per wheel turn of left/right difference
+volatile float    gainDriveFF   = DEFAULT_DRIVE_FF;  // drive feedforward, PWM per turn/s of speed target (drive.h)
+volatile float    gainDriveSpeedI = DEFAULT_DRIVE_SPEED_I;  // drive speed I, deg per turn/s per s (control.h)
+volatile float    speedMode       = DEFAULT_SPEED_MODE;     // 0 = speed loop moves the setpoint, 1 = wheel speed loop on the PWM (config.h)
+volatile float    gainWheelSpeedP = DEFAULT_WHEEL_SPEED_P;  // smode 1: PWM per turn/s too fast
+volatile float    gainWheelSpeedI = DEFAULT_WHEEL_SPEED_I;  // smode 1: PWM per wheel turn ahead
 volatile float    autoArm       = DEFAULT_AUTO_ARM;  // 1 = start balancing by itself when stood upright (control.h)
 volatile uint32_t gainsVersion  = 1;
 volatile bool     requestArm    = false;
@@ -46,6 +51,17 @@ volatile bool     requestStep   = false;     // step test: core 1 moves the setp
 volatile bool     stepActive    = false;     // status: a step test is running
 volatile uint32_t lastWebHeartbeatMs = 0;    // millis() of the page's latest /state request
 volatile uint16_t batteryMv     = 0;         // battery voltage in mV, from core 0 (battery.h); core 1 logs it
+
+// Driving (milestone 2, drive.h). Core 0 writes the two numbers FIRST, then
+// driveUntilMs; core 1 uses them until millis() passes driveUntilMs, then
+// ramps back to standing still. driveUntilMs = 0 = stop driving now.
+volatile float    driveSpeedCmd = 0;         // wheel turns/s asked for, forward +
+volatile float    driveTurnCmd  = 0;         // turns/s of left-minus-right wheel difference, right turn +
+volatile uint32_t driveUntilMs  = 0;         // millis() when the command runs out
+volatile uint32_t driveCommands = 0;         // counts every accepted command (shown in /state)
+// What core 1 is actually doing (after the ramp), for /state
+volatile float    driveSpeedNow = 0;
+volatile float    driveTurnNow  = 0;
 
 // Status from core 1 to core 0
 volatile bool     imuFound       = false;
@@ -62,3 +78,4 @@ volatile uint32_t armedSinceMs   = 0;       // millis() when it last armed (for 
 volatile uint8_t  disarmReason   = 0;       // Reason in control.h: why it last disarmed / refused to arm
 volatile uint32_t armAttempts    = 0;       // counts up after each arm request is handled
 volatile uint8_t  autoArmState   = 4;       // AutoState in auto_arm.h (4 = waiting for upright)
+volatile uint8_t  encoderFault   = 0;       // control.h: 1 = left encoder not counting, 2 = right (while armed; cleared on arm)

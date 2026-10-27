@@ -18,10 +18,13 @@
 //   POST /arm         start balancing (refused unless upright; see control.h). seconds=N: disarm after N s (0 = no limit);
 //                     heartbeat=0: don't stop when the page goes away (main page)
 //   POST /disarm      stop balancing
-//   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband
+//   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband, sp, si, th, auto, dff, sdi, smode, wsp, wsi
 //   POST /gains/save  store them in flash (disarmed only);  POST /gains/defaults  back to config.h
 //   POST /step        step test while armed: setpoint +2 deg for 1 s
+//   POST /drive       args speed, turn (wheel turns/s), ms: drive while balancing (drive.h). Lasts 500 ms unless re-sent
+//   POST /drive/stop  stop driving now (keeps balancing)
 //
+// docs/API.md is the full reference (arguments, answers, units, safety rules).
 // Each handler is short and never touches the IMU or motors directly: it reads
 // the log buffer or sets a request in shared.h, exactly like the serial commands.
 
@@ -37,6 +40,7 @@
 #include "page.h"
 #include "tune_page.h"
 #include "battery.h"
+#include "drive.h"
 
 WebServer server(80);
 
@@ -57,11 +61,14 @@ void handleState() {
   // Time left on the arm timer, for the page's countdown (-1 = no timer running).
   long armLeftMs = (robotArmed && armTimeMs) ? (long)armTimeMs - (long)(millis() - armedSinceMs) : -1;
   if (armLeftMs < -1) armLeftMs = 0;
+  // Time left on the drive command (0 = not driving, or it ran out).
+  uint32_t until = driveUntilMs;
+  long driveLeftMs = until ? max(0L, (long)(int32_t)(until - millis())) : 0;
   LogRecord r;
   uint32_t total = totalWritten;
   bool have = total > 0 && logGet(total - 1, r);
 
-  char json[1200];
+  char json[1400];
   snprintf(json, sizeof(json),
            "{\"have\":%s,\"tick\":%lu,\"t_us\":%lu,\"mode\":%u,\"flag_bits\":%u,"
            "\"pitch\":%.2f,\"accel_pitch\":%.2f,\"pitch_rate\":%.2f,\"work_us\":%u,"
@@ -70,8 +77,10 @@ void handleState() {
            "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
            "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"step\":%s,\"auto_state\":\"%s\",\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
+           "\"enc_fault\":%u,"
+           "\"drive\":{\"speed\":%.2f,\"turn\":%.2f,\"speed_now\":%.2f,\"turn_now\":%.2f,\"left_ms\":%ld,\"commands\":%lu,\"max_speed\":%.2f,\"max_turn\":%.2f},"
            "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,\"batt_cells\":%d,"
-           "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d}}",
+           "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f,\"sdi\":%.2f,\"smode\":%d,\"wsp\":%.1f,\"wsi\":%.1f}}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
            have ? r.mode : 0, have ? r.flags : 0,
@@ -88,8 +97,11 @@ void handleState() {
            (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
            robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs, armLeftMs, stepActive ? "true" : "false", autoStateText(autoArmState),
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
+           encoderFault,
+           driveLeftMs > 0 ? driveSpeedCmd : 0.0, driveLeftMs > 0 ? driveTurnCmd : 0.0, driveSpeedNow, driveTurnNow, driveLeftMs,
+           (unsigned long)driveCommands, DRIVE_MAX_SPEED, DRIVE_MAX_TURN,
            batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V, BATTERY_CELLS,
-           (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, (int)autoArm);
+           (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, (int)autoArm, gainDriveFF, gainDriveSpeedI, (int)speedMode, gainWheelSpeedP, gainWheelSpeedI);
   server.send(200, "application/json", json);
 }
 
@@ -265,6 +277,41 @@ void handleStep() {
   server.send(200, "text/plain", "step: setpoint +" + String(STEP_TEST_DEG, 1) + " deg for " + String(STEP_TEST_MS) + " ms");
 }
 
+// POST /drive speed=0.5&turn=0&ms=500 -> drive while balancing (drive.h).
+//   speed  wheel turns/s, forward +, clamped to +-DRIVE_MAX_SPEED
+//   turn   turns/s of left-minus-right wheel difference, right +, clamped to +-DRIVE_MAX_TURN
+//   ms     how long this command lasts (default DRIVE_HOLD_MS, max DRIVE_HOLD_MAX_MS).
+//          Send again before it runs out to keep going; when it runs out BB1
+//          ramps to a stop and keeps balancing. That's the Wi-Fi failsafe.
+// Missing speed or turn = 0. Answers JSON with what will actually run, so a
+// program (or an AI agent) can see any clamping. 409 when not balancing.
+void handleDrive() {
+  if (!robotArmed) {
+    server.send(409, "application/json", "{\"ok\":false,\"error\":\"not balancing: arm first (POST /arm)\"}");
+    return;
+  }
+  if (encoderFault) {
+    server.send(409, "application/json", "{\"ok\":false,\"error\":\"encoder fault: a wheel is not counting, check its wires (see /state enc_fault)\"}");
+    return;
+  }
+  float speed = server.arg("speed").toFloat();
+  float turn  = server.arg("turn").toFloat();
+  long ms = server.hasArg("ms") ? server.arg("ms").toInt() : (long)DRIVE_HOLD_MS;
+  if (!driveCommand(speed, turn, ms)) {        // clamps, then hands it to core 1 (drive.h)
+    server.send(400, "application/json", "{\"ok\":false,\"error\":\"speed and turn must be numbers\"}");
+    return;
+  }
+  char json[120];
+  snprintf(json, sizeof(json), "{\"ok\":true,\"speed\":%.2f,\"turn\":%.2f,\"ms\":%ld}", speed, turn, ms);
+  server.send(200, "application/json", json);
+}
+
+// POST /drive/stop -> ramp to a stop now and keep balancing. Always allowed.
+void handleDriveStop() {
+  driveUntilMs = 0;
+  server.send(200, "application/json", "{\"ok\":true,\"speed\":0,\"turn\":0,\"ms\":0}");
+}
+
 // GET /sys -> how much of the Pico's memory the firmware uses.
 //
 // RAM (264 KB on the RP2040, 256 KB of it for the program) is split in two:
@@ -328,6 +375,8 @@ void webBegin() {
   route("/gains/save", HTTP_POST, handleGainsSave);
   route("/gains/defaults", HTTP_POST, handleGainsDefaults);
   route("/step", HTTP_POST, handleStep);
+  route("/drive", HTTP_POST, handleDrive);
+  route("/drive/stop", HTTP_POST, handleDriveStop);
   server.onNotFound([]() { server.send(404, "text/plain", "not found"); server.client().stop(); });
   server.begin();
 }

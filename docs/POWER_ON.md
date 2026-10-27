@@ -124,5 +124,5 @@ format 7), so you can always see why it is or isn't arming.
 | `AUTO_ARM_HOLD_MS` | 1000 | how long upright and still before it arms |
 | `GYRO_BIAS_TYPICAL` | -0.60, 2.04, -2.24 deg/s | gyro bias used until a calibration succeeds |
 | `AUTO_MAX_FALLS` / `AUTO_FALL_WINDOW_MS` | 3 / 30 s | too many falls: off until ARM |
-| `LIFT_TURNS_PER_SEC` / `LIFT_MS` | 4 / 0.5 s | lift detector |
+| `LIFT_TURNS_PER_SEC` / `LIFT_MS` | 4 / 0.5 s | lift detector (could never trip before 2026-10-26: the wheel speed read 3.3x low, CHANGELOG) |
 

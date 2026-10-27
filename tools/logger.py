@@ -61,6 +61,11 @@ def log_path(note, started, out=None):
     return out
 
 
+# Every setting POST /gains takes, in the order the "# gains_vN" lines list them.
+# handheld.py uses the same list: keep one copy so a new setting reaches every log.
+GAIN_KEYS = ("kp", "ki", "kd", "trim", "cap", "deadband", "sp", "si", "th", "auto", "dff", "sdi", "smode", "wsp", "wsi")
+
+
 def gains_versions(state_json, versions):
     """Remember what each gains version meant, from a /state answer.
 
@@ -68,7 +73,7 @@ def gains_versions(state_json, versions):
     "# gains_vN,kp ... cap ..." line per version used during the run, or a
     model trained on it later can't tell which gains produced which rows."""
     g = json.loads(state_json)["gains"]
-    versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in ("kp", "ki", "kd", "trim", "cap", "deadband", "sp", "si", "th", "auto") if k in g)
+    versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in GAIN_KEYS if k in g)
 
 
 def save_log(out, meta, note, started, header, rows, lost, versions=None, surface="unknown"):

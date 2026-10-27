@@ -6,6 +6,26 @@
 | `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
+## bb1, milestone 2: driving (`drive.h`, 2026-10-25; changes of 2026-10-26 not flashed yet)
+
+BB1 drives by moving the **targets** of the speed loop and heading hold, never by sending PWM straight to the wheels, so the balance loop stays in charge (quad picture: angle mode with position hold, and the sticks move the hold point).
+
+- Speed: the speed loop now works on `speed - asked speed` and `position - target position`. While driving, the target position rides with the wheels; when BB1 comes to a stop it holds that spot (and that heading). Lean forward to speed up, back to slow down: the loop works it out.
+- Turn: the heading hold's target (right-minus-left wheel turns) slides at the asked turn rate, and `DRIVE_TURN_FF` (15 PWM per turn/s) adds the steering at once, like Betaflight feedforward, so the hold doesn't have to lag first. Limited to ±40 PWM (`TURN_HOLD_MAX_PWM`). (45 was tried 2026-10-26 from a misread log and overshot.) **Known bug:** the logged wheel speed reads 3.3x low (CHANGELOG 2026-10-26).
+- Speed feedforward, setting **`dff`** (PWM per turn/s of speed target, default 60, /tune box **Drive FF (dff)**, serial `dff 60`, saved in flash, settings layout v5): added straight to both wheels. Why (first drive log, 2026-10-25): these motors are speed knobs, holding 1 turn/s takes about 105 PWM, and without feedforward the angle I term carried all of it (I about +100 going forward). Reversing, I had to unwind from +100 while the wheels kept rolling forward, BB1 tipped back past 9 deg, hit the cap and fell backward: every fall in that log. Feedforward takes most of that load off I.
+- Both ramp (`DRIVE_ACCEL` 1 turn/s per s, turn 2): a full jab can't kick it over. Limits ±1 turn/s each (`DRIVE_MAX_SPEED`, `DRIVE_MAX_TURN`); the lift detector is at 4.
+- Failsafe: a command lasts 500 ms (`DRIVE_HOLD_MS`, or `ms=` up to 3000). Not sent again = ramp to a stop and keep balancing. Disarm, fall or a new arm clears it. While turning, the heading target never gets more than 0.25 wheel turns (about 18 deg) ahead of the wheels (`DRIVE_MAX_LAG`; was 1.0, which made BB1 swing 35-90 deg after a turn and roll 2-3 turns after letting go, floor test 1).
+- Each axis only lets go of its own hold (2026-10-26): turning on the spot keeps the position hold (it rolled back 1-2 wheel turns per turn test), and driving straight keeps the full heading hold (the 0.25-turn lag clamp applies only while turning).
+- `driveCommand()` in `drive.h` is the one place that clamps a command and hands it to core 1, for both `POST /drive` and serial `drive`; non-numbers (`nan`) are refused (HTTP 400). An encoder fault also ends the command already running.
+- Drive speed I, setting **`sdi`** (default 4 since the 2026-10-26 evening drive tests; was 2): while driving, degrees of lean added per second per turn/s it is slower than asked, so it can't get stuck short of the asked speed (it did going forward with the speed loop's P alone). Capped by `SPEED_SHIFT_MAX`, fades out after a stop.
+- **Speed loop mode `smode`** (2026-10-26): 0 = the speed loop moves the setpoint (sp, si, sdi). 1 = wheel speed loop: `wsp` x speed error + `wsi` x position error straight to the PWM (±100), the balance-car layout, for use with a lower ki. Why: with smode 0 the angle I term holds the wheel speed and the speed loop can't reach it (BB1 rolled backward with no command).
+- How to send it: the **Drive** panel on http://bb1.local, `POST /drive` (docs/API.md), or serial `drive 0.3 0 2000` / `drive stop`.
+- Log format 9: `drive_speed`, `drive_turn` (the operator command), flag 16 = stopping. Log format 10 (2026-10-26): `speed_l`/`speed_r` fixed, they read 3.3x low before (`constrain()` macro called `update()` 3 times a tick). Record is 76 bytes; static RAM 225.6 KB (heap about 36 KB, was 44 KB): check **Heap free** in Pico memory stays over 20 KB.
+
+## Encoder fault detector (`control.h`, 2026-10-25)
+
+Both wheels should read about the same speed going straight. If one reads under 20% of the other while that one does over 500 counts/s (150 before the 2026-10-26 speed fix: the same real speed), for 0.3 s and with no turn asked (`ENC_FAULT_*` in config.h), that encoder is not counting (found when the left one stopped counting backward: a loose wire). Bad counts make the heading hold spin BB1 in circles, so while faulted: heading hold off, driving refused (409 / serial message), log flag 32, `/state` `enc_fault` (1 left, 2 right), warning on the page. Cleared by the next arm. Quick check: motor test `m -80 -80 1000` with the wheels in the air; both "moved" counts should be about −1400.
+
 ## bb1, step 7: save settings + step test
 
 - **Save to flash** (page Balance panel, or `save` on serial) stores Kp, Ki, Kd, trim, cap and deadband in the Pico's flash (`settings.h`, next to the Wi-Fi settings). They load at startup, so a restart keeps your tuning. Only while disarmed. **Defaults** (`defaults`) goes back to `config.h`, which now starts at trim −4.39 and cap 80.
@@ -20,7 +40,7 @@ BB1 starts balancing by itself. Switched on standing up, it balances about 3.5 s
 - `auto_arm.h` is a small state machine: `OFF_SETTING`, `OFF_STOPPED`, `OFF_FALLS`, `NO_IMU`, `WAIT_UPRIGHT`, `HOLDING`, `BALANCING`. The state is printed on serial when it changes (`auto-arm: ...`), shown on both pages next to the mode, and logged every tick (`auto_state`, log format 8).
 - **STOP always wins:** STOP / Enter / the arm timer / a Wi-Fi drop / IMU errors / a low battery turn auto-arm off until the next ARM or power-up.
 - After a fall it re-arms when stood up, but **3 falls within 30 s** turn it off until ARM.
-- **Lift detector** (`control.h`, any arm): wheels over 4 turns/s for 0.5 s = picked up, motors off, reason "picked up". Stand it back on the floor and it re-arms.
+- **Lift detector** (`control.h`, any arm): wheels over 4 turns/s for 0.5 s = picked up, motors off, reason "picked up". Stand it back on the floor and it re-arms. It could never trip before the 2026-10-26 speed fix (the speed read 3.3x low).
 - Battery under `BATTERY_LOW_V` (6.6 V, and a reading is present): it won't auto-arm, `balanceArm()` refuses, and if it is already balancing `balanceTick()` disarms (`REASON_BATTERY` = 13, motors off). No sense wire (under `BATTERY_MIN_SENSE_V`): no battery check. A motor test also blocks auto-arm.
 - No script or page needed: `handheld.py` and /tune are for testing. The main page's **ARM** / **STOP** match serial `arm` / `disarm` (ARM there sends `heartbeat=0`: no timer, keeps going if the page closes).
 - Setting `auto` (1 / 0): serial `auto 0`, /tune box **Auto-arm (1/0)**, saved in flash. Constants in `config.h` (`AUTO_ARM_*`, `AUTO_MAX_FALLS`, `AUTO_FALL_WINDOW_MS`, `LIFT_*`).

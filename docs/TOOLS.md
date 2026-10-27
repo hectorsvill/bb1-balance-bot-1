@@ -192,6 +192,41 @@ Pulls every 5 ms record from BB1 over Wi-Fi (the same `/log?since=` the page use
 
 Then check it with `check_dump.py`, which it prints for you at the end.
 
+### drive_test.py: drive tests over Wi-Fi, recorded and reported
+
+**Moves BB1.** BB1 must already be balancing on the floor, with about 1 m clear all round.
+
+```bash
+tools/venv/bin/python tools/drive_test.py --list                          # the tests and their steps
+tools/venv/bin/python tools/drive_test.py fwd-back-30 -n "dff 90 sp 8"    # run one (default --surface wood)
+tools/venv/bin/python tools/drive_test.py --report logs/bb1_...csv        # re-read a saved run
+```
+
+Tests: `stand` (30 s still), `fwd-back-30` and `fwd-back-50` (3 s forward, 3 s pause, 3 s back at 0.3 or 0.5 turns/s), `turn` (left then right on the spot, 0.5), `arc` (forward 0.3 while turning 0.3), `all`. It records exactly like `logger.py` and adds one `# step,name,speed,turn,from_tick,to_tick` line per step plus `# drive_test,<test>,<how it ended>`.
+
+Safety: refuses to start unless `/state` says armed and `enc_fault` 0. Each `/drive` lasts 1 s and is re-sent every 100 ms, never longer, so BB1 stops by itself within 1 s if the script dies. `/drive/stop` between steps and on any error, fall or Ctrl-C. It ends the test if BB1 disarms, gets an encoder fault, gets more than 3 wheel turns (about 0.6 m) from where it started (added after BB1 crept into a wall, 2026-10-26), or gives no answer for 2 s. Shorter Wi-Fi stalls are ridden out.
+
+The report has one line per step: asked speed and turn; what the wheels did (average of the step's last half, turns/s); **stop** = furthest it rolled (or turned) on after the command ended (goal under 0.5 turn); **head** = heading drift; max lean forward/back; peak PWM; **sat%** (flag 8); **drop** = seconds the command ran out mid-step (Wi-Fi stall: don't compare gains on that step); flags (ENCODER FAULT printed in capitals). Then run `pid_report.py` on the same file for the balance side.
+
+### drive_explore.py: long random driving inside a box, for training logs
+
+**Moves BB1, for a long time.** BB1 balancing in the middle of a clear square.
+
+```bash
+tools/venv/bin/python tools/drive_explore.py --box 1.5 --minutes 60 --surface wood -n "explore 1"
+```
+
+Random moves (forward, back, spin, arc, stop; 1-4 s each, up to `--max-speed` 0.4 turns/s), each a `# step` line. Keeps inside the box with odometry from the encoders (65 mm wheels and 0.17 m track assumed, not measured; uses 80% of the box because odometry drifts): near the edge it turns to the middle and drives back. Saves a complete log every `--chunk` minutes (default 5) as `..._explore-pN.csv`. Stops for good on a fall, an encoder fault, battery under `--min-cell` (3.5 V/cell) or past the box edge; a Wi-Fi stall only pauses it (gives up after 30 s). Same 1 s commands as drive_test.py. For the mock, add `--host localhost:8080 --out-dir <scratch folder>` so mock logs never land in `logs/`.
+
+### dataset.py: every real log as one training table
+
+```bash
+tools/venv/bin/python tools/dataset.py                # writes logs/dataset/bb1_dataset.csv.gz
+tools/venv/bin/python tools/dataset.py --all-rows     # keep disarmed rows too
+```
+
+Reads every `logs/bb1_*.csv`, skips mock logs and logs older than format 9 (no operator action), multiplies `speed_l`/`speed_r` by 10/3 in logs before format 10 (they read 3.3x low), drops rows with an IMU error (flag 1), an encoder fault (flag 32), or where the firmware's encoder fault rule trips on the log itself (logs from before the detector). Splits each log into armed segments and labels each row with its segment's outcome: `timer`, `stopped`, `fell` or `log_ended` (still balancing when recording stopped). Adds `file`, `segment`, `outcome`, `surface`, `note`, `gains` (the `# gains_vN` text for the row's version, `dff` filled in from the header for old lines), `step` (drive_test.py logs) and `tick_gap`. Prints rows per outcome, surface and gains version, and how many rows have a drive command. Gzipped CSV, so no new library is needed: `pd.read_csv("logs/dataset/bb1_dataset.csv.gz")`.
+
 ### mock_bb1.py: a pretend robot for working on the page
 
 ```bash
