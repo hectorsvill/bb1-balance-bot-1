@@ -36,7 +36,7 @@ from drive_test import COUNTS_PER_REV, Run, Stop
 from logger import get, log_path, save_log
 
 WHEEL_TURN_M = 0.178   # metres per wheel turn: rolled one turn on the wood floor, 177.8 mm (Hector, 2026-10-26; = 56.6 mm wheel)
-TRACK_M = 0.17         # metres between the wheels (assumed, not measured)
+TRACK_M = 0.127        # metres between the tyre centres (Hector, 2026-10-26)
 SAFE_BOX = 0.8         # use 80% of the box: odometry drifts
 
 
@@ -151,8 +151,8 @@ class Explorer:
         a = self.odo.home_angle()
         if abs(a) > math.radians(25):
             # turn + = right = heading goes down; at about 0.4 turns/s difference that's
-            # roughly 0.4 * 0.178 / 0.17 = 0.42 rad/s, so spin about |a| / 0.42 seconds
-            self.drive_for("home turn", 0.0, -0.4 if a > 0 else 0.4, min(3.0, abs(a) / 0.42))
+            # 0.4 * 0.178 / 0.127 = 0.56 rad/s, so spin about |a| / 0.56 seconds
+            self.drive_for("home turn", 0.0, -0.4 if a > 0 else 0.4, min(3.0, abs(a) / 0.56))
         dist = math.hypot(self.odo.x, self.odo.y)
         self.drive_for("home fwd", 0.25, 0.0, min(4.0, dist / (0.25 * WHEEL_TURN_M)))
 

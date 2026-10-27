@@ -11,19 +11,19 @@ Newest first.
 
 ## 2026-10-26 - wheel turn measured: 177.8 mm
 
-- Hector rolled BB1 one full wheel turn on the wood floor: **177.8 mm per turn** (= 56.6 mm wheel, tyre squash included). The tools assumed 204 mm (65 mm wheel), 13% too far. `drive_explore.py` odometry (`WHEEL_TURN_M`, homing spin time), `bb1.py` and `drive_test.py` notes and `docs/TOOLS.md` updated. Track width still assumed (0.17 m). Still depends on 520 counts per turn (not measured)
+- Hector rolled BB1 one full wheel turn on the wood floor: **177.8 mm per turn** (= 56.6 mm wheel, tyre squash included). The tools assumed 204 mm (65 mm wheel), 13% too far. `drive_explore.py` odometry (`WHEEL_TURN_M`, homing spin time), `bb1.py` and `drive_test.py` notes and `docs/TOOLS.md` updated. Track width measured too: **127 mm** between the tyre centres (was 170 assumed): `TRACK_M`, so 1 turn of left-minus-right = 80 deg of heading. Still depends on 520 counts per turn (not measured)
 
 ## 2026-10-26 - heading hold `th` 20 → 60 (turn tests, live; `config.h` default)
 
 - `drive_test.py turn` (on the spot, 0.5 turns/s), 3+ runs per setting, steps with Wi-Fi drops left out: th 20 turned 0.1-0.4 (left weakest), th 40 0.3-0.6, **th 60 0.46-0.56 both ways**; lean ±1.3, PWM about 60
-- `bb1.py drive --turn 0.4 --for 1` now turns 0.16-0.24 both ways (was 0.14 right, 0.05 left). Short turns come out short because the heading target lags the wheels and is reset to "where it faces now" at the stop
+- `bb1.py drive --turn 0.4 --for 1` now turns 0.32-0.48 both ways (was 0.28 right, 0.10 left), about the 0.4 asked. (First reported as half that: `bb1.py` halved `turned_turns`, fixed the same day)
 - Wi-Fi drops hit the first moving step of each test (6 of 10) and almost never the second: a clue for the server stalls
 
 ## 2026-10-26 - milestone 3 starts: `tools/bb1.py` (branch `agent-api`)
 
 - New `tools/bb1.py`: command-line control for scripts and AI agents. `state` (summary or `--full`), `arm`, `drive --speed --turn --for`, `stop`, `disarm`; one line of JSON per call; exit code 0 / 1 refused or safety stop / 2 no answer. Uses only the existing HTTP API: no firmware change
 - Safety: drive refuses unless armed with no encoder fault, caps speed and turn at `--max` (0.5), at most 10 s, 1 s commands re-sent every 100 ms (BB1's failsafe stops it within 1 s if the tool dies), stops on a disarm, an encoder fault or 3 wheel turns of travel, Ctrl-C sends `/drive/stop`
-- After a drive it waits (up to 2 s) for the wheels to stop, then answers `moved_turns`, `turned_turns` and `settled`. First run on BB1: all commands, the 0.5 cap and the stops worked; forward 2 s at 0.3 moved 0.27, back 0.51; 1 s turns at 0.4 turned 0.14 right, 0.05 left
+- After a drive it waits (up to 2 s) for the wheels to stop, then answers `moved_turns`, `turned_turns` and `settled`. First run on BB1: all commands, the 0.5 cap and the stops worked; forward 2 s at 0.3 moved 0.27, back 0.51; 1 s turns at 0.4 turned 0.28 right, 0.10 left (th 20)
 - Tested on the mock and on BB1; docs in `docs/TOOLS.md`, `docs/API.md` (agent list item 1)
 
 ## 2026-10-26 - drive tuning: smode 1 dropped, sp 3, sdi 4 (saved in flash and `config.h` defaults)

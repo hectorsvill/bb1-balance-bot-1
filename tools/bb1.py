@@ -81,8 +81,9 @@ def turns(s):
 
 
 def diff(s):
-    """Left-minus-right wheel difference, turns from boot (right turn +): how far it has turned."""
-    return (s["enc_l"] - s["enc_r"]) / 2 / COUNTS_PER_REV
+    """Left-minus-right wheel turns from boot (right turn +): how far it has turned.
+    Not halved: the same measure as the `turn` command (drive.h) and drive_test.py."""
+    return (s["enc_l"] - s["enc_r"]) / COUNTS_PER_REV
 
 
 def wheel_speed(s):
