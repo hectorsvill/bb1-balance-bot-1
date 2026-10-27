@@ -9,7 +9,9 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
-## 2026-10-26 - I-term relax (`irelax`) and the Wi-Fi drops, not flashed yet
+## 2026-10-26 - I-term relax (`irelax`) and the Wi-Fi drops, flashed 23:30
+
+- **Result:** drive commands live 93-98% of the moving time (was 59%); the training explore ran 11.2 min (was 4.8). `irelax` 0.5 works as built (flag 64) but **does not stop the creep**: 3-5 of 10-12 stops still roll back up to 0.32 turns/s. During the drain the I term rebuilds faster than it drains: after a forward drive the setpoint sits about +1 deg forward (speed loop + sdi), the body lags, the error is negative and ki 100 winds I negative again. `drive_explore.py`: the position poll now rides out a slow `/state` (one ended a run after 18 s)
 
 - **Why:** the first training run (gains v26) stopped after 4.8 min at the box edge: told "home fwd 0.25", BB1 rolled backward 0.1-0.4 turns/s, angle I at −4 to −9 PWM. And 41% of the moving time the drive command had run out
 - **New setting `irelax`** (s, default 0.5, 0 = off): when a drive command has ramped down to a stop, the angle I term decays toward 0 with that time constant for 2 x irelax; driving again cancels it. Log flag 64 (`FLAG_I_RELAX`, same log format). Live on /tune, serial, `/state` gains, `# gains_ver` line `i_relax`, saved in flash (settings layout v8; older saves load with the default). Mock and `logger.py` `GAIN_KEYS` updated
