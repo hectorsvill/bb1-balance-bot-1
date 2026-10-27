@@ -18,6 +18,7 @@ Newest first.
 
 ## 2026-10-27 - firmware version and build id (version 3.2), branch `ota`
 
+- **Result:** flashed over Wi-Fi twice (Hector 14:02, Claude 14:04): `/sys` shows `version 3.2`, `build_id ota 8fb066a ...`, `flash_history.csv` has both lines. From now on Claude may run `flash.py --ota` itself (that's the point of OTA)
 - **Why:** the first `flash.py --ota` worked (BB1 restarted into the copy), but flash.py said it didn't: arduino-cli had reused its cached compile, so `__TIME__` (the `/sys` `build`) never changed. And we had no way to say which firmware is on BB1
 - **New `version.h`:** `FIRMWARE_VERSION` "3.2" (milestone.change, bumped by hand: 3.1 = `GET /api`, 3.2 = OTA) and `BB1_BUILD_ID` from `build_id.h`, which `flash.py` writes before every compile (branch, commit, `+` for uncommitted firmware changes, time; gitignored). The file changes every time, so the sketch always recompiles. Built without flash.py: `"no build id"`
 - **Where it shows:** `/sys` and `/api` (`version`, `build_id`; `API_VERSION` 3), the main page's Pico memory panel (Firmware tile), and a new `# firmware_version,3.2,build_id,...` line in every log file (same log format)
