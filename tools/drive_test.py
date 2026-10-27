@@ -41,7 +41,7 @@ CMD_MS = 1000                  # how long each /drive command lasts. The Pico's 
 MAX_CMD_MS = 1000              # hard limit: never ask for more than this
 RESEND_S = 0.1                 # re-send the command this often (the page does too)
 FLAG_SAT, FLAG_STOPPING, FLAG_ENC_FAULT = 8, 16, 32   # telemetry.h
-MAX_TRAVEL = 3.0               # wheel turns (about 0.6 m) from where the test started: stop the test.
+MAX_TRAVEL = 3.0               # wheel turns (about 0.53 m) from where the test started: stop the test.
                                # Without it, fwd-back runs crept back 1 turn each and BB1 hit a wall (2026-10-26)
 STALL_S = 2.0                  # give up after this long with no answer at all from BB1
 

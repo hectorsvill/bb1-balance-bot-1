@@ -13,7 +13,7 @@ Usage (BB1 on Wi-Fi; set BB1_HOST once to skip --host):
 
 Units are the firmware's (docs/API.md): speed in wheel turns/s (forward +),
 turn in turns/s of left-minus-right wheel difference (right +). One wheel
-turn is about 0.2 m.
+turn is 0.178 m (measured).
 
 Safety (an agent can make mistakes, so the tool checks for it):
   - drive refuses unless /state says armed with no encoder fault
@@ -42,7 +42,7 @@ COUNTS_PER_REV = 520     # config.h, assumed
 CMD_MS = 1000            # each /drive command lasts this long (the Pico's server sometimes goes quiet 1-2.5 s)
 RESEND_S = 0.1           # re-send the command this often, like the page
 MAX_FOR_S = 10.0         # longest single drive
-MAX_TRAVEL = 3.0         # wheel turns (about 0.6 m) from where the drive started: stop
+MAX_TRAVEL = 3.0         # wheel turns (about 0.53 m) from where the drive started: stop
 STALL_S = 2.0            # no answer at all from BB1 for this long: stop and give up
 SETTLE_S = 2.0           # after a drive, wait up to this long for the wheels to stop before answering
 SETTLED_SPEED = 0.05     # wheel turns/s: slower than this counts as stopped
