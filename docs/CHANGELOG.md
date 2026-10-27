@@ -9,6 +9,10 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-26 - wheel turn measured: 177.8 mm
+
+- Hector rolled BB1 one full wheel turn on the wood floor: **177.8 mm per turn** (= 56.6 mm wheel, tyre squash included). The tools assumed 204 mm (65 mm wheel), 13% too far. `drive_explore.py` odometry (`WHEEL_TURN_M`, homing spin time), `bb1.py` and `drive_test.py` notes and `docs/TOOLS.md` updated. Track width still assumed (0.17 m). Still depends on 520 counts per turn (not measured)
+
 ## 2026-10-26 - heading hold `th` 20 → 60 (turn tests, live; `config.h` default)
 
 - `drive_test.py turn` (on the spot, 0.5 turns/s), 3+ runs per setting, steps with Wi-Fi drops left out: th 20 turned 0.1-0.4 (left weakest), th 40 0.3-0.6, **th 60 0.46-0.56 both ways**; lean ±1.3, PWM about 60

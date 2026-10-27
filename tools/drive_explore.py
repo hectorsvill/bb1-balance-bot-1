@@ -151,8 +151,8 @@ class Explorer:
         a = self.odo.home_angle()
         if abs(a) > math.radians(25):
             # turn + = right = heading goes down; at about 0.4 turns/s difference that's
-            # roughly 0.4 * 0.178 / 0.17 = 0.42 rad/s, so spin about |a| / 0.5 seconds
-            self.drive_for("home turn", 0.0, -0.4 if a > 0 else 0.4, min(3.0, abs(a) / 0.5))
+            # roughly 0.4 * 0.178 / 0.17 = 0.42 rad/s, so spin about |a| / 0.42 seconds
+            self.drive_for("home turn", 0.0, -0.4 if a > 0 else 0.4, min(3.0, abs(a) / 0.42))
         dist = math.hypot(self.odo.x, self.odo.y)
         self.drive_for("home fwd", 0.25, 0.0, min(4.0, dist / (0.25 * WHEEL_TURN_M)))
 
