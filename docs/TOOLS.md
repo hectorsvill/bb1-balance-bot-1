@@ -87,6 +87,8 @@ arduino-cli upload -p /dev/cu.usbmodem21401 --fqbn rp2040:rp2040:rpipicow firmwa
 
 ## Our Python scripts (`tools/`)
 
+**Where runs are saved:** `logs/` in this repo is a link to the private repo `bb1-private` (`~/Documents/GitHub/bb1-private/logs`), so every tool's `logs/...` file lands there. Back it up with `git add -A && git commit -m "Runs <date>" && git push` inside that repo (its README has the rules). On a new Mac, clone both and run `ln -s ~/Documents/GitHub/bb1-private/logs logs` in this repo.
+
 ### serial_log.py: capture what the Pico prints
 
 ```bash

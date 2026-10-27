@@ -187,7 +187,7 @@ What a model needs, and where it is in our logs:
 4. Never mix mock logs (`firmware,bb1 MOCK`) into real data.
 5. When firmware adds a column: new field at the end of `LogRecord`, bump `LOG_FORMAT`, add it to `docs/CALIBRATION_AND_LOGS.md`.
 
-**Still to do:** a backup of `logs/` (gitignored, about 113 MB on one laptop so far; decided 2026-10-23: its own git repo once BB1 balances);  maybe a "hand touched" event key in handheld.py.
+**Backup:** done 2026-10-26: `logs/` lives in the private GitHub repo `bb1-private` (290 MB, 159 files) and the public repo's `logs/` is a link to it. **Still to do:**  maybe a "hand touched" event key in handheld.py.
 
 ### Training set: checked on the real logs (2026-10-26, `tools/dataset.py`)
 

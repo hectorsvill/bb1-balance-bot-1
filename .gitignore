@@ -32,6 +32,6 @@ credentials*
 venv/
 __pycache__/
 
-# Recorded runs (can get big; copy the ones worth keeping into the vault Logs/ or a dataset folder)
-logs/
+# Recorded runs: logs is a link to the private repo bb1-private/logs (no trailing slash: a link isn't a folder to git)
+logs
 graphify-out/

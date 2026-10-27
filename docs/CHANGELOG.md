@@ -9,6 +9,12 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-26 - logs backed up in the private repo `bb1-private`
+
+- New private GitHub repo `hectorsvill/bb1-private` (`~/Documents/GitHub/bb1-private`): `logs/` (all 159 real runs, 290 MB), plus `models/`, `media/` and `business/` for what we don't publish. Its README has the rules (real runs only, no secrets, photos without GPS, Git LFS before any file reaches 100 MB)
+- This repo's `logs/` is now a link to `bb1-private/logs`; every tool writes to the same path as before. `.gitignore` says `logs` (no slash) so git ignores the link. Docs: `docs/TOOLS.md`, `docs/FIRMWARE_PLAN.md` section 6
+- Docs now say "we" instead of naming who did what
+
 ## 2026-10-26 - wheel turn measured: 177.8 mm
 
 - We rolled BB1 one full wheel turn on the wood floor: **177.8 mm per turn** (= 56.6 mm wheel, tyre squash included). The tools assumed 204 mm (65 mm wheel), 13% too far. `drive_explore.py` odometry (`WHEEL_TURN_M`, homing spin time), `bb1.py` and `drive_test.py` notes and `docs/TOOLS.md` updated. Track width measured too: **127 mm** between the tyre centres (was 170 assumed): `TRACK_M`, so 1 turn of left-minus-right = 80 deg of heading. Still depends on 520 counts per turn (not measured)
