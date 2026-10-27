@@ -198,7 +198,7 @@ What is still missing, smallest fix first:
 | Gap | Why it matters | Smallest fix |
 |---|---|---|
 | Very little driving: 100 s of rows with a drive command, all from `drive_test.py`; 77% of rows are one idle carpet run | a model learns what's in the data | record page-pad driving with `logger.py --surface wood -n ...` running; vary surfaces (tooling only) |
-| The ramped targets BB1 really aims for (`/state` `speed_now`, `turn_now`) and the hold targets aren't in the log | a model of the controller can't see its own state; the dff part of the PWM can't be rebuilt from the log | firmware: two `int8` fields at the end of `LogRecord`, `drive_speed_now`, `drive_turn_now` (hundredths, like `drive_speed`), `LOG_FORMAT` 10. 2 bytes a record |
+| The ramped targets BB1 really aims for weren't in the log | a model of the controller can't see its own state; the dff part of the PWM can't be rebuilt from the log | done (log format 11): `drive_speed_now`, `drive_turn_now`, `speed_pwm`, in spare padding bytes |
 | Wi-Fi stalls: 1,810 rows where a drive step was running but the command had run out | the action column says 0 while the operator meant to drive: label noise | tooling done for scripted runs (`step` column says what was asked); the stall itself is an open item (CHANGELOG) |
 | Logs from before the encoder detector (2026-10-25) have a dead left encoder with no flag 32 | wrong wheel data | done in tooling: `dataset.py` re-runs the firmware's fault rule and drops those rows (3,271) |
 | Old `# gains_vN` lines have no `dff` | can't tell feedforward settings apart | done: `dataset.py` fills it from the header; `logger.py` and `handheld.py` now share one `GAIN_KEYS` list |
