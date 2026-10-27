@@ -192,6 +192,23 @@ Pulls every 5 ms record from BB1 over Wi-Fi (the same `/log?since=` the page use
 
 Then check it with `check_dump.py`, which it prints for you at the end.
 
+### bb1.py: control BB1 from the command line (JSON out, for scripts and AI agents)
+
+**`drive` moves BB1.** One command per call, one line of JSON back. Set the address once per terminal with `export BB1_HOST=192.168.1.240` (or pass `--host`).
+
+```bash
+tools/venv/bin/python tools/bb1.py state                       # short summary (--full: all of /state)
+tools/venv/bin/python tools/bb1.py arm                         # start balancing (stand it up first)
+tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2   # forward 0.3 wheel turns/s for 2 s, then stop
+tools/venv/bin/python tools/bb1.py drive --turn -0.4 --for 1   # left on the spot
+tools/venv/bin/python tools/bb1.py stop                        # stop driving, keep balancing
+tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1 falls over
+```
+
+Units are the firmware's: wheel turns/s (one turn is about 0.2 m), turn = left-minus-right turns/s, right +. Every answer has `"ok"`; on false, `"error"` says why. Exit code 0 done, 1 refused or stopped by a safety check, 2 BB1 didn't answer. `drive` answers what was asked (after the caps), `moved_turns`, and the summary state.
+
+Safety: `drive` refuses unless armed with no encoder fault; speed and turn are capped at `--max` (default 0.5); `--for` is at most 10 s. Same 1 s commands re-sent every 100 ms as `drive_test.py`, so BB1 stops by itself within 1 s if the tool dies. It checks `/state` twice a second and stops on a disarm, an encoder fault, or more than 3 wheel turns from the start. Ctrl-C sends `/drive/stop`. `arm` uses `heartbeat=0` (keeps balancing with nobody polling) and also turns auto-arm back on, even when it is refused, so a fallen BB1 re-arms by itself once stood up. Test it on the mock: `--host localhost:8080`.
+
 ### drive_test.py: drive tests over Wi-Fi, recorded and reported
 
 **Moves BB1.** BB1 must already be balancing on the floor, with about 1 m clear all round.

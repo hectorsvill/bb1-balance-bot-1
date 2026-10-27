@@ -9,6 +9,12 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+## 2026-10-26 - milestone 3 starts: `tools/bb1.py` (branch `agent-api`)
+
+- New `tools/bb1.py`: command-line control for scripts and AI agents. `state` (summary or `--full`), `arm`, `drive --speed --turn --for`, `stop`, `disarm`; one line of JSON per call; exit code 0 / 1 refused or safety stop / 2 no answer. Uses only the existing HTTP API: no firmware change
+- Safety: drive refuses unless armed with no encoder fault, caps speed and turn at `--max` (0.5), at most 10 s, 1 s commands re-sent every 100 ms (BB1's failsafe stops it within 1 s if the tool dies), stops on a disarm, an encoder fault or 3 wheel turns of travel, Ctrl-C sends `/drive/stop`
+- Tested on the mock; docs in `docs/TOOLS.md`, `docs/API.md` (agent list item 1)
+
 ## 2026-10-26 - drive tuning: smode 1 dropped, sp 3, sdi 4 (saved in flash and `config.h` defaults)
 
 - `smode` flashed and confirmed on `/state`. smode 1 drove the wrong way at every ki from 100 to 25 (the body never leans into the drive on wood; the wheel speed loop's PWM goes straight to the wheels), and standing rocked under ki 35. Hector chose smode 0 + sdi; smode 1 stays in the firmware, default 0
