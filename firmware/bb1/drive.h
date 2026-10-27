@@ -101,14 +101,19 @@ void driveUpdate(float dt, float posNow, float diffNow) {
   // 2026-10-26), and driving straight keeps the full heading hold (the lag
   // clamp capped it at th x 0.25 = 5 PWM, under the ~7 PWM the faster right
   // wheel needs).
-  if (drive.speed != 0) drive.pos = posNow;
+  // smode 1 (config.h): the target position runs at the asked speed instead,
+  // kept within DRIVE_POS_MAX_LAG of the wheels, so wsi works as a speed I
+  // while driving without building a catch-up debt.
+  if (drive.speed != 0 && speedMode >= 0.5f)
+    drive.pos = constrain(drive.pos + drive.speed * dt, posNow - DRIVE_POS_MAX_LAG, posNow + DRIVE_POS_MAX_LAG);
+  else if (drive.speed != 0) drive.pos = posNow;
   if (drive.turn != 0) {
     drive.diff -= drive.turn * dt;
     drive.diff  = constrain(drive.diff, diffNow - DRIVE_MAX_LAG, diffNow + DRIVE_MAX_LAG);
   }
   // Just stopped driving: hold right here. Just stopped turning: face the
   // way it faces now. (Per axis, like above.)
-  if (wasDriving && drive.speed == 0) drive.pos  = posNow;
+  if (wasDriving && drive.speed == 0 && speedMode < 0.5f) drive.pos = posNow;   // smode 1 keeps the target: stops where it was asked to
   if (wasTurning && drive.turn == 0)  drive.diff = diffNow;
 
   driveSpeedNow = drive.speed;

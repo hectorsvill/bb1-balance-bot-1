@@ -130,6 +130,24 @@ const float DRIVE_FF_MAX      = 150;
 const float DEFAULT_DRIVE_SPEED_I = 2.0;
 const float DRIVE_SPEED_I_MAX     = 20;
 const float DRIVE_LEAN_FADE_S     = 0.5;   // after stopping, the built-up lean fades to 0 over about this long
+
+// Speed loop mode (setting "smode", 2026-10-26).
+//   0 = the speed loop moves the angle setpoint (sp, si, sdi), as since step 8.
+//   1 = wheel speed loop: speed and position errors go straight to the PWM
+//       (wsp, wsi), the classic balance-car layout. Why: on wood the angle
+//       loop's I term holds the wheel speed, and moving the setpoint never
+//       changes it (the angle loop tracks the setpoint, error about 0), so BB1
+//       got stuck rolling backward with no command (explore run, 2026-10-26).
+//       Meant to be used with a lower ki: the speed loop takes over the "hold
+//       the wheel speed" job the angle I term was doing.
+// Sign, both modes: too fast forward -> wheels pushed further forward -> they
+// run out ahead of the body, it tips back, and the angle loop brakes.
+const float DEFAULT_SPEED_MODE     = 0;
+const float DEFAULT_WHEEL_SPEED_P  = 20;    // PWM per turn/s faster than the target (= kp 18 x sp 1.2, today's strength)
+const float DEFAULT_WHEEL_SPEED_I  = 10;    // PWM per wheel turn ahead of the target position (= kp 18 x si 0.5)
+const float WHEEL_SPEED_GAIN_MAX   = 200;
+const float WHEEL_SPEED_PWM_MAX    = 100;   // the wheel speed loop never adds more than this (fits the log's int8)
+const float DRIVE_POS_MAX_LAG      = 0.3;   // smode 1: the target position runs at the asked speed, at most this many wheel turns from the wheels
 const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's).
                                       // Tried 45 on 2026-10-26 from a misread log (logged wheel speed is 3.3x low): real turn rate went
                                       // 0.5 asked -> 0.80. At 15 it turned 0.42-0.51 (encoder counts)

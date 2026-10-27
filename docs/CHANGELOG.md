@@ -9,7 +9,13 @@ Newest first.
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
-## 2026-10-26 - drive speed I (`sdi`), not flashed yet
+## 2026-10-26 - wheel speed loop (`smode 1`) and log format 11, not flashed yet
+
+- **Why:** the unattended explore run (19:20, 41 s, no fall) rolled backward at 0.45 turns/s with no command, leaning forward, angle I stuck at −12. On wood the angle loop's I term holds the wheel speed; the speed loop only moves the setpoint, the angle loop tracks it (error about 0), so I never changes. `sdi` pushes harder on that same weak lever
+- **New:** setting `smode` (0 = as before, default; 1 = wheel speed loop). In smode 1 the setpoint shift (sp, si, sdi) is off and `wsp` x (speed − target) + `wsi` x (position − target position) is added to the PWM, capped at ±100 (`WHEEL_SPEED_PWM_MAX`). While driving the target position runs at the asked speed, kept within 0.3 wheel turns (`DRIVE_POS_MAX_LAG`), so `wsi` is a speed I with no catch-up debt; it is not snapped on stop, so BB1 stops where it was asked to. Starting values `wsp` 20, `wsi` 10 (= kp 18 x sp 1.2 and x si 0.5). Meant to be used with a lower `ki` (Hector tunes it). Live on /tune, serial, `/state`, saved in flash (settings layout v7; older saves load with the defaults), `# gains_ver` line
+- **Log format 11:** `drive_speed_now`, `drive_turn_now` (the ramped targets) and `speed_pwm` (what the wheel speed loop added), in the record's last 3 padding bytes (still 76 bytes, no extra RAM). Mock and `logger.py`/`handheld.py` `GAIN_KEYS` updated
+
+## 2026-10-26 - drive speed I (`sdi`), flashed 19:05
 
 - After the speed fix (flashed): standing as good or better (wobble 0.3 deg), but **forward drive stuck** (0.01 of 0.5 asked) and reverse overshot (−0.75 for −0.5). On wood the angle loop's I term is the real wheel-speed command and the speed loop only moves the setpoint; with P alone the lean it asks for (sp x error, 0.6 deg) never broke BB1 free forward. sp 2.4 didn't help
 - New setting **`sdi`** (drive speed I, default 2): while driving, adds that many degrees of lean per second for every turn/s it is slower than asked (less when faster). Capped by `SPEED_SHIFT_MAX`, fades out over 0.5 s after a stop (`DRIVE_LEAN_FADE_S`), reset on every arm. Live on /tune (**Drive I (sdi)**), serial `sdi N`, `/state` gains `sdi`, saved in flash (settings layout v6; v5 saves load with the default), `# gains_ver` line `drive_speed_i`. Mock, `logger.py`/`handheld.py` `GAIN_KEYS` updated

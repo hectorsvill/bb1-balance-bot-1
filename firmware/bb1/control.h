@@ -73,6 +73,7 @@ struct Balance {
   unsigned long stepUntilMs = 0; // step test: setpoint is trim + STEP_TEST_DEG until then (0 = off)
   // Speed loop (step 8)
   float   speedFiltered = 0;    // wheel speed, counts/s, smoothed
+  float   speedPwm = 0;         // smode 1: what the wheel speed loop adds to the PWM this tick
   int32_t encAtArm = 0;         // average encoder count when it armed (position = since then)
   int32_t diffAtArm = 0;        // right minus left encoder when it armed (heading hold)
   bool    newArm = false;       // first tick after arming: remember the encoders
@@ -143,6 +144,8 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   // Driving (drive.h) gives both a target: speed error = speed - asked speed,
   // position error = position - where the target has rolled to.
   r.drive_speed = r.drive_turn = 0;              // 0 unless armed and driving
+  r.drive_speed_now = r.drive_turn_now = r.speed_pwm = 0;
+  if (!balance.armed) balance.speedPwm = 0;
   if (balance.armed) {
     float speed = (r.speed_l + r.speed_r) / 2.0f;                       // counts/s, forward +
     balance.speedFiltered += SPEED_FILTER * (speed - balance.speedFiltered);
@@ -173,8 +176,20 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     if (drive.speed != 0) drive.lean += gainDriveSpeedI * (drive.speed - turnsPerSec) * dt;
     else                  drive.lean -= drive.lean * min(1.0f, dt / DRIVE_LEAN_FADE_S);
     drive.lean = constrain(drive.lean, -SPEED_SHIFT_MAX, SPEED_SHIFT_MAX);
-    float shift = -(gainSpeedP * (turnsPerSec - drive.speed) + gainSpeedI * (turns - drive.pos)) + drive.lean;
-    setpoint += constrain(shift, -SPEED_SHIFT_MAX, SPEED_SHIFT_MAX);
+    if (speedMode < 0.5f) {
+      float shift = -(gainSpeedP * (turnsPerSec - drive.speed) + gainSpeedI * (turns - drive.pos)) + drive.lean;
+      setpoint += constrain(shift, -SPEED_SHIFT_MAX, SPEED_SHIFT_MAX);
+      balance.speedPwm = 0;
+    } else {
+      // smode 1: the wheel speed loop. Faster than asked, or ahead of the target
+      // position -> more forward PWM (see the sign note in config.h).
+      drive.lean = 0;
+      float pwm = gainWheelSpeedP * (turnsPerSec - drive.speed) + gainWheelSpeedI * (turns - drive.pos);
+      balance.speedPwm = constrain(pwm, -WHEEL_SPEED_PWM_MAX, WHEEL_SPEED_PWM_MAX);
+    }
+    r.drive_speed_now = (int8_t)lroundf(drive.speed * 100);   // the ramped targets BB1 really aims for (log format 11)
+    r.drive_turn_now  = (int8_t)lroundf(drive.turn * 100);
+    r.speed_pwm       = (int8_t)lroundf(balance.speedPwm);
   }
   r.setpoint_cdeg = (int16_t)(setpoint * 100);
   r.gains_ver = (uint16_t)gainsVersion;
@@ -226,6 +241,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   // in, so the I term only fixes what's left (and has little to unwind when
   // you reverse). 0 when standing still. Not in the p/i/d log columns: pwm_l/r include it.
   out += gainDriveFF * drive.speed;
+  out += balance.speedPwm;                      // smode 1: the wheel speed loop (0 in smode 0). Not in p/i/d either
 
   // Deadband: the motors don't turn at all below some PWM. Add it on top so a
   // small correction still moves the wheels, then clamp to the cap again.

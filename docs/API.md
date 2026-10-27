@@ -39,7 +39,7 @@ curl -X POST $B/drive -d speed=-0.3 -d turn=-0.2  # back and left, 500 ms (the d
 curl -X POST $B/drive/stop                        # ramp to a stop, keep balancing
 
 # Settings
-curl -X POST $B/gains -d sdi=2 -d dff=25          # change any of kp ki kd trim cap deadband sp si th auto dff sdi (RAM only)
+curl -X POST $B/gains -d sdi=2 -d dff=25          # change any of kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi (RAM only)
 curl -X POST $B/gains -d trim=here                # trim = the current pitch
 curl -X POST $B/disarm && curl -X POST $B/gains/save   # store the gains in flash (disarmed only: hold BB1)
 curl -X POST $B/gains/defaults                    # back to the config.h defaults (save to keep)
@@ -80,7 +80,7 @@ Not balancing: `409` and `{"ok":false,"error":"not balancing: arm first (POST /a
 
 Speed and turn ramp toward what you ask (1 turn/s per second, turn twice as fast), so a full jab can't tip it over. Disarming, a fall or a new arm clears the command.
 
-Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are by default (sp 4, si 0.5, th 20). With `th 0` turning still works on feedforward alone (`DRIVE_TURN_FF`, 15 PWM per turn/s), just less exactly. Turning on the spot keeps the position hold, and driving straight keeps the full heading hold (each axis only lets go of its own hold). Speed has an I term while driving, the setting `sdi` (degrees of lean per second for every turn/s it is slower than asked, default 2): without it BB1 stayed stuck going forward, because on wood the angle loop's I term is the real wheel-speed command and the speed loop only moves the setpoint. Speed also has a feedforward, the setting `dff` (PWM per turn/s, default 25): the PWM a speed needs goes straight to the wheels, so the angle loop's I term doesn't have to wind up to it and unwind it when you reverse.
+Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are by default (sp 4, si 0.5, th 20). With `th 0` turning still works on feedforward alone (`DRIVE_TURN_FF`, 15 PWM per turn/s), just less exactly. Turning on the spot keeps the position hold, and driving straight keeps the full heading hold (each axis only lets go of its own hold). Speed has an I term while driving, the setting `sdi` (degrees of lean per second for every turn/s it is slower than asked, default 2): without it BB1 stayed stuck going forward, because on wood the angle loop's I term is the real wheel-speed command and the speed loop only moves the setpoint. **`smode 1`** swaps that for a wheel speed loop: speed and position errors go straight to the PWM (`wsp` PWM per turn/s, `wsi` PWM per wheel turn), the classic balance-car layout, meant for use with a lower `ki`; `smode 0` (default) is the layout above. Speed also has a feedforward, the setting `dff` (PWM per turn/s, default 25): the PWM a speed needs goes straight to the wheels, so the angle loop's I term doesn't have to wind up to it and unwind it when you reverse.
 
 ### `POST /drive/stop`
 
@@ -119,7 +119,7 @@ The newest values, as one JSON object. The page asks about 20 times a second. As
 | `enc_l`, `enc_r`, `speed_l`, `speed_r` | encoder counts since boot, wheel speed in counts/s (forward +) |
 | `pwm_l`, `pwm_r` | PWM sent to each motor this tick |
 | `drive` | `speed`, `turn`: the command in force (0 when none); `speed_now`, `turn_now`: the ramped targets BB1 aims for; `left_ms`: time left on the command; `commands`: accepted since boot; `max_speed`, `max_turn`: the limits |
-| `gains` | `ver` (counts every change), `kp`, `ki`, `kd`, `trim`, `cap`, `deadband`, `sp`, `si`, `th`, `auto`, `dff` (drive feedforward), `sdi` (drive speed I) |
+| `gains` | `ver` (counts every change), `kp`, `ki`, `kd`, `trim`, `cap`, `deadband`, `sp`, `si`, `th`, `auto`, `dff` (drive feedforward), `sdi` (drive speed I), `smode` (speed loop mode), `wsp`, `wsi` (wheel speed loop) |
 | `batt_v`, `batt_ok`, `batt_warn_v`, `batt_low_v`, `batt_cells` | whole-pack volts; false = no sense wire; orange and red limits; 2 cells |
 | `test_running`, `tests_done`, `test_moved`, `test_ms` | motor test status and the last result |
 | `alpha`, `bias`, `calibrations`, `cal_ok`, `ever_cal`, `imu` | angle filter weight; gyro bias x/y/z (deg/s); calibration status; IMU found |
@@ -156,7 +156,7 @@ RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_bu
 
 | Request | Does |
 |---|---|
-| `POST /gains` | any of `kp ki kd trim cap deadband sp si th auto dff sdi`; `trim=here` uses the current pitch. Answers the full set as text |
+| `POST /gains` | any of `kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi`; `trim=here` uses the current pitch. Answers the full set as text |
 | `POST /gains/save` | store them in flash (disarmed only) |
 | `POST /gains/defaults` | back to the `config.h` defaults (save to keep) |
 | `POST /alpha` | `value=0.90..0.999`: angle filter weight |

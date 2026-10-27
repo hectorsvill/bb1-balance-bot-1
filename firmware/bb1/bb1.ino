@@ -271,6 +271,9 @@ void printHelp() {
   Serial.println("  sp N / si N   speed loop P / I (now " + String(gainSpeedP, 2) + " / " + String(gainSpeedI, 2) + ");  th N  heading hold (now " + String(gainTurnHold, 1) + ")");
   Serial.println("  dff N     drive feedforward, PWM per turn/s of speed asked (now " + String(gainDriveFF, 0) + ")");
   Serial.println("  sdi N     drive speed I, deg of lean per turn/s short, per second (now " + String(gainDriveSpeedI, 2) + ")");
+  Serial.println("  smode N   speed loop: 0 moves the setpoint (sp si sdi), 1 wheel speed loop on the PWM (wsp wsi) (now " + String((int)speedMode) + ")");
+  Serial.println("  wsp N     smode 1: PWM per turn/s too fast (now " + String(gainWheelSpeedP, 1) + ")");
+  Serial.println("  wsi N     smode 1: PWM per wheel turn ahead of the target (now " + String(gainWheelSpeedI, 1) + ")");
   Serial.println("  auto 1 / auto 0   start balancing by itself when stood upright and still (now " + String((int)autoArm) + ")");
   Serial.println("  trim N    balance point in deg (now " + String(balanceTrim, 2) + ");  trim here = use the current pitch");
   Serial.println("  cap N     PWM limit while armed (now " + String(pwmCap, 0) + ");  deadband N  (now " + String(motorDeadband, 0) + ")");

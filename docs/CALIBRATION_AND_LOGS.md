@@ -209,6 +209,9 @@ Since step 4 the top lines come from `log_meta.h`:
 | `auto_state` | - | what auto-arm is doing (`auto_arm.h`): 0 off (auto 0), 1 off (stopped, waits for ARM), 2 off (fell too often), 3 no IMU (log format 7: waiting for calibration), 4 waiting for upright, 5 holding (counting to 1 s), 6 balancing. (log format 7, 2026-10-24; format 8 changed what 3 means) |
 | `drive_speed` | wheel turns/s | the **operator's drive command** in force this tick (`POST /drive`, the Drive pad, serial `drive`): forward +, 0 when none or once it ran out. Steps of 0.01. What BB1 actually aims for ramps toward this (`# drive_accel` in the header). This is the action a model would learn to copy (log format 9, 2026-10-25) |
 | `drive_turn` | turns/s | the operator's turn command: left-minus-right wheel difference, right turn +. Same rules as `drive_speed` (log format 9) |
+| `drive_speed_now` | turns/s | the ramped speed target BB1 really aims for this tick (follows `drive_speed` at `# drive_accel`). The controller's own state, for training (log format 11, 2026-10-26) |
+| `drive_turn_now` | turns/s | the ramped turn target (log format 11) |
+| `speed_pwm` | PWM | what the wheel speed loop added to both wheels this tick (`smode 1`; always 0 in `smode 0`). Not in `p_term`/`i_term`/`d_term`; `pwm_l`/`pwm_r` include it (log format 11) |
 
 Raw values are kept on purpose: a better filter, or a model, can be re-run on them later. Step 5 added the six wheel columns (log format 2), step 6 the five controller columns (log format 3); later steps add the speed loop and drive commands at the end.
 

@@ -12,7 +12,7 @@
 
 // Bump this when the log columns change, so old and new files can be told apart.
 const char *FIRMWARE_NAME = "bb1 milestone 2";
-const int   LOG_FORMAT    = 10;  // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping; 10: speed_l/speed_r really over 10 ticks (before: 3 ticks, read 3.3x low)
+const int   LOG_FORMAT    = 11;  // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping; 10: speed_l/speed_r really over 10 ticks (before: 3 ticks, read 3.3x low); 11: drive_speed_now, drive_turn_now, speed_pwm
 
 String logMetaLines() {
   String m;
@@ -27,7 +27,7 @@ String logMetaLines() {
   m += "# battery_divider," + String(BATTERY_DIVIDER, 2) + ",battery_pin,GP" + String(BATTERY_PIN) + ",battery_cells," + String(BATTERY_CELLS) + "\n";
   m += "# gains_ver," + String(gainsVersion) + ",kp," + String(gainP, 3) + ",ki," + String(gainI, 3) +
        ",kd," + String(gainD, 3) + ",trim," + String(balanceTrim, 2) + ",pwm_cap," + String(pwmCap, 0) +
-       ",deadband," + String(motorDeadband, 0) + ",speed_p," + String(gainSpeedP, 2) + ",speed_i," + String(gainSpeedI, 2) + ",turn_hold," + String(gainTurnHold, 1) + ",auto_arm," + String((int)autoArm) + ",drive_ff," + String(gainDriveFF, 0) + ",drive_speed_i," + String(gainDriveSpeedI, 2) + "\n";
+       ",deadband," + String(motorDeadband, 0) + ",speed_p," + String(gainSpeedP, 2) + ",speed_i," + String(gainSpeedI, 2) + ",turn_hold," + String(gainTurnHold, 1) + ",auto_arm," + String((int)autoArm) + ",drive_ff," + String(gainDriveFF, 0) + ",drive_speed_i," + String(gainDriveSpeedI, 2) + ",speed_mode," + String((int)speedMode) + ",wheel_speed_p," + String(gainWheelSpeedP, 1) + ",wheel_speed_i," + String(gainWheelSpeedI, 1) + "\n";
   m += "# drive_max_speed," + String(DRIVE_MAX_SPEED, 2) + ",drive_max_turn," + String(DRIVE_MAX_TURN, 2) + ",drive_accel," + String(DRIVE_ACCEL, 2) +
        ",drive_turn_accel," + String(DRIVE_TURN_ACCEL, 2) + ",drive_turn_ff," + String(DRIVE_TURN_FF, 1) + ",drive_hold_ms," + String(DRIVE_HOLD_MS) + "\n";
   return m;

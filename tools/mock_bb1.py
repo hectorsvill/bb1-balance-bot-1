@@ -38,7 +38,7 @@ LOG_MAX_PER_REQUEST = 1000
 ACCEL_PER_G = 16384.0
 GYRO_PER_DPS = 65.5
 CSV_HEADER = ("tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn")
+              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm")
 MOTOR_TEST_MAX_PWM = 150
 MOTOR_TEST_MAX_MS = 3000
 DRIVE_MAX_SPEED, DRIVE_MAX_TURN = 1.0, 1.0   # config.h: wheel turns/s
@@ -49,7 +49,7 @@ START = time.time()
 alpha = 0.98
 bias = [-0.50, 2.07, -2.20]      # deg/s, like a real calibration
 tests = []                        # motor tests: [first_tick, end_tick, left_pwm, right_pwm]
-gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": -4.39, "cap": 80.0, "deadband": 0.0, "sp": 0.0, "si": 0.0, "th": 0.0, "auto": 1, "dff": 25.0, "sdi": 2.0}
+gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": -4.39, "cap": 80.0, "deadband": 0.0, "sp": 0.0, "si": 0.0, "th": 0.0, "auto": 1, "dff": 25.0, "sdi": 2.0, "smode": 0, "wsp": 20.0, "wsi": 10.0}
 armed_from = None                 # tick it was armed at, or None
 reason = ""                       # why it last disarmed / refused, like disarmReason in control.h
 arm_attempts = 0
@@ -141,12 +141,12 @@ def csv_line(r):
     return (f'{r["tick"]},{r["t_us"]},{r["work_us"]},{r["mode"]},{r["flag_bits"]},{raw},'
             f'{r["pitch"]:.3f},{r["pitch_rate"]:.3f},{r["accel_pitch"]:.3f},'
             f'{r["enc"][0]},{r["enc"][1]},{r["speed"][0]},{r["speed"][1]},{r["pwm"][0]},{r["pwm"][1]},'
-            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10},{mock_battery(r["tick"]):.2f},{6 if r["mode"] == 4 else 1},0.00,0.00\n')
+            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10},{mock_battery(r["tick"]):.2f},{6 if r["mode"] == 4 else 1},0.00,0.00,0.00,0.00,0\n')
 
 
 def meta_lines():
     return ("# firmware,bb1 MOCK (tools/mock_bb1.py)\n"
-            "# log_format,10\n"
+            "# log_format,11\n"
             f"# gyro_bias_dps,{bias[0]:.3f},{bias[1]:.3f},{bias[2]:.3f}\n"
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
             "# accel_pitch_sign,1,gyro_pitch_sign,1\n"
@@ -270,7 +270,7 @@ class Handler(BaseHTTPRequestHandler):
                 reason = "the page was hidden (tab switched or screen locked)" if hidden else "disarmed by you"
             self.reply("disarmed")
         elif self.path == "/gains":
-            limits = {"kp": (0, 100), "ki": (0, 100), "kd": (0, 20), "cap": (0, 255), "deadband": (0, 100), "trim": (-20, 20), "sp": (0, 20), "si": (0, 20), "th": (0, 200), "auto": (0, 1), "dff": (0, 150), "sdi": (0, 20)}
+            limits = {"kp": (0, 100), "ki": (0, 100), "kd": (0, 20), "cap": (0, 255), "deadband": (0, 100), "trim": (-20, 20), "sp": (0, 20), "si": (0, 20), "th": (0, 200), "auto": (0, 1), "dff": (0, 150), "sdi": (0, 20), "smode": (0, 1), "wsp": (0, 200), "wsi": (0, 200)}
             for k, (lo, hi) in limits.items():
                 v = form.get(k)
                 if k == "trim" and v == "here":
@@ -278,7 +278,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif v:
                     gains[k] = max(lo, min(hi, float(v)))
             gains["ver"] += 1
-            self.reply("gains v{ver}: kp {kp}  ki {ki}  kd {kd}  trim {trim} deg  cap {cap}  deadband {deadband}  sp {sp}  si {si}  th {th}  auto {auto}  dff {dff:g}  sdi {sdi:g}".format(**gains))
+            self.reply("gains v{ver}: kp {kp}  ki {ki}  kd {kd}  trim {trim} deg  cap {cap}  deadband {deadband}  sp {sp}  si {si}  th {th}  auto {auto}  dff {dff:g}  sdi {sdi:g}  smode {smode:g}  wsp {wsp:g}  wsi {wsi:g}".format(**gains))
         elif self.path == "/gains/save":
             if armed_from is not None:
                 return self.reply("disarm first: saving pauses the control loop for a moment", status=409)

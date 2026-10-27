@@ -106,6 +106,9 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
     <label class="box"><span class="name tip" data-tip="Heading hold: keeps both wheels rolling the same distance so BB1 goes straight (the right wheel is a bit faster). PWM moved between the wheels per wheel turn of difference. Too much = it wiggles left-right. 0 = off.">Heading (th)</span><input id="th" inputmode="decimal"></label>
     <label class="box"><span class="name tip" data-tip="Drive feedforward (milestone 2): PWM per wheel turn/s of drive speed, sent straight to the wheels while driving, like Betaflight feedforward. Holding 1 turn/s takes about 105 PWM. Too little = slow to start and it tips back when you reverse or stop. Too much = it rolls out from under itself (tips back when starting). 0 = off.">Drive FF (dff)</span><input id="dff" inputmode="numeric"></label>
     <label class="box"><span class="name tip" data-tip="Drive speed I (milestone 2): while driving, degrees of lean added per second for every wheel turn/s BB1 is slower than asked. Like the I term of GPS position hold on a quad: it keeps tilting until you really move. Too little = stuck or slow going forward. Too much = it overshoots the speed and rocks. Fades out after a stop. 0 = off.">Drive I (sdi)</span><input id="sdi" inputmode="decimal"></label>
+    <label class="box"><span class="name tip" data-tip="Speed loop mode. 0 = the speed loop moves the balance setpoint (sp, si, sdi), as before. 1 = wheel speed loop: speed and position errors go straight to the PWM (wsp, wsi), like a balance car. Use 1 with a lower ki: the wheel speed loop takes over holding the wheel speed from the angle I term.">Speed mode (smode)</span><input id="smode" inputmode="numeric"></label>
+    <label class="box"><span class="name tip" data-tip="smode 1: PWM per wheel turn/s faster than asked. Pushes the wheels further ahead so the body tips back and the angle loop brakes. Too little = drifts and drives sloppily. Too much = fast fore-aft shaking. Start 20 (today's sp 1.2 x kp 18).">Wheel speed P (wsp)</span><input id="wsp" inputmode="decimal"></label>
+    <label class="box"><span class="name tip" data-tip="smode 1: PWM per wheel turn BB1 is ahead of where it should be (standing: where it stopped; driving: a target moving at the asked speed). The I of the wheel speed loop: holds position and reaches the asked speed. Too little = drifts. Too much = slow rocking back and forth. Start 10.">Wheel speed I (wsi)</span><input id="wsi" inputmode="decimal"></label>
     <label class="box"><span class="name tip" data-tip="Auto-arm: 1 = BB1 starts balancing by itself after power-up (or after a fall) once you stand it upright and hold it still for 1 s. STOP turns it off until the next ARM or power-up. 0 = only ARM starts it. Careful: held upright in the air, the wheels will spin.">Auto-arm (1/0)</span><input id="auto" inputmode="numeric"></label>
   </div>
   <div class="muted" id="tipText" style="margin-top:8px; min-height:1.4em">Hover over (or tap) P, I or D to see what it does.</div>
@@ -217,14 +220,14 @@ function showBattery(s) {
 }
 
 const el = id => document.getElementById(id);
-const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si', 'th', 'auto', 'dff', 'sdi'];
+const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si', 'th', 'auto', 'dff', 'sdi', 'smode', 'wsp', 'wsi'];
 let gains = null, filledVer = -1;   // the gains BB1 last reported, and the version shown in the boxes
 
 // Put BB1's current gains in the boxes. Only when asked or when BB1's version
 // changed (someone else changed them), so it never overwrites what you're typing.
 function fillBoxes() {
   if (!gains) return;
-  for (const f of FIELDS) if (gains[f] !== undefined) el(f).value = (f === 'cap' || f === 'deadband' || f === 'auto' || f === 'dff') ? gains[f].toFixed(0) : +gains[f].toFixed(3);
+  for (const f of FIELDS) if (gains[f] !== undefined) el(f).value = (f === 'cap' || f === 'deadband' || f === 'auto' || f === 'dff' || f === 'smode') ? gains[f].toFixed(0) : +gains[f].toFixed(3);
   filledVer = gains.ver;
 }
 
