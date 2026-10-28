@@ -9,6 +9,38 @@ Newest first.
 - Battery cradle (record the pack's size and capacity)
 
 
+
+## 2026-10-28 - One store for all logs: recorders write to `runs.sqlite`, `tools/logs.py` reads it
+
+- **Why:** `logs/runs.sqlite` is now the unified way to store and find BB1 data, and an AI agent (or Hector) should be able to see and use any log without opening CSVs
+- **Recorders catalog as they save:** `logger.save_log` (used by `logger.py`, `handheld.py`, `drive_test.py`, `drive_explore.py`) calls `runs_db.catalog()` right after writing the CSV. Only logs in `logs/` go in; a catalog error prints a line and never loses the recording (`build` catches up)
+- **New `tools/logs.py`** (read-only, JSON out): `schema` (tables, what each is for, columns, rows), `runs` (`--where` SQL filter), `show` (one run with its disarms, steps, gains, commands, header), `ticks` (columns, time range, thinned to `--limit` rows and says so), `download` (the original CSV, or a slice), `sql` (one SELECT). A run is its id, file name or a unique part of it. The database is opened read only, so writes are refused
+- **`logs.py serve`:** a page at http://localhost:8090 (this computer only, `tools/logs_page.html`): filter runs, open one, plot any columns over any time range, download the original or the slice, run SQL. It uses the same JSON API an agent can call (`/api/...`)
+- Docs: `docs/TOOLS.md`, `tools/README.md`, `docs/CALIBRATION_AND_LOGS.md`, `CLAUDE.md`
+
+## 2026-10-28 - `runs_db.py` holds all the data (schema 2)
+
+- **Why:** "with SQLite we should always track all data": the catalog had one row per log and per disarm; the telemetry rows, drive steps, live gain changes, flashes and agent commands were still only in files
+- **New tables:** `ticks` (every telemetry row, 2.3 M, with `t_s` and wheel `speed_tps` / `turn_tps` in turns/s, old 3.3x bug fixed), `steps` (each drive step, asked vs got), `gains` (every gains version a log used), `meta` (every header line word for word), `flashes` (`logs/flash_history.csv`), `commands` (`logs/agent_commands.csv`, written by `bb1.py` from branch `agent-md`, linked to the log recording at the time). `runs` gets a `run_id` that the per-log tables use instead of `file`
+- Named queries `steps` and `commands` added. The catalog now goes in the `--logs` folder (before, a build of another folder would have emptied the main catalog). About 13 s and 400 MB for 158 logs; still never committed
+- `logs/bb1_2026-10-28_09-52-44_sn3-agent-doc-test-weak-drive-check.csv` relabelled `# surface,carpet` (it was recorded on carpet; drive_test.py wrote its default, wood)
+- Docs: `docs/TOOLS.md` (table of tables), `docs/CALIBRATION_AND_LOGS.md`, `CLAUDE.md`
+
+## 2026-10-28 - `tools/runs_db.py`: a SQLite catalog of every run
+
+- **Why:** 157 logs (187 min, 347 MB in bb1-private) are too many to open one by one. Now "every wood run at ki 100 longer than 5 min, and how did it end" is one query
+- **New `tools/runs_db.py`:** `build` reads `logs/bb1_*.csv` into `logs/runs.sqlite`: table `runs` (one row per log: label, surface, firmware and version, log format, the starting gains as columns, duration, time armed and driving, disarm count, pitch error RMS, battery start and end, outcome) and table `disarms` (one row per disarm: time, reason code and text). Incremental: unchanged files (same size and time) are skipped; `--rebuild` starts over. `query "SQL"`, `tables`, and named queries `recent`, `longest`, `falls`, `by-gains`. Parsing reuses `dataset.py` and `check_dump.py`; mock logs skipped. Only the standard library's sqlite3 plus pandas
+- The CSVs stay the source of truth; the catalog is never committed (bb1-private's `.gitignore` now has `*.sqlite`)
+- Docs: `docs/TOOLS.md` (with real example output), `docs/CALIBRATION_AND_LOGS.md` ("Finding runs"), `CLAUDE.md`
+
+## 2026-10-28 - `docs/AGENT.md`: the manual an AI agent drives BB1 from
+
+- **Why:** an agent needs one place that says how to drive BB1 safely: the API reference is written for people and doesn't say what to do when something goes wrong
+- **New `docs/AGENT.md`:** settings the owner edits at the top (address, max speed and turn, longest command, max travel, may it arm, person present, allowed commands), what BB1 is, units in metres and degrees, the `tools/bb1.py` commands, what every `state` field and disarm reason means and what to do, a step-by-step way to drive, safety rules, and what it must never touch (gains, motor tests, firmware updates, Wi-Fi)
+- **Kept current:** AGENT.md names the `/api` version it was written for (3). `bb1.py api` (new) prints `/api`, and an agent runs it first and stops on a mismatch. New `tools/check_agent_doc.py` runs in CI and fails when `API_VERSION` in `api.h` and AGENT.md's version line differ. `CLAUDE.md` lists what else needs an AGENT.md update
+- Docs: `docs/TOOLS.md`, `docs/API.md`, `CLAUDE.md` (milestones 3 and 4 named; checklists in the vault Roadmap)
+- **`bb1.py` records every command** (asked by Hector: "with sqlite we should always track all data"): one row per call in `logs/agent_commands.csv` (time, host, cmd, args as JSON, exit code, the JSON answer), header written on a new file; calls to the mock (localhost, 127.*) aren't recorded; a failed write never breaks the command. `tools/runs_db.py` imports it (branch `logs-db`)
+- **`bb1.py drive` fixes** from a live test on carpet: speed and turn both 0 is refused (it used to run an empty drive), and the answer's `cut` lists anything the tool cut (`--for 11` -> 10, speeds past `--max`). AGENT.md and TOOLS.md have the carpet results (much weaker than wood). `docs/API.md` no longer lists the wheel and track measurements as to do
 ## 2026-10-28 - 1N5819 diode fitted, power rule gone
 
 - 1N5819 Schottky diode soldered into the D153C 5V to VSYS wire, stripe toward the Pico. USB no longer back-feeds the D153C's 5V regulator, so USB and the battery go on and off in any order

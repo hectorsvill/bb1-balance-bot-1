@@ -15,6 +15,8 @@ Python helpers that run on the Mac, with their own virtual environment in `tools
 | `drive_test.py` | **Moves BB1.** Runs a named drive test over Wi-Fi (stand, fwd-back-30/50, turn, arc), records it like `logger.py`, reports stop distance, heading, lean, saturation per step |
 | `drive_explore.py` | **Moves BB1.** Random driving inside a box for up to an hour (odometry keeps it in), a log file every 5 min, for training data |
 | `dataset.py` | Builds one clean training table from every real log (`logs/dataset/bb1_dataset.csv.gz`) and prints what's in it |
+| `runs_db.py` | Keeps all our data in `logs/runs.sqlite` (runs, every tick, disarms, drive steps, gains, flashes, bb1.py commands); the recorders add each log as they save it, `build` catches up |
+| `logs.py` | Read-only viewer: list, show, slice, download logs and run SQL, JSON out for AI agents; `serve` = a web page at http://localhost:8090 |
 | `mock_bb1.py` | A pretend BB1 on the Mac: serves the real page with made-up data at http://localhost:8080 |
 
 Quick start, from the repo folder:

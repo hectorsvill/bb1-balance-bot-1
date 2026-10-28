@@ -3,6 +3,7 @@
 Made for scripts and AI agents (milestone 3), and handy by hand too.
 
 Usage (BB1 on Wi-Fi; set BB1_HOST once to skip --host):
+    tools/venv/bin/python tools/bb1.py api                         # firmware version, limits, every endpoint
     tools/venv/bin/python tools/bb1.py state                       # short summary
     tools/venv/bin/python tools/bb1.py state --full                # everything /state says
     tools/venv/bin/python tools/bb1.py arm                         # start balancing (stand it up first)
@@ -10,6 +11,8 @@ Usage (BB1 on Wi-Fi; set BB1_HOST once to skip --host):
     tools/venv/bin/python tools/bb1.py drive --turn -0.4 --for 1   # turn left on the spot for 1 s
     tools/venv/bin/python tools/bb1.py stop                        # stop driving, keep balancing
     tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1 falls over!
+
+An agent's instructions for using this tool are in docs/AGENT.md.
 
 Units are the firmware's (docs/API.md): speed in wheel turns/s (forward +),
 turn in turns/s of left-minus-right wheel difference (right +). One wheel
@@ -26,15 +29,24 @@ Safety (an agent can make mistakes, so the tool checks for it):
   - Ctrl-C sends /drive/stop
 
 Exit codes: 0 done, 1 BB1 refused or a safety check ended it, 2 BB1 didn't answer.
+
+Every call against the real robot adds one row to logs/agent_commands.csv
+(time, host, cmd, args, exit_code, answer), so an agent's session leaves a
+trace that tools/runs_db.py can import next to the logs. Calls to the mock
+(localhost, 127.*) are not recorded: mock data never mixes with real data.
 """
 
 import argparse
+import csv
+import datetime
 import json
 import os
 import socket
 import sys
 import time
 import urllib.error
+
+from pathlib import Path
 
 from logger import get, post
 
@@ -47,6 +59,9 @@ STALL_S = 2.0            # no answer at all from BB1 for this long: stop and giv
 SETTLE_S = 2.0           # after a drive, wait up to this long for the wheels to stop before answering
 SETTLED_SPEED = 0.05     # wheel turns/s: slower than this counts as stopped
 ARM_WAIT_S = 1.5         # how long to wait for an arm to be accepted or refused
+COMMAND_LOG = Path(__file__).resolve().parent.parent / "logs" / "agent_commands.csv"
+COMMAND_LOG_HEADER = ["time", "host", "cmd", "args", "exit_code", "answer"]
+printed_line = ""        # the JSON line out() printed last: it goes into the command log
 
 
 class NoAnswer(Exception):
@@ -55,7 +70,32 @@ class NoAnswer(Exception):
 
 def out(**fields):
     """Print one JSON line: the tool's whole answer."""
-    print(json.dumps(fields), flush=True)
+    global printed_line
+    printed_line = json.dumps(fields)
+    print(printed_line, flush=True)
+
+
+def is_mock(host):
+    name = host.split("://")[-1].partition(":")[0]
+    return name == "localhost" or name.startswith("127.")
+
+
+def record(args, exit_code):
+    """One row in logs/agent_commands.csv for this call. Never breaks the
+    command: if the file can't be written, say so on stderr and carry on."""
+    if is_mock(args.host):
+        return
+    try:
+        new = not COMMAND_LOG.exists()
+        with open(COMMAND_LOG, "a", newline="") as f:
+            w = csv.writer(f)
+            if new:
+                w.writerow(COMMAND_LOG_HEADER)
+            options = {k: v for k, v in vars(args).items() if k not in ("cmd", "host")}
+            w.writerow([datetime.datetime.now().astimezone().isoformat(timespec="milliseconds"),
+                        args.host, args.cmd, json.dumps(options), exit_code, printed_line])
+    except OSError as e:
+        print(f"bb1.py: couldn't write {COMMAND_LOG}: {e}", file=sys.stderr)
 
 
 def resolve(host):
@@ -107,6 +147,19 @@ def summary(s):
     }
 
 
+def cmd_api(base, args):
+    # GET /api (api.h): an agent checks "api" against the version docs/AGENT.md was written for.
+    try:
+        api = json.loads(get(f"{base}/api", timeout=5))
+    except urllib.error.HTTPError:          # firmware older than GET /api (before 3.1)
+        out(ok=False, error="this firmware has no /api: docs/AGENT.md doesn't match it")
+        return 1
+    except (OSError, ValueError) as e:
+        raise NoAnswer(f"/api: {e}")
+    out(ok=True, **api)
+    return 0
+
+
 def cmd_state(base, args):
     s = read_state(base)
     out(ok=True, state=s if args.full else summary(s))
@@ -147,6 +200,12 @@ def cmd_drive(base, args):
     speed = max(-args.max, min(args.max, args.speed))   # clamp, like the firmware does
     turn = max(-args.max, min(args.max, args.turn))
     secs = max(0.0, min(MAX_FOR_S, args.secs))
+    if speed == 0 and turn == 0:                # nothing to do: say so instead of standing still for secs
+        out(ok=False, error="nothing to drive: give --speed and/or --turn (not both 0)")
+        return 1
+    # Say what was cut, so an agent doesn't think it got what it asked for
+    cut = [f"{name} {asked:g} cut to {got:g}" for name, asked, got in
+           (("--speed", args.speed, speed), ("--turn", args.turn, turn), ("--for", args.secs, secs)) if asked != got]
     s = read_state(base)
     if not s["armed"]:
         out(ok=False, error="not balancing: run 'arm' first", reason=s["reason"])
@@ -197,7 +256,7 @@ def cmd_drive(base, args):
     while abs(wheel_speed(s)) > SETTLED_SPEED and time.time() < settle_end:
         time.sleep(0.1)
         s = read_state(base)
-    out(ok=why is None, error=why, asked={"speed": speed, "turn": turn, "secs": secs},
+    out(ok=why is None, error=why, asked={"speed": speed, "turn": turn, "secs": secs}, cut=cut,
         moved_turns=round(turns(s) - start, 2), turned_turns=round(diff(s) - start_diff, 2),
         settled=abs(wheel_speed(s)) <= SETTLED_SPEED, state=summary(s))
     return 0 if why is None else 1
@@ -208,6 +267,7 @@ def main():
     ap.add_argument("--host", default=os.environ.get("BB1_HOST", "bb1.local"),
                     help="robot address, optionally with :port (default $BB1_HOST or bb1.local)")
     sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("api", help="firmware version, limits and every endpoint (run first)")
     p = sub.add_parser("state", help="what BB1 is doing now")
     p.add_argument("--full", action="store_true", help="every /state field, not the summary")
     p = sub.add_parser("arm", help="start balancing (it must be standing near upright)")
@@ -221,18 +281,20 @@ def main():
     p.add_argument("--max", type=float, default=0.5, help="cap on speed and turn (default 0.5)")
     args = ap.parse_args()
 
-    commands = {"state": cmd_state, "arm": cmd_arm, "disarm": cmd_disarm, "stop": cmd_stop, "drive": cmd_drive}
+    commands = {"api": cmd_api, "state": cmd_state, "arm": cmd_arm, "disarm": cmd_disarm, "stop": cmd_stop, "drive": cmd_drive}
     try:
-        sys.exit(commands[args.cmd](resolve(args.host), args))
+        code = commands[args.cmd](resolve(args.host), args)
     except NoAnswer as e:
         out(ok=False, error=f"BB1 didn't answer: {e}")
-        sys.exit(2)
+        code = 2
     except KeyboardInterrupt:
         out(ok=False, error="stopped by Ctrl-C")
-        sys.exit(1)
+        code = 1
     except OSError as e:                        # a POST other than /drive got no answer
         out(ok=False, error=f"BB1 didn't answer: {e}")
-        sys.exit(2)
+        code = 2
+    record(args, code)                          # every call leaves a trace (real robot only)
+    sys.exit(code)
 
 
 if __name__ == "__main__":

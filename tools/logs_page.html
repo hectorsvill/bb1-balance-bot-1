@@ -1,0 +1,161 @@
+<!doctype html>
+<!-- BB1 logs page, served by tools/logs.py serve. Reads only the JSON API on the
+     same server (/api/...), so whatever this page shows, an agent can fetch too. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BB1 Logs</title>
+<style>
+  :root { --bg:#fafafa; --fg:#1d1d1f; --muted:#6e6e73; --line:#d8d8dc; --card:#fff; --accent:#0a64d6; --hot:#c62828; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#151517; --fg:#ececf0; --muted:#9a9aa2; --line:#33333a; --card:#1e1e22; --accent:#5ea2ff; --hot:#ff6b6b; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.4 -apple-system, system-ui, sans-serif; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:0 0 12px; } h2 { font-size:16px; margin:16px 0 8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:12px; overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--card); }
+  tbody tr.pick { cursor:pointer; } tbody tr.pick:hover { background:color-mix(in srgb, var(--accent) 10%, transparent); }
+  input, button, textarea { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:5px 8px; }
+  button { cursor:pointer; } a { color:var(--accent); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+  .muted { color:var(--muted); } .err { color:var(--hot); }
+  #list { max-height:360px; overflow:auto; }
+  canvas { width:100%; height:300px; display:block; }
+  textarea { width:100%; box-sizing:border-box; min-height:60px; font-family:ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<main>
+  <h1>BB1 logs</h1>
+  <div class="card">
+    <div class="row">
+      <input id="where" size="50" placeholder="filter, SQL on runs: surface = 'carpet' AND armed_s > 60">
+      <button id="go">List runs</button> <span id="count" class="muted"></span>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <div class="card" id="detail" hidden>
+    <h2 id="title"></h2>
+    <div class="row" id="links"></div>
+    <div id="summary"></div>
+    <h2>Plot</h2>
+    <div class="row">
+      <input id="cols" size="40" value="pitch,setpoint,speed_tps,drive_speed">
+      from <input id="from" size="5" placeholder="s"> to <input id="to" size="5" placeholder="s">
+      <button id="plot">Plot</button> <span id="plotinfo" class="muted"></span>
+    </div>
+    <canvas id="chart"></canvas>
+    <div id="legend" class="row"></div>
+    <div id="extra"></div>
+  </div>
+
+  <div class="card">
+    <h2>SQL (read only)</h2>
+    <textarea id="q">SELECT surface, count(*) AS runs, round(sum(armed_s)/60, 1) AS armed_min FROM runs GROUP BY surface</textarea>
+    <div class="row"><button id="run">Run</button> <a href="/api/schema" target="_blank">schema (JSON)</a></div>
+    <div id="out"></div>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const COLORS = ["#0a64d6", "#e07b00", "#2e9d4a", "#b03ab0", "#c62828", "#00838f"];
+let current = null;
+
+async function api(path) {
+  const r = await fetch(path); const j = await r.json();
+  if (!j.ok) throw new Error(j.error); return j;
+}
+function esc(v) { return String(v ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function table(cols, rows, pick) {
+  const head = cols.map(c => `<th>${esc(c)}</th>`).join("");
+  const body = rows.map((r, i) => `<tr${pick ? ` class="pick" data-i="${i}"` : ""}>` +
+    cols.map((c, k) => `<td>${esc(Array.isArray(r) ? r[k] : r[c])}</td>`).join("") + "</tr>").join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+function fail(el, e) { el.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+
+async function listRuns() {
+  try {
+    const w = $("where").value.trim();
+    const j = await api("/api/runs?limit=500" + (w ? "&where=" + encodeURIComponent(w) : ""));
+    $("count").textContent = j.runs.length + " runs";
+    const cols = ["run_id", "started", "label", "surface", "duration_s", "armed_s", "drive_s", "disarm_count", "outcome", "kp", "ki", "kd"];
+    $("list").innerHTML = table(cols, j.runs, true);
+    $("list").querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => showRun(j.runs[tr.dataset.i].run_id));
+  } catch (e) { fail($("list"), e); }
+}
+
+async function showRun(id) {
+  const j = await api("/api/runs/" + id); current = j; $("detail").hidden = false;
+  const r = j.run;
+  $("title").textContent = `Run ${r.run_id}: ${r.file}`;
+  $("links").innerHTML = `<a href="/api/runs/${r.run_id}/csv">Download original CSV</a>
+    <a href="/api/runs/${r.run_id}" target="_blank">JSON</a>`;
+  const keys = ["started", "surface", "note", "firmware_version", "log_format", "duration_s", "armed_s", "drive_s",
+                "outcome", "pitch_err_rms", "batt_v_start", "batt_v_end", "kp", "ki", "kd", "sp", "sdi", "th", "dff"];
+  $("summary").innerHTML = table(keys, [r]);
+  let extra = "";
+  if (j.disarms.length) extra += "<h2>Disarms</h2>" + table(["t_s", "reason", "reason_text"], j.disarms);
+  if (j.steps.length) extra += "<h2>Drive steps</h2>" + table(["n", "name", "speed", "turn", "secs", "got_speed", "got_turn"], j.steps);
+  if (j.gains.length > 1) extra += "<h2>Gains versions</h2>" + table(Object.keys(j.gains[0]), j.gains);
+  if (j.commands.length) extra += "<h2>bb1.py commands</h2>" + table(Object.keys(j.commands[0]), j.commands);
+  extra += `<h2>Header</h2><pre class="muted">${esc(j.header.join("\n"))}</pre>
+    <p class="muted">Tick columns: ${esc(j.tick_columns.join(", "))}</p>`;
+  $("extra").innerHTML = extra;
+  plot();
+}
+
+async function plot() {
+  if (!current) return;
+  const id = current.run.run_id;
+  let q = `/api/runs/${id}/ticks?limit=3000&cols=${encodeURIComponent($("cols").value.replace(/\s/g, ""))}`;
+  if ($("from").value) q += "&from=" + $("from").value;
+  if ($("to").value) q += "&to=" + $("to").value;
+  try {
+    const j = await api(q);
+    $("plotinfo").innerHTML = `${j.returned} of ${j.rows_total} rows (every ${j.every}) &middot; <a href="${q}&format=csv">download this slice</a>`;
+    draw(j);
+  } catch (e) { $("plotinfo").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+
+function draw(j) {
+  const c = $("chart"), dpr = window.devicePixelRatio || 1;
+  c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr;
+  const g = c.getContext("2d"); g.scale(dpr, dpr);
+  const W = c.clientWidth, H = c.clientHeight, L = 44, B = 20;
+  const css = getComputedStyle(document.documentElement);
+  g.clearRect(0, 0, W, H); g.font = "11px system-ui"; g.fillStyle = css.getPropertyValue("--muted");
+  const t = j.rows.map(r => r[0]); const series = j.columns.slice(1);
+  if (!t.length) return;
+  let lo = Infinity, hi = -Infinity;
+  series.forEach((_, k) => j.rows.forEach(r => { const v = r[k + 1]; if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }));
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const x = v => L + (v - t[0]) / ((t[t.length - 1] - t[0]) || 1) * (W - L - 8);
+  const y = v => 8 + (hi - v) / (hi - lo) * (H - B - 8);
+  g.strokeStyle = css.getPropertyValue("--line"); g.beginPath(); g.moveTo(L, y(0)); g.lineTo(W, y(0)); g.stroke();
+  g.fillText(hi.toFixed(1), 2, 14); g.fillText(lo.toFixed(1), 2, H - B); g.fillText("0", 2, y(0) + 4);
+  g.fillText(t[0].toFixed(1) + " s", L, H - 4); g.fillText(t[t.length - 1].toFixed(1) + " s", W - 50, H - 4);
+  series.forEach((name, k) => {
+    g.strokeStyle = COLORS[k % COLORS.length]; g.lineWidth = 1.2; g.beginPath(); let on = false;
+    j.rows.forEach(r => { const v = r[k + 1]; if (v == null) { on = false; return; }
+      on ? g.lineTo(x(r[0]), y(v)) : g.moveTo(x(r[0]), y(v)); on = true; });
+    g.stroke();
+  });
+  $("legend").innerHTML = series.map((s, k) => `<span style="color:${COLORS[k % COLORS.length]}">&#9632; ${esc(s)}</span>`).join(" ");
+}
+
+async function runSql() {
+  try { const j = await api("/api/sql?q=" + encodeURIComponent($("q").value));
+    $("out").innerHTML = table(j.columns, j.rows) + (j.truncated ? '<p class="muted">cut at 2000 rows</p>' : "");
+  } catch (e) { fail($("out"), e); }
+}
+
+$("go").onclick = listRuns; $("where").onkeydown = e => e.key === "Enter" && listRuns();
+$("plot").onclick = plot; $("run").onclick = runSql;
+listRuns();
+</script>
+</body>
+</html>

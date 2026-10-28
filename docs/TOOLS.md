@@ -198,7 +198,10 @@ Then check it with `check_dump.py`, which it prints for you at the end.
 
 **`drive` moves BB1.** One command per call, one line of JSON back. Set the address once per terminal with `export BB1_HOST=192.168.1.240` (or pass `--host`).
 
+An AI agent gets **`docs/AGENT.md`** as its instructions for this tool (settings, safety rules, what every answer means).
+
 ```bash
+tools/venv/bin/python tools/bb1.py api                         # firmware version, limits, every endpoint (an agent runs it first)
 tools/venv/bin/python tools/bb1.py state                       # short summary (--full: all of /state)
 tools/venv/bin/python tools/bb1.py arm                         # start balancing (stand it up first)
 tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2   # forward 0.3 wheel turns/s for 2 s, then stop
@@ -207,9 +210,19 @@ tools/venv/bin/python tools/bb1.py stop                        # stop driving, k
 tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1 falls over
 ```
 
-Units are the firmware's: wheel turns/s (one turn is 0.178 m, measured), turn = left-minus-right turns/s, right +. Every answer has `"ok"`; on false, `"error"` says why. Exit code 0 done, 1 refused or stopped by a safety check, 2 BB1 didn't answer. `drive` answers what was asked (after the caps), then waits up to 2 s for the wheels to stop and gives `moved_turns` (forward +), `turned_turns` (left-minus-right wheel turns, right +), `settled` (stopped before answering) and the summary state. First runs on BB1 (2026-10-26, wood): 2 s at 0.3 moved +0.27 forward but −0.51 back; 1 s turns at 0.4 turned 0.28 right, 0.10 left at th 20 and 0.32-0.48 both ways at th 60 (about 0.4 asked). An agent should read these and correct, not assume. One turn of `turned_turns` = 0.178 / 0.127 rad = about 80 deg of heading.
+Units are the firmware's: wheel turns/s (one turn is 0.178 m, measured), turn = left-minus-right turns/s, right +. Every answer has `"ok"`; on false, `"error"` says why. Exit code 0 done, 1 refused or stopped by a safety check, 2 BB1 didn't answer. `drive` answers what was asked (after the caps), then waits up to 2 s for the wheels to stop and gives `moved_turns` (forward +), `turned_turns` (left-minus-right wheel turns, right +), `settled` (stopped before answering) and the summary state. First runs on BB1 (2026-10-26, wood): 2 s at 0.3 moved +0.27 forward but −0.51 back; 1 s turns at 0.4 turned 0.28 right, 0.10 left at th 20 and 0.32-0.48 both ways at th 60 (about 0.4 asked). An agent should read these and correct, not assume. On carpet (2026-10-28) it's weaker still: 3 s at 0.3 moved −0.06 to +0.29 turns and often hadn't settled within 2 s; five correcting tries reached only +0.50 / −0.48 of a 1-turn target; 1 s turns at 0.4 gave 0.27 both ways; fwd-back-30 reached 0.18 forward and 0.10 back of 0.3. One turn of `turned_turns` = 0.178 / 0.127 rad = about 80 deg of heading.
 
-Safety: `drive` refuses unless armed with no encoder fault; speed and turn are capped at `--max` (default 0.5); `--for` is at most 10 s. Each `/drive` lasts 1 s and is re-sent every 100 ms, so BB1 stops by itself within 1 s if the tool dies (it never fetches `/log`, so the Pico's slow `/log` answers can't starve it). It checks `/state` twice a second and stops on a disarm, an encoder fault, or more than 3 wheel turns from the start. Ctrl-C sends `/drive/stop`. `arm` uses `heartbeat=0` (keeps balancing with nobody polling) and also turns auto-arm back on, even when it is refused, so a fallen BB1 re-arms by itself once stood up. Test it on the mock: `--host localhost:8080`.
+Safety: `drive` refuses unless armed with no encoder fault; speed and turn are capped at `--max` (default 0.5); `--for` is at most 10 s. Each `/drive` lasts 1 s and is re-sent every 100 ms, so BB1 stops by itself within 1 s if the tool dies (it never fetches `/log`, so the Pico's slow `/log` answers can't starve it). It checks `/state` twice a second and stops on a disarm, an encoder fault, or more than 3 wheel turns from the start. Ctrl-C sends `/drive/stop`. A drive with speed and turn both 0 is refused (exit 1); anything the tool cut (`--speed`/`--turn` past `--max`, `--for` past 10 s) is listed in the answer's `cut`. `arm` uses `heartbeat=0` (keeps balancing with nobody polling) and also turns auto-arm back on, even when it is refused, so a fallen BB1 re-arms by itself once stood up. Test it on the mock: `--host localhost:8080`.
+
+**Command log:** every call against the real robot appends one row to `logs/agent_commands.csv` (in bb1-private): `time` (local, with offset), `host`, `cmd`, `args` (the parsed options as JSON, as asked, before any cut), `exit_code`, `answer` (the exact JSON line printed). The header is written when the file is new. Calls to the mock (`localhost`, `127.*`) aren't recorded, so mock data never mixes with real data. If the file can't be written the command still runs, with a warning on stderr. `tools/runs_db.py` imports it next to the logs.
+
+### check_agent_doc.py: is AGENT.md current?
+
+```bash
+python3 tools/check_agent_doc.py
+```
+
+Checks that the "Written for `/api` version" line in `docs/AGENT.md` matches `API_VERSION` in `firmware/bb1/api.h`. CI runs it on every pull request, so bumping `API_VERSION` without updating the agent manual fails the build. No venv needed (standard library only).
 
 ### drive_test.py: drive tests over Wi-Fi, recorded and reported
 
@@ -245,6 +258,84 @@ tools/venv/bin/python tools/dataset.py --all-rows     # keep disarmed rows too
 ```
 
 Reads every `logs/bb1_*.csv`, skips mock logs and logs older than format 9 (no operator action), multiplies `speed_l`/`speed_r` by 10/3 in logs before format 10 (they read 3.3x low), drops rows with an IMU error (flag 1), an encoder fault (flag 32), or where the firmware's encoder fault rule trips on the log itself (logs from before the detector). Splits each log into armed segments and labels each row with its segment's outcome: `timer`, `stopped`, `fell` or `log_ended` (still balancing when recording stopped). Adds `file`, `segment`, `outcome`, `surface`, `note`, `gains` (the `# gains_vN` text for the row's version, `dff` filled in from the header for old lines), `step` (drive_test.py logs) and `tick_gap`. Prints rows per outcome, surface and gains version, and how many rows have a drive command. Gzipped CSV, so no new library is needed: `pd.read_csv("logs/dataset/bb1_dataset.csv.gz")`.
+
+### runs_db.py: all our data in one SQLite file
+
+Everything we record, each in a table shaped for its use: one row per log (`runs`), every telemetry row (`ticks`), every disarm, drive step, gains version and header line, every flash, and every `bb1.py` command. Ask it with SQL. **This is the one place we store and find data:** every recorder (`logger.py`, `handheld.py`, `drive_test.py`, `drive_explore.py`, all through `logger.save_log`) adds its log here right after saving the CSV, so the catalog is always current; `build` catches up anything else (logs copied in by hand, the page's Download). Logs saved outside `logs/` (mock runs, `--out-dir`) are left out. The CSVs stay the backup and the source the catalog is rebuilt from: `logs/runs.sqlite` is never committed (bb1-private ignores `*.sqlite`) and can be deleted and rebuilt any time. To read it, use `logs.py` (next).
+
+```bash
+tools/venv/bin/python tools/runs_db.py build            # after new runs: adds new or changed logs only (under 1 s if nothing changed)
+tools/venv/bin/python tools/runs_db.py build --rebuild  # start over (about 13 s for 158 logs, 2.3 M ticks, 400 MB)
+tools/venv/bin/python tools/runs_db.py recent           # named queries: recent, longest, falls, by-gains, steps, commands
+tools/venv/bin/python tools/runs_db.py tables           # every column you can ask about
+tools/venv/bin/python tools/runs_db.py query "SELECT ..."
+```
+
+"Every wood run at ki 100 longer than 5 min, and how did it end" (real output, 2026-10-28):
+
+```text
+$ tools/venv/bin/python tools/runs_db.py query "SELECT started, label, round(armed_s/60,1) AS armed_min, disarm_count, outcome
+    FROM runs WHERE surface = 'wood' AND ki = 100 AND duration_s > 300 ORDER BY started"
+            started                               label  armed_min  disarm_count   outcome
+2026-10-24 17:24:12                            auto-arm        8.7             4 log_ended
+2026-10-26 21:12:03              sp3-explore-explore-p1        5.0             0 log_ended
+2026-10-26 21:17:03              sp3-explore-explore-p2        5.1             0 log_ended
+2026-10-26 23:39:43 train-v26-irelax0-5-wood-explore-p1        5.0             0 log_ended
+2026-10-26 23:44:43 train-v26-irelax0-5-wood-explore-p2        5.0             0 log_ended
+```
+
+Which gains we've run most, and how they did (`by-gains`, top rows; `avg_err` = RMS of pitch minus target while armed, deg):
+
+```text
+   kp    ki   kd   sp  sdi   th  runs  armed_min  fell  avg_err
+18.00 100.0 0.50  4.0  NaN 20.0    12       35.3     1     0.94
+18.00 100.0 0.50  3.0  4.0 60.0    17       20.2     0     0.29
+18.00 100.0 0.50  3.0  2.0 20.0    12       13.1     0     0.27
+ 9.85   0.0 0.74  NaN  NaN  NaN    14        4.7     9     9.40
+```
+
+Every table but `flashes` and `commands` joins to `runs` with `USING (run_id)`. Columns (`tables` lists them all):
+
+| Table | One row per | Use it for | Columns |
+|---|---|---|---|
+| `runs` | log | finding runs, comparing gains | `run_id`, `file`, `started` (from the file name), `label` (the file name's tail), `surface` (the `# surface` line, else wood / carpet / tile / air from the label), `note`, `firmware`, `firmware_version` and `build_id` (firmware 3.2 on), `log_format`, `gains_ver` and the gains when the log started under their short names (`kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax`; empty when that log predates the setting), `rows`, `duration_s`, `armed_s`, `drive_s` (a drive command was live), `disarm_count`, `pitch_err_rms` and `pitch_max_abs` (while armed), `batt_v_start` / `batt_v_end` (whole pack, empty without the sense wire), `outcome` (how the last armed stretch ended: fell, stopped, timer, log_ended, or never_armed; same rule as `dataset.py`), `file_size`, `file_mtime` |
+| `ticks` | 5 ms telemetry record | plots, training, "what happened just before" | `run_id`, every log column as written (`tick` ... `speed_pwm`, see CALIBRATION_AND_LOGS.md; empty where that log format lacks it), plus `t_s` (seconds into the file), `speed_tps` and `turn_tps` (wheels in turns/s like `/drive`, turn = left minus right; the 3.3x bug before format 10 fixed). Raw `speed_l`/`speed_r` stay as logged |
+| `disarms` | disarm | why runs end | `run_id`, `t_s`, `tick` (last armed tick), `reason` (the log's code), `reason_text` |
+| `steps` | drive step (`drive_test.py`, `drive_explore.py`) | asked vs got | `run_id`, `n`, `name`, `speed`, `turn` (asked), `from_tick`, `to_tick`, `secs`, `got_speed`, `got_turn` (wheel average over the step's last half, like drive_test.py's report) |
+| `gains` | gains version a log used | live gain changes | `run_id`, `ver`, the 16 gains; from the start line and every `# gains_vN` line |
+| `meta` | `# ` header line | anything else in the header | `run_id`, `line`, `name` (first field), `value` (the rest, word for word) |
+| `flashes` | firmware flash | which firmware was on BB1 when | `logs/flash_history.csv`: `time`, `version`, `build_id`, `method`, `result` |
+| `commands` | `bb1.py` call | what an agent (or you) asked and what happened | `logs/agent_commands.csv`: `time` (local), `host`, `cmd`, `exit_code`, `ok`, `error`, `speed`, `turn`, `secs` (after the caps), `moved_turns`, `turned_turns`, `settled`, `run_id` (the log recording at that time, if any), `args` and `answer` (the raw JSON) |
+
+Example: the last second before every fall on carpet:
+
+```sql
+SELECT r.file, t.t_s, t.pitch, t.speed_tps, t.pwm_l FROM disarms d JOIN runs r USING (run_id)
+  JOIN ticks t ON t.run_id = d.run_id AND t.tick BETWEEN d.tick - 200 AND d.tick
+  WHERE d.reason = 2 AND r.surface = 'carpet'
+```
+
+Times count from tick steps, so a restart in the middle of a recording doesn't make them negative. Mock logs are skipped (and `bb1.py` writes no command rows for `localhost`). Gains come from the file's `# gains_ver` line: written when `logger.py` or a tool starts recording, but when the page saves its last 10 s, at save time. A run where you changed gains live shows only that one set (the log's `gains_ver` column has every change).
+
+### logs.py: view, slice and download logs (JSON, for AI agents)
+
+Reads `logs/runs.sqlite` **read only** (nothing it does can change or delete data), so an agent can call it freely. Every answer is one JSON document; errors are `{"ok": false, "error": ...}` with exit code 1.
+
+```bash
+tools/venv/bin/python tools/logs.py schema                       # every table, what it's for, columns, row count
+tools/venv/bin/python tools/logs.py runs --limit 10 --where "surface = 'carpet'"
+tools/venv/bin/python tools/logs.py show sn3-agent               # one run: summary, disarms, steps, gains, commands, header
+tools/venv/bin/python tools/logs.py ticks sn3-agent --cols pitch,speed_tps --from 5 --to 10
+tools/venv/bin/python tools/logs.py download sn3-agent --out run.csv            # the original CSV, header and all
+tools/venv/bin/python tools/logs.py download sn3-agent --cols pitch --from 3 --to 4   # a slice as CSV
+tools/venv/bin/python tools/logs.py sql "SELECT surface, count(*) FROM runs GROUP BY surface"
+tools/venv/bin/python tools/logs.py serve                        # web page: http://localhost:8090
+```
+
+- **A run** is its `run_id`, its file name, or any part of the file name that matches one log (`sn3-agent`). If more match, the error lists them. `run_id`s can change after `runs_db.py build --rebuild`: note runs down by file name.
+- **`ticks`** returns at most `--limit` rows (default 2000) and thins evenly to fit: the answer says `rows_total`, `every` (kept every Nth row) and `returned`. Pass `--every 1 --limit 100000` for every row. Default columns: `t_s mode pitch setpoint speed_tps turn_tps pwm_l pwm_r drive_speed drive_turn`; `show` lists all of them (`tick_columns`).
+- **`sql`** takes one `SELECT` (or `WITH ... SELECT`); at most `--limit` rows, with `truncated` true if there were more.
+- **`serve`** (this computer only, `127.0.0.1`): a page to list and filter runs, open one (summary, disarms, drive steps, gains, bb1.py commands, header), plot any columns over any time range, download the original CSV or the plotted slice, and run SQL. The page only uses this JSON API, so an agent can use the same URLs: `/api/schema`, `/api/runs?where=&limit=`, `/api/runs/<run>`, `/api/runs/<run>/ticks?cols=&from=&to=&every=&limit=` (`&format=csv` to download), `/api/runs/<run>/csv` (the original file), `/api/sql?q=`. The page is `tools/logs_page.html`.
 
 ### mock_bb1.py: a pretend robot for working on the page
 
