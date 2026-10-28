@@ -63,7 +63,7 @@ arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn rp2040:rp2040:rpipicow:flash=2
 
 Or drag `firmware/uf2/bb1.ino.uf2` onto the Pico in BOOTSEL mode (its own-network password is the template's `change-me-please`). Full guide, Arduino IDE steps and troubleshooting: [docs/FLASHING.md](docs/FLASHING.md). Python tools: [docs/TOOLS.md](docs/TOOLS.md).
 
-> **Safety.** With auto-arm on, BB1 starts driving its wheels 1 s after it's held upright and still: lay it down to carry it (a lift detector stops the wheels if they spin up in the air; see [docs/POWER_ON.md](docs/POWER_ON.md)). Every motor run stops by itself (45 deg fall cut-out, arm timer, STOP). **Power rule (no 1N5819 diode yet):** switch the D153C on before plugging in USB, and unplug USB before switching it off.
+> **Safety.** With auto-arm on, BB1 starts driving its wheels 1 s after it's held upright and still: lay it down to carry it (a lift detector stops the wheels if they spin up in the air; see [docs/POWER_ON.md](docs/POWER_ON.md)). Every motor run stops by itself (45 deg fall cut-out, arm timer, STOP). **Power:** a 1N5819 diode in the 5V to VSYS wire (2026-10-28) makes USB and the battery safe in any order.
 
 ## Repo layout
 
@@ -84,7 +84,8 @@ CLAUDE.md       project facts and working rules for Claude Code
 - [x] Balance loop (PID) tuned on the floor
 - [x] Speed / position loop, heading hold, auto-arm, battery voltage
 - [ ] Milestone 2: drive from the web page
-- [ ] HC-SR04, OLED, 1N5819 diode
+- [x] 1N5819 diode in the 5V to VSYS wire (2026-10-28)
+- [ ] HC-SR04, OLED
 - [ ] Pi Zero W + camera
 
 History: [docs/CHANGELOG.md](docs/CHANGELOG.md) and [docs/SESSION_LOG.md](docs/SESSION_LOG.md).

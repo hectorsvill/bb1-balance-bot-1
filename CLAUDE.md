@@ -48,9 +48,9 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 - Raspberry Pi Pico W (RP2040) on a sideways carrier, 4x M2 screws
 - D153C dual motor driver (TB6612) on the other face of the spine, 4x M2.5 screws; Dupont sockets on its header pins
 - GY-521 (MPU-6050) in the base pocket on the Pico side
-- 2S 1300 mAh LiPo strapped to the bottom plate (no voltage sensing yet: check it by hand, never below 3.0 V per cell; see `docs/FLASHING.md`, Battery care)
+- 2S 1300 mAh LiPo strapped to the bottom plate; BB1 reads its voltage (below), still never below 3.0 V per cell (`docs/FLASHING.md`, Battery care)
 - 3D-printed reverse-T top frame (short layout, 84 tall, wire windows); sources in `cad/`
-- Not yet fitted: HC-SR04 (holder goes on the front end), SSD1306 OLED, Pi Zero W (next milestone), 1N5819 diode. Battery voltage: D153C `ADC` pin (VIN/11) wired to GP26 2026-10-24; firmware `battery.h` reads it on core 0, logs `batt_v` (whole pack, log format 6), pages show **volts per cell** (Hector prefers per cell); calibrated factor 12.07 (`BATTERY_DIVIDER`)
+- Not yet fitted: HC-SR04 (holder goes on the front end), SSD1306 OLED, Pi Zero W (next milestone). Fitted: 1N5819 diode in the D153C 5V to VSYS wire (2026-10-28, see Power). Battery voltage: D153C `ADC` pin (VIN/11) wired to GP26 2026-10-24; firmware `battery.h` reads it on core 0, logs `batt_v` (whole pack, log format 6), pages show **volts per cell** (Hector prefers per cell); calibrated factor 12.07 (`BATTERY_DIVIDER`)
 
 ## Pico W pins
 
@@ -73,13 +73,13 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 | Reserved: HC-SR04 Trig / Echo | GP20 / GP21 | 26 / 27 |
 | Reserved: OLED I2C1 | GP6 / GP7 | 9 / 10 |
 | Reserved: Pi Zero UART | GP0 / GP1 | 1 / 2 |
-| Reserved: battery sense | GP26 | 31 |
+| Battery sense (D153C `ADC`, VIN/11) | GP26 (ADC0) | 31 |
 
 PWM at 10 kHz since 2026-10-24 (was 20 kHz; lower deadband, BUILD_RECORD), `analogWriteRange(255)`. PWMA and PWMB share one PWM slice.
 
-## Power rule (no 1N5819 diode yet)
+## Power (1N5819 diode fitted)
 
-D153C 5V goes straight to VSYS. Switch the D153C on (battery connected) **before** plugging in USB, and unplug USB **before** switching it off. USB alone back-feeds the D153C's 5V regulator. The fix is a 1N5819 in that wire, stripe toward the Pico.
+Since 2026-10-28 a 1N5819 Schottky diode sits in the D153C 5V to VSYS wire, stripe (cathode) toward the Pico. USB can no longer push 5 V backwards into the D153C's regulator, so USB and the battery can go on and off in any order. USB alone powers only the Pico and the IMU: the motors can't run without the battery. (Before the diode the rule was: D153C on before USB, USB out before D153C off.)
 
 ## Toolchain
 
