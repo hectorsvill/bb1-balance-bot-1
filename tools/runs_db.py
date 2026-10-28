@@ -320,6 +320,44 @@ def load_side_files(db):
     return len(rows)
 
 
+def add(db, path):
+    """Put one log (new or changed) in the catalog. Returns its runs row, or None for a mock log."""
+    forget(db, path.name)                                              # a changed file replaces its old rows
+    result = summarize(path)
+    if result is None:
+        return None
+    run = result["run"]
+    cur = db.execute(f"INSERT INTO runs ({', '.join(run)}) VALUES ({', '.join('?' * len(run))})",
+                     list(run.values()))
+    rid = cur.lastrowid
+    insert(db, "ticks", ((rid, *r) for r in result["ticks"]), width=1 + len(TICK_FIELDS + TICK_ADDED))
+    for t in ("disarms", "steps", "gains", "meta"):
+        insert(db, t, [(rid, *r) for r in result[t]])
+    db.commit()                                                        # one log at a time: a crash keeps the rest
+    return run | {"run_id": rid}
+
+
+def catalog(path):
+    """Called by the recorders (logger.save_log) right after a log is saved, so the
+    catalog is always current. Only logs in logs/ go in (a scratch or mock folder
+    never does). Never raises: a catalog problem must not lose a recording."""
+    global DB
+    path = Path(path)
+    try:
+        if path.resolve().parent != LOGS.resolve():
+            return
+        DB = LOGS / "runs.sqlite"
+        db = connect()
+        run = add(db, path)
+        load_side_files(db)
+        db.commit()
+        db.close()
+        if run:
+            print(f"Catalogued as run {run['run_id']} in {DB.name} (tools/logs.py show {run['run_id']})")
+    except Exception as e:                                             # the CSV is saved; build can catch up later
+        print(f"Not catalogued ({e}): run 'tools/venv/bin/python tools/runs_db.py build' later")
+
+
 def build(args):
     global LOGS, DB
     LOGS = Path(args.logs)
@@ -333,19 +371,10 @@ def build(args):
         if known.get(path.name) == (stat.st_size, stat.st_mtime):     # unchanged since the last build
             skipped += 1
             continue
-        forget(db, path.name)                                          # a changed file replaces its old rows
-        result = summarize(path)
-        if result is None:
+        run = add(db, path)
+        if run is None:
             mock += 1
             continue
-        run = result["run"]
-        cur = db.execute(f"INSERT INTO runs ({', '.join(run)}) VALUES ({', '.join('?' * len(run))})",
-                         list(run.values()))
-        rid = cur.lastrowid
-        insert(db, "ticks", ((rid, *r) for r in result["ticks"]), width=1 + len(TICK_FIELDS + TICK_ADDED))
-        for t in ("disarms", "steps", "gains", "meta"):
-            insert(db, t, [(rid, *r) for r in result[t]])
-        db.commit()                                                    # one log at a time: a crash keeps the rest
         added += 1
         print(f"  {path.name}: {run['rows']} ticks, {run['armed_s']:.0f} s armed, {run['outcome']}")
     gone = set(known) - {p.name for p in paths}                      # logs deleted or renamed since

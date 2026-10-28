@@ -10,6 +10,14 @@ Newest first.
 
 
 
+## 2026-10-28 - One store for all logs: recorders write to `runs.sqlite`, `tools/logs.py` reads it
+
+- **Why:** `logs/runs.sqlite` is now the unified way to store and find BB1 data, and an AI agent (or Hector) should be able to see and use any log without opening CSVs
+- **Recorders catalog as they save:** `logger.save_log` (used by `logger.py`, `handheld.py`, `drive_test.py`, `drive_explore.py`) calls `runs_db.catalog()` right after writing the CSV. Only logs in `logs/` go in; a catalog error prints a line and never loses the recording (`build` catches up)
+- **New `tools/logs.py`** (read-only, JSON out): `schema` (tables, what each is for, columns, rows), `runs` (`--where` SQL filter), `show` (one run with its disarms, steps, gains, commands, header), `ticks` (columns, time range, thinned to `--limit` rows and says so), `download` (the original CSV, or a slice), `sql` (one SELECT). A run is its id, file name or a unique part of it. The database is opened read only, so writes are refused
+- **`logs.py serve`:** a page at http://localhost:8090 (this computer only, `tools/logs_page.html`): filter runs, open one, plot any columns over any time range, download the original or the slice, run SQL. It uses the same JSON API an agent can call (`/api/...`)
+- Docs: `docs/TOOLS.md`, `tools/README.md`, `docs/CALIBRATION_AND_LOGS.md`, `CLAUDE.md`
+
 ## 2026-10-28 - `runs_db.py` holds all the data (schema 2)
 
 - **Why:** "with SQLite we should always track all data": the catalog had one row per log and per disarm; the telemetry rows, drive steps, live gain changes, flashes and agent commands were still only in files

@@ -248,7 +248,7 @@ Reads every `logs/bb1_*.csv`, skips mock logs and logs older than format 9 (no o
 
 ### runs_db.py: all our data in one SQLite file
 
-Everything we record, each in a table shaped for its use: one row per log (`runs`), every telemetry row (`ticks`), every disarm, drive step, gains version and header line, every flash, and every `bb1.py` command. Ask it with SQL. The CSVs stay the source of truth: the catalog `logs/runs.sqlite` is built from them, never committed (bb1-private ignores `*.sqlite`), and can be deleted and rebuilt any time.
+Everything we record, each in a table shaped for its use: one row per log (`runs`), every telemetry row (`ticks`), every disarm, drive step, gains version and header line, every flash, and every `bb1.py` command. Ask it with SQL. **This is the one place we store and find data:** every recorder (`logger.py`, `handheld.py`, `drive_test.py`, `drive_explore.py`, all through `logger.save_log`) adds its log here right after saving the CSV, so the catalog is always current; `build` catches up anything else (logs copied in by hand, the page's Download). Logs saved outside `logs/` (mock runs, `--out-dir`) are left out. The CSVs stay the backup and the source the catalog is rebuilt from: `logs/runs.sqlite` is never committed (bb1-private ignores `*.sqlite`) and can be deleted and rebuilt any time. To read it, use `logs.py` (next).
 
 ```bash
 tools/venv/bin/python tools/runs_db.py build            # after new runs: adds new or changed logs only (under 1 s if nothing changed)
@@ -303,6 +303,26 @@ SELECT r.file, t.t_s, t.pitch, t.speed_tps, t.pwm_l FROM disarms d JOIN runs r U
 ```
 
 Times count from tick steps, so a restart in the middle of a recording doesn't make them negative. Mock logs are skipped (and `bb1.py` writes no command rows for `localhost`). Gains come from the file's `# gains_ver` line: written when `logger.py` or a tool starts recording, but when the page saves its last 10 s, at save time. A run where you changed gains live shows only that one set (the log's `gains_ver` column has every change).
+
+### logs.py: view, slice and download logs (JSON, for AI agents)
+
+Reads `logs/runs.sqlite` **read only** (nothing it does can change or delete data), so an agent can call it freely. Every answer is one JSON document; errors are `{"ok": false, "error": ...}` with exit code 1.
+
+```bash
+tools/venv/bin/python tools/logs.py schema                       # every table, what it's for, columns, row count
+tools/venv/bin/python tools/logs.py runs --limit 10 --where "surface = 'carpet'"
+tools/venv/bin/python tools/logs.py show sn3-agent               # one run: summary, disarms, steps, gains, commands, header
+tools/venv/bin/python tools/logs.py ticks sn3-agent --cols pitch,speed_tps --from 5 --to 10
+tools/venv/bin/python tools/logs.py download sn3-agent --out run.csv            # the original CSV, header and all
+tools/venv/bin/python tools/logs.py download sn3-agent --cols pitch --from 3 --to 4   # a slice as CSV
+tools/venv/bin/python tools/logs.py sql "SELECT surface, count(*) FROM runs GROUP BY surface"
+tools/venv/bin/python tools/logs.py serve                        # web page: http://localhost:8090
+```
+
+- **A run** is its `run_id`, its file name, or any part of the file name that matches one log (`sn3-agent`). If more match, the error lists them. `run_id`s can change after `runs_db.py build --rebuild`: note runs down by file name.
+- **`ticks`** returns at most `--limit` rows (default 2000) and thins evenly to fit: the answer says `rows_total`, `every` (kept every Nth row) and `returned`. Pass `--every 1 --limit 100000` for every row. Default columns: `t_s mode pitch setpoint speed_tps turn_tps pwm_l pwm_r drive_speed drive_turn`; `show` lists all of them (`tick_columns`).
+- **`sql`** takes one `SELECT` (or `WITH ... SELECT`); at most `--limit` rows, with `truncated` true if there were more.
+- **`serve`** (this computer only, `127.0.0.1`): a page to list and filter runs, open one (summary, disarms, drive steps, gains, bb1.py commands, header), plot any columns over any time range, download the original CSV or the plotted slice, and run SQL. The page only uses this JSON API, so an agent can use the same URLs: `/api/schema`, `/api/runs?where=&limit=`, `/api/runs/<run>`, `/api/runs/<run>/ticks?cols=&from=&to=&every=&limit=` (`&format=csv` to download), `/api/runs/<run>/csv` (the original file), `/api/sql?q=`. The page is `tools/logs_page.html`.
 
 ### mock_bb1.py: a pretend robot for working on the page
 

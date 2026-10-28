@@ -92,6 +92,10 @@ def save_log(out, meta, note, started, header, rows, lost, versions=None, surfac
         f.write("\n".join(rows) + "\n")
     print(f"Saved {len(rows)} records ({len(rows) / 200:.1f} s, {lost} lost) to {out}")
     print(f"Check it:  tools/venv/bin/python tools/check_dump.py {out.relative_to(REPO) if out.is_relative_to(REPO) else out} --plot")
+    # Every log also goes straight into logs/runs.sqlite, the one place to find
+    # and read our data (tools/logs.py). Logs saved outside logs/ are left out.
+    import runs_db
+    runs_db.catalog(out)
 
 
 def main():
