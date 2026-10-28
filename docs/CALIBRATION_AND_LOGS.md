@@ -119,7 +119,7 @@ Add `--plot` to see pitch, accel-only and rate over time in a chart.
 
 ### Finding runs
 
-With 150+ logs, look them up instead of opening them: `tools/runs_db.py build` catalogs every log (gains, duration, time armed and driving, how it ended, every disarm) in `logs/runs.sqlite`, and `tools/runs_db.py query "SELECT ..."` answers questions like "every wood run at ki 100 longer than 5 min". The CSVs stay the source of truth; the catalog is rebuilt from them. Columns and examples: `docs/TOOLS.md`, "runs_db.py".
+With 150+ logs, look them up instead of opening them: `tools/runs_db.py build` puts all our data in `logs/runs.sqlite`: one row per log (gains, duration, time armed and driving, how it ended), every telemetry row, every disarm, drive step, gains version, flash and `bb1.py` command, and `tools/runs_db.py query "SELECT ..."` answers questions like "every wood run at ki 100 longer than 5 min". The CSVs stay the source of truth; the catalog is rebuilt from them. Columns and examples: `docs/TOOLS.md`, "runs_db.py".
 
 ### Our runs
 

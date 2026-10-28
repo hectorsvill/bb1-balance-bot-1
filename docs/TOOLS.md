@@ -246,14 +246,14 @@ tools/venv/bin/python tools/dataset.py --all-rows     # keep disarmed rows too
 
 Reads every `logs/bb1_*.csv`, skips mock logs and logs older than format 9 (no operator action), multiplies `speed_l`/`speed_r` by 10/3 in logs before format 10 (they read 3.3x low), drops rows with an IMU error (flag 1), an encoder fault (flag 32), or where the firmware's encoder fault rule trips on the log itself (logs from before the detector). Splits each log into armed segments and labels each row with its segment's outcome: `timer`, `stopped`, `fell` or `log_ended` (still balancing when recording stopped). Adds `file`, `segment`, `outcome`, `surface`, `note`, `gains` (the `# gains_vN` text for the row's version, `dff` filled in from the header for old lines), `step` (drive_test.py logs) and `tick_gap`. Prints rows per outcome, surface and gains version, and how many rows have a drive command. Gzipped CSV, so no new library is needed: `pd.read_csv("logs/dataset/bb1_dataset.csv.gz")`.
 
-### runs_db.py: find runs (a SQLite catalog of every log)
+### runs_db.py: all our data in one SQLite file
 
-Every real log as one row: what it was, the gains when it started, how long it ran and balanced, how long it drove, how it ended; plus one row per disarm. Ask it with SQL. The CSVs stay the source of truth: the catalog `logs/runs.sqlite` is built from them, never committed (bb1-private ignores `*.sqlite`), and can be deleted and rebuilt any time.
+Everything we record, each in a table shaped for its use: one row per log (`runs`), every telemetry row (`ticks`), every disarm, drive step, gains version and header line, every flash, and every `bb1.py` command. Ask it with SQL. The CSVs stay the source of truth: the catalog `logs/runs.sqlite` is built from them, never committed (bb1-private ignores `*.sqlite`), and can be deleted and rebuilt any time.
 
 ```bash
-tools/venv/bin/python tools/runs_db.py build            # after new runs: adds new or changed logs only (0.2 s if nothing changed)
-tools/venv/bin/python tools/runs_db.py build --rebuild  # start over (about 3 s for 157 logs)
-tools/venv/bin/python tools/runs_db.py recent           # named queries: recent, longest, falls, by-gains
+tools/venv/bin/python tools/runs_db.py build            # after new runs: adds new or changed logs only (under 1 s if nothing changed)
+tools/venv/bin/python tools/runs_db.py build --rebuild  # start over (about 13 s for 158 logs, 2.3 M ticks, 400 MB)
+tools/venv/bin/python tools/runs_db.py recent           # named queries: recent, longest, falls, by-gains, steps, commands
 tools/venv/bin/python tools/runs_db.py tables           # every column you can ask about
 tools/venv/bin/python tools/runs_db.py query "SELECT ..."
 ```
@@ -281,9 +281,28 @@ Which gains we've run most, and how they did (`by-gains`, top rows; `avg_err` = 
  9.85   0.0 0.74  NaN  NaN  NaN    14        4.7     9     9.40
 ```
 
-**`runs` columns:** `file`, `started` (from the file name), `label` (the file name's tail), `surface` (the `# surface` line, else wood / carpet / tile / air from the label), `note`, `firmware`, `firmware_version` and `build_id` (firmware 3.2 on, else empty), `log_format`, `gains_ver` and the gains when the log started under their short names (`kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax`; empty when that log predates the setting), `rows`, `duration_s`, `armed_s`, `drive_s` (a drive command was live), `disarm_count`, `pitch_err_rms` and `pitch_max_abs` (while armed), `batt_v_start` / `batt_v_end` (whole pack, empty without the sense wire), `outcome` (how the last armed stretch ended: fell, stopped, timer, log_ended, or never_armed; same rule as `dataset.py`), `file_size`, `file_mtime`. **`disarms`:** `file`, `t_s` (seconds into the file), `reason` (the log's code) and `reason_text`. Join them with `USING (file)`.
+Every table but `flashes` and `commands` joins to `runs` with `USING (run_id)`. Columns (`tables` lists them all):
 
-Times count from tick steps, so a restart in the middle of a recording doesn't make them negative. Mock logs are skipped. Gains come from the file's `# gains_ver` line: written when `logger.py` or a tool starts recording, but when the page saves its last 10 s, at save time. A run where you changed gains live shows only that one set (the log's `gains_ver` column has every change).
+| Table | One row per | Use it for | Columns |
+|---|---|---|---|
+| `runs` | log | finding runs, comparing gains | `run_id`, `file`, `started` (from the file name), `label` (the file name's tail), `surface` (the `# surface` line, else wood / carpet / tile / air from the label), `note`, `firmware`, `firmware_version` and `build_id` (firmware 3.2 on), `log_format`, `gains_ver` and the gains when the log started under their short names (`kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax`; empty when that log predates the setting), `rows`, `duration_s`, `armed_s`, `drive_s` (a drive command was live), `disarm_count`, `pitch_err_rms` and `pitch_max_abs` (while armed), `batt_v_start` / `batt_v_end` (whole pack, empty without the sense wire), `outcome` (how the last armed stretch ended: fell, stopped, timer, log_ended, or never_armed; same rule as `dataset.py`), `file_size`, `file_mtime` |
+| `ticks` | 5 ms telemetry record | plots, training, "what happened just before" | `run_id`, every log column as written (`tick` ... `speed_pwm`, see CALIBRATION_AND_LOGS.md; empty where that log format lacks it), plus `t_s` (seconds into the file), `speed_tps` and `turn_tps` (wheels in turns/s like `/drive`, turn = left minus right; the 3.3x bug before format 10 fixed). Raw `speed_l`/`speed_r` stay as logged |
+| `disarms` | disarm | why runs end | `run_id`, `t_s`, `tick` (last armed tick), `reason` (the log's code), `reason_text` |
+| `steps` | drive step (`drive_test.py`, `drive_explore.py`) | asked vs got | `run_id`, `n`, `name`, `speed`, `turn` (asked), `from_tick`, `to_tick`, `secs`, `got_speed`, `got_turn` (wheel average over the step's last half, like drive_test.py's report) |
+| `gains` | gains version a log used | live gain changes | `run_id`, `ver`, the 16 gains; from the start line and every `# gains_vN` line |
+| `meta` | `# ` header line | anything else in the header | `run_id`, `line`, `name` (first field), `value` (the rest, word for word) |
+| `flashes` | firmware flash | which firmware was on BB1 when | `logs/flash_history.csv`: `time`, `version`, `build_id`, `method`, `result` |
+| `commands` | `bb1.py` call | what an agent (or you) asked and what happened | `logs/agent_commands.csv`: `time` (local), `host`, `cmd`, `exit_code`, `ok`, `error`, `speed`, `turn`, `secs` (after the caps), `moved_turns`, `turned_turns`, `settled`, `run_id` (the log recording at that time, if any), `args` and `answer` (the raw JSON) |
+
+Example: the last second before every fall on carpet:
+
+```sql
+SELECT r.file, t.t_s, t.pitch, t.speed_tps, t.pwm_l FROM disarms d JOIN runs r USING (run_id)
+  JOIN ticks t ON t.run_id = d.run_id AND t.tick BETWEEN d.tick - 200 AND d.tick
+  WHERE d.reason = 2 AND r.surface = 'carpet'
+```
+
+Times count from tick steps, so a restart in the middle of a recording doesn't make them negative. Mock logs are skipped (and `bb1.py` writes no command rows for `localhost`). Gains come from the file's `# gains_ver` line: written when `logger.py` or a tool starts recording, but when the page saves its last 10 s, at save time. A run where you changed gains live shows only that one set (the log's `gains_ver` column has every change).
 
 ### mock_bb1.py: a pretend robot for working on the page
 

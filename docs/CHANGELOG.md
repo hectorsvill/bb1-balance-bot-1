@@ -10,6 +10,14 @@ Newest first.
 
 
 
+## 2026-10-28 - `runs_db.py` holds all the data (schema 2)
+
+- **Why:** "with SQLite we should always track all data": the catalog had one row per log and per disarm; the telemetry rows, drive steps, live gain changes, flashes and agent commands were still only in files
+- **New tables:** `ticks` (every telemetry row, 2.3 M, with `t_s` and wheel `speed_tps` / `turn_tps` in turns/s, old 3.3x bug fixed), `steps` (each drive step, asked vs got), `gains` (every gains version a log used), `meta` (every header line word for word), `flashes` (`logs/flash_history.csv`), `commands` (`logs/agent_commands.csv`, written by `bb1.py` from branch `agent-md`, linked to the log recording at the time). `runs` gets a `run_id` that the per-log tables use instead of `file`
+- Named queries `steps` and `commands` added. The catalog now goes in the `--logs` folder (before, a build of another folder would have emptied the main catalog). About 13 s and 400 MB for 158 logs; still never committed
+- `logs/bb1_2026-10-28_09-52-44_sn3-agent-doc-test-weak-drive-check.csv` relabelled `# surface,carpet` (it was recorded on carpet; drive_test.py wrote its default, wood)
+- Docs: `docs/TOOLS.md` (table of tables), `docs/CALIBRATION_AND_LOGS.md`, `CLAUDE.md`
+
 ## 2026-10-28 - `tools/runs_db.py`: a SQLite catalog of every run
 
 - **Why:** 157 logs (187 min, 347 MB in bb1-private) are too many to open one by one. Now "every wood run at ki 100 longer than 5 min, and how did it end" is one query
