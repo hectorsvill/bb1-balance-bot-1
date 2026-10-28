@@ -59,6 +59,8 @@ Always pass `--max` = your `max_speed` (or `max_turn` for turns). `drive` blocks
 
 Every command you run is recorded (`logs/agent_commands.csv`: time, command, options, exit code, answer), so your owner can replay your session next to BB1's own logs.
 
+To see what happened (your commands, BB1's runs, every tick), use `tools/venv/bin/python tools/logs.py` (read only, JSON out): `runs`, `show <run>`, `ticks <run>`, `schema`, `sql`.
+
 **Exit codes:** 0 done; 1 BB1 refused, or a safety check ended the command (read `error` and `reason`); 2 BB1 didn't answer.
 
 ### Reading `state`
@@ -133,6 +135,7 @@ These change how BB1 works or can damage it, and are only for your owner (`allow
 
 - Every endpoint: `docs/API.md`, or `bb1.py api` for the live list with its limits.
 - The tool itself: `tools/bb1.py` (its top comment lists every safety check).
+- Reading logs: `tools/logs.py` (read only; `docs/TOOLS.md`).
 
 ## Keeping this file current (for maintainers)
 
