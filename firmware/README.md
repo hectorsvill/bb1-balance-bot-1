@@ -83,7 +83,7 @@ Fix (2026-10-21): the web server now closes each connection after answering (`ro
 Why not the page: arming from the page ties the motors to Wi-Fi (no `/state` for 1 s = disarm), and Wi-Fi hiccups kept cutting the test short. For getting BB1 to balance we leave the page closed: you arm from **serial** over the USB cable (no heartbeat check then) and **logger.py** records over Wi-Fi in the background. If Wi-Fi stalls, the robot keeps the last 10 s, so the logger catches up without losing records. All other cut-outs still work: the arm timer, 45 deg (FALLEN), low battery, IMU errors, late loops, Enter.
 
 **Before you start**
-1. Battery on (D153C switch) **first**, then plug in USB (power rule).
+1. Plug in USB (battery on or off: the diode makes the order safe).
 2. Close every BB1 page tab (phone too), and any serial monitor (only one program can hold the USB port).
 3. Fingers clear of the wheels. Hold the frame, wheels in the air.
 
@@ -258,16 +258,13 @@ Two small Arduino C++ sketches that check each part works before we write the ba
 | **Sketch** | **Checks** | **Needs the battery?** |
 | :-: | :-: | :-: |
 | motor_test | Each motor spins both ways through the D153C; each encoder counts | Yes (D153C switch on) |
-| imu_test | The MPU-6050 answers on I2C and gives sensible readings | Yes for now (see the power rule) |
+| imu_test | The MPU-6050 answers on I2C and gives sensible readings | No (USB alone powers the IMU) |
 
 Board: Raspberry Pi Pico W with the "Raspberry Pi Pico/RP2040" core by Earle F. Philhower (version 6.3.0 used to compile these).
 
-## Power rule (no 1N5819 diode yet)
+## Power (1N5819 diode fitted)
 
-The D153C 5V is wired straight to the Pico's VSYS pin. The Pico already has its own diode on the USB side, so your Mac is protected, but USB alone would push power backwards into the D153C's 5V regulator. Until the diode goes in:
-
-1. Switch the D153C on (battery connected) **before** plugging in USB.
-2. Unplug USB **before** switching the D153C off.
+Since 2026-10-28 a 1N5819 Schottky diode sits in the D153C 5V to VSYS wire, stripe (cathode) toward the Pico. USB can no longer push 5 V backwards into the D153C's regulator, so USB and the battery can go on and off in any order. USB alone powers only the Pico and the IMU: the motors can't run without the battery.
 
 ## Fastest way: drag and drop the ready-made UF2
 

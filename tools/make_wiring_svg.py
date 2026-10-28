@@ -24,11 +24,12 @@ D153C = [
     (22, "GP17", "E1B (left encoder)", "#2da44e"),
     (24, "GP18", "E2A (right encoder)", "#1b7f83"),
     (25, "GP19", "E2B (right encoder)", "#1b7f83"),
+    (31, "GP26", "ADC (battery, VIN / 11)", "#bf8700"),
     (38, "GND", "GND (power)", "#555555"),
     (39, "VSYS", "5V", "#d1242f"),
 ]
 # Notes drawn next to some D153C pins
-D153C_NOTES = {"STBY": "HIGH = motors on", "5V": "straight wire, 1N5819 planned"}
+D153C_NOTES = {"STBY": "HIGH = motors on", "5V": "via 1N5819, stripe to Pico"}
 
 GY521 = [
     (6, "GP4", "SDA", "#2f81f7"),
@@ -40,7 +41,7 @@ GY521 = [
 NOTES = [
     "Power: 2S LiPo + / - to the D153C Vin+ / Vin- (blue terminal). The D153C switch turns the robot on.",
     "Motors: left = socket A, right = socket B (XH cables). The encoder wires come back through the D153C header.",
-    "Power rule (no diode yet): D153C on BEFORE plugging in USB; unplug USB BEFORE switching the D153C off.",
+    "Diode: a 1N5819 in the 5V to VSYS wire (stripe toward the Pico) means USB and the battery go on in any order.",
 ]
 
 W, DY = 1000, 30

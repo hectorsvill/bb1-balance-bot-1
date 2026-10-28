@@ -18,7 +18,7 @@
 //
 // Board: Raspberry Pi Pico W, arduino-pico core by Earle Philhower (6.3.0).
 // Serial: 115200 baud, line ending "Newline". Type "help" for commands.
-// Power rule (no 1N5819 yet): D153C on before USB; USB out before D153C off.
+// Power: a 1N5819 in the D153C 5V to VSYS wire (2026-10-28) lets USB and the battery go on in any order.
 //
 // Files:
 //   config.h     pins, signs, rates, buffer size

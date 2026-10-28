@@ -11,10 +11,10 @@ The picture is drawn from the tables below by `tools/make_wiring_svg.py` (`wirin
 | From | To | Notes |
 |---|---|---|
 | 2S LiPo + / - | D153C Vin+ / Vin- (blue terminal) | D153C switch turns the robot on |
-| D153C 5V | Pico VSYS (39) | Straight wire for now; a 1N5819 (stripe toward the Pico) is planned |
+| D153C 5V | Pico VSYS (39) | Through a 1N5819 diode, stripe toward the Pico (2026-10-28) |
 | D153C GND | Pico GND (38) | Common ground |
 
-**Power rule until the diode is in:** switch the D153C on before plugging in USB, and unplug USB before switching it off.
+**Power order:** none needed since the diode went in. Since 2026-10-28 a 1N5819 Schottky diode sits in the D153C 5V to VSYS wire, stripe (cathode) toward the Pico. USB can no longer push 5 V backwards into the D153C's regulator, so USB and the battery can go on and off in any order. USB alone powers only the Pico and the IMU: the motors can't run without the battery.
 
 ## D153C to Pico
 

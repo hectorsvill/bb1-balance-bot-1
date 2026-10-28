@@ -4,11 +4,15 @@ Newest first.
 
 ## Open items
 
-- 1N5819 diode in the D153C 5V to VSYS wire (follow the power rule until then)
 - Measure counts per wheel turn cleanly (520 assumed)
 - Mount and wire the HC-SR04 on the front end
 - Battery cradle (record the pack's size and capacity)
 
+
+## 2026-10-28 - 1N5819 diode fitted, power rule gone
+
+- 1N5819 Schottky diode soldered into the D153C 5V to VSYS wire, stripe toward the Pico. USB no longer back-feeds the D153C's 5V regulator, so USB and the battery go on and off in any order
+- Docs: `CLAUDE.md` (Hardware, pins, Power), `docs/WIRING.md`, `docs/FLASHING.md`, `firmware/README.md`, `README.md`, `docs/FUTURE_INTEGRATIONS.md`, the wiring diagram, sketch comments. Battery care in `FLASHING.md` now says BB1 reads the battery (GP26, since 2026-10-24); the pin table lists GP26 as wired, not reserved. The diagram now shows the battery sense wire
 ## 2026-10-27 - `GET /api` (milestone 3 step 2), not flashed yet
 
 - **Why:** so a program or an AI agent can discover every endpoint, its arguments, whether it moves the wheels, and the limits (drive speed, command length, gain ranges) without reading `docs/API.md`

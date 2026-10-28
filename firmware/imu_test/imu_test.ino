@@ -5,7 +5,7 @@
 // Talks to the chip's registers directly (no library) so you can see how it works.
 //
 // Board: Raspberry Pi Pico W, "Raspberry Pi Pico/RP2040" core by Earle Philhower.
-// Serial monitor: 115200 baud. Until the 1N5819 is in, switch the D153C on before plugging in USB.
+// Serial monitor: 115200 baud. USB alone powers it (the 1N5819 makes any power order safe).
 
 #include <Wire.h>
 

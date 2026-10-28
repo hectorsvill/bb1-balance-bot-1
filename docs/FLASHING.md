@@ -2,21 +2,17 @@
 
 How to get a sketch onto BB1, and how to see it running.
 
-## 0. Power order (every time, until the 1N5819 diode is fitted)
+## 0. Power
 
-1. Battery connected, **D153C switch on**.
-2. **Then** plug USB into the Mac.
-3. When done: **unplug USB first**, then switch the D153C off.
+Since 2026-10-28 a 1N5819 Schottky diode sits in the D153C 5V to VSYS wire, stripe (cathode) toward the Pico. USB can no longer push 5 V backwards into the D153C's regulator, so USB and the battery can go on and off in any order. USB alone powers only the Pico and the IMU: the motors can't run without the battery. For flashing, the battery can stay off: `flash.py`'s lying-down check only needs the IMU.
 
-USB alone pushes 5 V backwards into the D153C's regulator. The diode will fix this later.
+### Battery care (2S 1300 mAh LiPo)
 
-### Battery care (2S 1300 mAh LiPo, no voltage sensing yet)
-
-Leaving BB1 powered on the battery while you work is fine: with the motors off (STBY low) it draws roughly 50 to 100 mA (Pico W with Wi-Fi, IMU, the D153C's regulator), so the pack lasts many hours. But nothing on the robot watches the voltage yet, so:
+Leaving BB1 powered on the battery while you work is fine: with the motors off (STBY low) it draws roughly 50 to 100 mA (Pico W with Wi-Fi, IMU, the D153C's regulator), so the pack lasts many hours. BB1 reads the pack voltage (D153C `ADC` pin to GP26, `battery.h`): the pages show volts per cell, orange under 3.5 V, and while balancing it disarms under 3.3 V per cell (6.6 V) and won't arm again. While it sits disarmed nothing switches it off, so:
 
 - Keep each cell above about 3.5 V (7.0 V for the pack) and never let it go below 3.0 V per cell (6.0 V): that damages a LiPo for good.
-- Check it with a LiPo checker or multimeter on the balance plug every couple of hours of use.
-- Unplug the battery when you walk away or overnight (USB out first).
+- Watch the battery on the page; check the cells with a LiPo checker on the balance plug now and then (the page shows the average of the two).
+- Unplug the battery when you walk away or overnight.
 - For storage longer than a few days, charge or discharge to about 3.8 V per cell.
 
 The battery voltage divider (docs/FUTURE_INTEGRATIONS.md) will let the page show and log the voltage.
