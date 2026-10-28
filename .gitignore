@@ -37,3 +37,9 @@ __pycache__/
 # Recorded runs: logs is a link to the private repo bb1-private/logs (no trailing slash: a link isn't a folder to git)
 logs
 graphify-out/
+
+# SQLite catalogs (tools/runs_db.py, logs/runs.sqlite): rebuilt from the CSVs, never committed
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
