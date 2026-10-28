@@ -13,3 +13,7 @@
 #define BB1_AP_SSID     "BB1"
 #define BB1_AP_PASSWORD "change-me-please"   // pick your own (8+ characters) in secrets.h:
                                              // anyone who joins this network can drive the robot
+
+// Firmware updates over Wi-Fi (ota.h, tools/flash.py --ota): POST /update asks
+// for this password (user "bb1"). Anyone with it can replace BB1's firmware.
+#define BB1_OTA_PASSWORD "change-me-too"

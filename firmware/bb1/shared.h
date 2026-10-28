@@ -37,6 +37,7 @@ volatile float    gainSpeedI    = DEFAULT_SPEED_I;   // speed loop, deg per whee
 volatile float    gainTurnHold  = DEFAULT_TURN_HOLD; // heading hold, PWM per wheel turn of left/right difference
 volatile float    gainDriveFF   = DEFAULT_DRIVE_FF;  // drive feedforward, PWM per turn/s of speed target (drive.h)
 volatile float    gainDriveSpeedI = DEFAULT_DRIVE_SPEED_I;  // drive speed I, deg per turn/s per s (control.h)
+volatile float    gainIRelax      = DEFAULT_I_RELAX_S;      // I-term relax after a drive, s time constant, 0 = off (control.h)
 volatile float    speedMode       = DEFAULT_SPEED_MODE;     // 0 = speed loop moves the setpoint, 1 = wheel speed loop on the PWM (config.h)
 volatile float    gainWheelSpeedP = DEFAULT_WHEEL_SPEED_P;  // smode 1: PWM per turn/s too fast
 volatile float    gainWheelSpeedI = DEFAULT_WHEEL_SPEED_I;  // smode 1: PWM per wheel turn ahead
@@ -51,6 +52,11 @@ volatile bool     requestStep   = false;     // step test: core 1 moves the setp
 volatile bool     stepActive    = false;     // status: a step test is running
 volatile uint32_t lastWebHeartbeatMs = 0;    // millis() of the page's latest /state request
 volatile uint16_t batteryMv     = 0;         // battery voltage in mV, from core 0 (battery.h); core 1 logs it
+// Firmware update over Wi-Fi (ota.h). Core 0 sets otaActive when an upload
+// starts; core 1 then refuses every arm and motor test, and answers with
+// otaMotorsOff once nothing drives the motors. Writing flash pauses core 1.
+volatile bool     otaActive     = false;
+volatile bool     otaMotorsOff  = false;
 
 // Driving (milestone 2, drive.h). Core 0 writes the two numbers FIRST, then
 // driveUntilMs; core 1 uses them until millis() passes driveUntilMs, then

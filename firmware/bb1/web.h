@@ -3,6 +3,7 @@
 // Runs on core 0. The browser asks for things with plain HTTP:
 //
 //   GET  /            the page (page.h)
+//   GET  /api         every endpoint and its limits as JSON (api.h), for programs and AI agents
 //   GET  /tune        the small PID tuning page (tune_page.h): gains + live P/I/D, never arms
 //   GET  /state       newest values as JSON, polled ~20 times a second by the page
 //   POST /cal         recalibrate the gyro (same as typing "cal")
@@ -18,11 +19,12 @@
 //   POST /arm         start balancing (refused unless upright; see control.h). seconds=N: disarm after N s (0 = no limit);
 //                     heartbeat=0: don't stop when the page goes away (main page)
 //   POST /disarm      stop balancing
-//   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband, sp, si, th, auto, dff, sdi, smode, wsp, wsi
+//   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband, sp, si, th, auto, dff, sdi, smode, wsp, wsi, irelax
 //   POST /gains/save  store them in flash (disarmed only);  POST /gains/defaults  back to config.h
 //   POST /step        step test while armed: setpoint +2 deg for 1 s
 //   POST /drive       args speed, turn (wheel turns/s), ms: drive while balancing (drive.h). Lasts 500 ms unless re-sent
 //   POST /drive/stop  stop driving now (keeps balancing)
+//   POST /update      new firmware over Wi-Fi (ota.h): lying down and disarmed only, password from secrets.h
 //
 // docs/API.md is the full reference (arguments, answers, units, safety rules).
 // Each handler is short and never touches the IMU or motors directly: it reads
@@ -41,6 +43,9 @@
 #include "tune_page.h"
 #include "battery.h"
 #include "drive.h"
+#include "api.h"
+#include "ota.h"
+#include "version.h"
 
 WebServer server(80);
 
@@ -80,7 +85,7 @@ void handleState() {
            "\"enc_fault\":%u,"
            "\"drive\":{\"speed\":%.2f,\"turn\":%.2f,\"speed_now\":%.2f,\"turn_now\":%.2f,\"left_ms\":%ld,\"commands\":%lu,\"max_speed\":%.2f,\"max_turn\":%.2f},"
            "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,\"batt_cells\":%d,"
-           "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f,\"sdi\":%.2f,\"smode\":%d,\"wsp\":%.1f,\"wsi\":%.1f}}",
+           "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f,\"sdi\":%.2f,\"smode\":%d,\"wsp\":%.1f,\"wsi\":%.1f,\"irelax\":%.2f}}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
            have ? r.mode : 0, have ? r.flags : 0,
@@ -101,7 +106,7 @@ void handleState() {
            driveLeftMs > 0 ? driveSpeedCmd : 0.0, driveLeftMs > 0 ? driveTurnCmd : 0.0, driveSpeedNow, driveTurnNow, driveLeftMs,
            (unsigned long)driveCommands, DRIVE_MAX_SPEED, DRIVE_MAX_TURN,
            batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V, BATTERY_CELLS,
-           (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, (int)autoArm, gainDriveFF, gainDriveSpeedI, (int)speedMode, gainWheelSpeedP, gainWheelSpeedI);
+           (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, (int)autoArm, gainDriveFF, gainDriveSpeedI, (int)speedMode, gainWheelSpeedP, gainWheelSpeedI, gainIRelax);
   server.send(200, "application/json", json);
 }
 
@@ -329,14 +334,24 @@ void handleSys() {
   uint32_t heapTotal = rp2040.getTotalHeap();
   uint32_t heapUsed  = rp2040.getUsedHeap();
   uint32_t flashUsed = (uint32_t)&__flash_binary_end - XIP_BASE;   // XIP_BASE = where flash starts in memory
-  char json[256];
+  char json[384];
   snprintf(json, sizeof(json),
            "{\"ram_total\":%lu,\"ram_static\":%lu,\"heap_total\":%lu,\"heap_used\":%lu,"
-           "\"log_buffer\":%lu,\"flash_total\":%lu,\"flash_used\":%lu,\"page\":%lu,\"cpu_mhz\":%lu}",
+           "\"log_buffer\":%lu,\"flash_total\":%lu,\"flash_used\":%lu,\"page\":%lu,\"cpu_mhz\":%lu,"
+           "\"fs_total\":%lu,\"build\":\"%s %s\",\"version\":\"%s\",\"build_id\":\"%s\"}",
            (unsigned long)RAM_TOTAL, (unsigned long)(RAM_TOTAL - heapTotal),
            (unsigned long)heapTotal, (unsigned long)heapUsed,
            (unsigned long)sizeof(logBuffer), (unsigned long)FLASH_TOTAL, (unsigned long)flashUsed,
-           (unsigned long)sizeof(PAGE_HTML), (unsigned long)(rp2040.f_cpu() / 1000000));
+           (unsigned long)sizeof(PAGE_HTML), (unsigned long)(rp2040.f_cpu() / 1000000),
+           (unsigned long)(FS_END - FS_START), __DATE__, __TIME__,   // fs: room for an OTA update; build: when this firmware was compiled
+           FIRMWARE_VERSION, BB1_BUILD_ID);                        // version.h
+  server.send(200, "application/json", json);
+}
+
+// GET /api -> every endpoint and its limits (api.h). About 4 KB of heap for
+// a moment; programs ask once, not 20 times a second like /state.
+void handleApi() {
+  String json = apiJson(LOG_MAX_PER_REQUEST);
   server.send(200, "application/json", json);
 }
 
@@ -358,6 +373,7 @@ void route(const char *path, HTTPMethod method, void (*handler)()) {
 void webBegin() {
   route("/", HTTP_GET, handlePage);
   route("/tune", HTTP_GET, handleTunePage);
+  route("/api", HTTP_GET, handleApi);
   route("/state", HTTP_GET, handleState);
   route("/cal", HTTP_POST, handleCal);
   route("/alpha", HTTP_POST, handleAlpha);
@@ -377,6 +393,9 @@ void webBegin() {
   route("/step", HTTP_POST, handleStep);
   route("/drive", HTTP_POST, handleDrive);
   route("/drive/stop", HTTP_POST, handleDriveStop);
+  // Not through route(): an upload needs a second handler for the file's pieces,
+  // and handleUpdateDone() closes the connection itself.
+  server.on("/update", HTTP_POST, handleUpdateDone, handleUpdateUpload);
   server.onNotFound([]() { server.send(404, "text/plain", "not found"); server.client().stop(); });
   server.begin();
 }

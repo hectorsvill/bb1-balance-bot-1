@@ -1,6 +1,6 @@
 # Firmware Plan: balancing + Wi-Fi tuning page
 
-Updated 2026-10-21 with Hector's choices (section 7). Built step by step; see the table in section 6.
+Updated 2026-10-21 with our choices (section 7). Built step by step; see the table in section 6.
 
 Goal for this milestone: BB1 balances by itself, and a web page served by the Pico W shows live data, lets you change the PID gains while it runs, and runs safe test actions. Every run can be logged in a format that could later train a model to drive the bot.
 
@@ -50,6 +50,7 @@ firmware/bb1/
   telemetry.h      the log record and the ring buffer that holds the last few seconds
   wifi_setup.h     own network or home network, saved settings
   web.h            web server routes
+  api.h            GET /api: every endpoint and its limits, for programs and AI agents
   secrets.h        own-network password (not in git; copy secrets.example.h)
   page.h           the HTML/JS page as one string
   log_meta.h       the "# setting" lines at the top of every log file
@@ -187,7 +188,7 @@ What a model needs, and where it is in our logs:
 4. Never mix mock logs (`firmware,bb1 MOCK`) into real data.
 5. When firmware adds a column: new field at the end of `LogRecord`, bump `LOG_FORMAT`, add it to `docs/CALIBRATION_AND_LOGS.md`.
 
-**Still to do:** a backup of `logs/` (gitignored, about 113 MB on one laptop so far; decided 2026-10-23: its own git repo once BB1 balances);  maybe a "hand touched" event key in handheld.py.
+**Backup:** done 2026-10-26: `logs/` lives in the private GitHub repo `bb1-private` (290 MB, 159 files) and the public repo's `logs/` is a link to it. **Still to do:**  maybe a "hand touched" event key in handheld.py.
 
 ### Training set: checked on the real logs (2026-10-26, `tools/dataset.py`)
 

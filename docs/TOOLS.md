@@ -72,7 +72,7 @@ tools/venv/bin/python -m pip install -r tools/requirements.txt
 Full detail, power order and troubleshooting: [FLASHING.md](FLASHING.md).
 
 ```bash
-arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/bb1 firmware/bb1
+arduino-cli compile --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 --output-dir build/bb1 firmware/bb1
 ```
 
 ```bash
@@ -80,12 +80,14 @@ ls /dev/cu.usbmodem*
 ```
 
 ```bash
-arduino-cli upload -p /dev/cu.usbmodem21401 --fqbn rp2040:rp2040:rpipicow firmware/bb1
+arduino-cli upload -p /dev/cu.usbmodem21401 --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 firmware/bb1
 ```
 
 `--fqbn` is the board name ("fully qualified board name"). Only one program can use the serial port at a time: close the Serial Monitor before uploading.
 
 ## Our Python scripts (`tools/`)
+
+**Where runs are saved:** `logs/` in this repo is a link to the private repo `bb1-private` (`~/Documents/GitHub/bb1-private/logs`), so every tool's `logs/...` file lands there. Back it up with `git add -A && git commit -m "Runs <date>" && git push` inside that repo (its README has the rules). On a new Mac, clone both and run `ln -s ~/Documents/GitHub/bb1-private/logs logs` in this repo.
 
 ### serial_log.py: capture what the Pico prints
 
@@ -192,6 +194,23 @@ Pulls every 5 ms record from BB1 over Wi-Fi (the same `/log?since=` the page use
 
 Then check it with `check_dump.py`, which it prints for you at the end.
 
+### bb1.py: control BB1 from the command line (JSON out, for scripts and AI agents)
+
+**`drive` moves BB1.** One command per call, one line of JSON back. Set the address once per terminal with `export BB1_HOST=192.168.1.240` (or pass `--host`).
+
+```bash
+tools/venv/bin/python tools/bb1.py state                       # short summary (--full: all of /state)
+tools/venv/bin/python tools/bb1.py arm                         # start balancing (stand it up first)
+tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2   # forward 0.3 wheel turns/s for 2 s, then stop
+tools/venv/bin/python tools/bb1.py drive --turn -0.4 --for 1   # left on the spot
+tools/venv/bin/python tools/bb1.py stop                        # stop driving, keep balancing
+tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1 falls over
+```
+
+Units are the firmware's: wheel turns/s (one turn is 0.178 m, measured), turn = left-minus-right turns/s, right +. Every answer has `"ok"`; on false, `"error"` says why. Exit code 0 done, 1 refused or stopped by a safety check, 2 BB1 didn't answer. `drive` answers what was asked (after the caps), then waits up to 2 s for the wheels to stop and gives `moved_turns` (forward +), `turned_turns` (left-minus-right wheel turns, right +), `settled` (stopped before answering) and the summary state. First runs on BB1 (2026-10-26, wood): 2 s at 0.3 moved +0.27 forward but −0.51 back; 1 s turns at 0.4 turned 0.28 right, 0.10 left at th 20 and 0.32-0.48 both ways at th 60 (about 0.4 asked). An agent should read these and correct, not assume. One turn of `turned_turns` = 0.178 / 0.127 rad = about 80 deg of heading.
+
+Safety: `drive` refuses unless armed with no encoder fault; speed and turn are capped at `--max` (default 0.5); `--for` is at most 10 s. Each `/drive` lasts 1 s and is re-sent every 100 ms, so BB1 stops by itself within 1 s if the tool dies (it never fetches `/log`, so the Pico's slow `/log` answers can't starve it). It checks `/state` twice a second and stops on a disarm, an encoder fault, or more than 3 wheel turns from the start. Ctrl-C sends `/drive/stop`. `arm` uses `heartbeat=0` (keeps balancing with nobody polling) and also turns auto-arm back on, even when it is refused, so a fallen BB1 re-arms by itself once stood up. Test it on the mock: `--host localhost:8080`.
+
 ### drive_test.py: drive tests over Wi-Fi, recorded and reported
 
 **Moves BB1.** BB1 must already be balancing on the floor, with about 1 m clear all round.
@@ -204,7 +223,7 @@ tools/venv/bin/python tools/drive_test.py --report logs/bb1_...csv        # re-r
 
 Tests: `stand` (30 s still), `fwd-back-30` and `fwd-back-50` (3 s forward, 3 s pause, 3 s back at 0.3 or 0.5 turns/s), `turn` (left then right on the spot, 0.5), `arc` (forward 0.3 while turning 0.3), `all`. It records exactly like `logger.py` and adds one `# step,name,speed,turn,from_tick,to_tick` line per step plus `# drive_test,<test>,<how it ended>`.
 
-Safety: refuses to start unless `/state` says armed and `enc_fault` 0. Each `/drive` lasts 1 s and is re-sent every 100 ms, never longer, so BB1 stops by itself within 1 s if the script dies. `/drive/stop` between steps and on any error, fall or Ctrl-C. It ends the test if BB1 disarms, gets an encoder fault, gets more than 3 wheel turns (about 0.6 m) from where it started (added after BB1 crept into a wall, 2026-10-26), or gives no answer for 2 s. Shorter Wi-Fi stalls are ridden out.
+Safety: refuses to start unless `/state` says armed and `enc_fault` 0. Each `/drive` lasts 3 s and is re-sent every 100 ms, so BB1 stops by itself within 3 s if the script dies; every step ends with `/drive/stop`. (Was 1 s: about every 10 s one `GET /log` answer takes 1-2.5 s and the Pico answers nothing else meanwhile, so a 1 s command ran out 41% of the moving time in the first training run, 2026-10-26.) `/drive/stop` between steps and on any error, fall or Ctrl-C. It ends the test if BB1 disarms, gets an encoder fault, gets more than 3 wheel turns (about 0.53 m) from where it started (added after BB1 crept into a wall, 2026-10-26), or gives no answer for 2 s. Shorter Wi-Fi stalls are ridden out.
 
 The report has one line per step: asked speed and turn; what the wheels did (average of the step's last half, turns/s); **stop** = furthest it rolled (or turned) on after the command ended (goal under 0.5 turn); **head** = heading drift; max lean forward/back; peak PWM; **sat%** (flag 8); **drop** = seconds the command ran out mid-step (Wi-Fi stall: don't compare gains on that step); flags (ENCODER FAULT printed in capitals). Then run `pid_report.py` on the same file for the balance side.
 
@@ -216,7 +235,7 @@ The report has one line per step: asked speed and turn; what the wheels did (ave
 tools/venv/bin/python tools/drive_explore.py --box 1.5 --minutes 60 --surface wood -n "explore 1"
 ```
 
-Random moves (forward, back, spin, arc, stop; 1-4 s each, up to `--max-speed` 0.4 turns/s), each a `# step` line. Keeps inside the box with odometry from the encoders (65 mm wheels and 0.17 m track assumed, not measured; uses 80% of the box because odometry drifts): near the edge it turns to the middle and drives back. Saves a complete log every `--chunk` minutes (default 5) as `..._explore-pN.csv`. Stops for good on a fall, an encoder fault, battery under `--min-cell` (3.5 V/cell) or past the box edge; a Wi-Fi stall only pauses it (gives up after 30 s). Same 1 s commands as drive_test.py. For the mock, add `--host localhost:8080 --out-dir <scratch folder>` so mock logs never land in `logs/`.
+Random moves (forward, back, spin, arc, stop; 1-4 s each, up to `--max-speed` 0.4 turns/s), each a `# step` line. Keeps inside the box with odometry from the encoders (0.178 m per wheel turn and 0.127 m track, measured 2026-10-26; uses 80% of the box because odometry drifts): near the edge it turns to the middle and drives back. Saves a complete log every `--chunk` minutes (default 5) as `..._explore-pN.csv`. Stops for good on a fall, an encoder fault, battery under `--min-cell` (3.5 V/cell) or past the box edge; a Wi-Fi stall only pauses it (gives up after 30 s). Same 3 s commands as drive_test.py. For the mock, add `--host localhost:8080 --out-dir <scratch folder>` so mock logs never land in `logs/`.
 
 ### dataset.py: every real log as one training table
 
@@ -242,6 +261,10 @@ tools/venv/bin/python tools/flash.py
 ```
 
 Compiles `firmware/bb1`, finds BB1's port, checks over serial that BB1 is **lying down** (auto-arm would start it balancing on the desk otherwise), uploads, then prints what BB1 says after the reboot (auto-arm state, gains). Stops before uploading if the compile fails or BB1 is upright. Step by step and errors: [FLASHING.md](FLASHING.md#flashing-with-toolsflashpy-the-easy-way). Uses pyserial and `arduino-cli`.
+
+Before compiling it writes `firmware/bb1/build_id.h` (branch, commit, `+` for uncommitted firmware changes, time; gitignored) so every build is fresh and BB1 can say which one it runs (`firmware/bb1/version.h`). After every flash it adds a line to `logs/flash_history.csv`: time, version, build id, `usb` or `wifi`, result.
+
+`--ota` does the same over Wi-Fi, no USB cable: checks `/state` (lying down, disarmed), sends the build gzipped to `POST /update` with the password from `secrets.h`, then waits until `/sys` shows this build's `build_id`. `--host <ip>` or `BB1_HOST` when `bb1.local` is slow. [FLASHING.md](FLASHING.md#flashing-over-wi-fi-toolsflashpy---ota-no-usb-cable).
 
 ### wiki_sync.sh: copy the docs to the GitHub wiki
 

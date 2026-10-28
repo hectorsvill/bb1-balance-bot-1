@@ -52,13 +52,13 @@ cp firmware/bb1/secrets.example.h firmware/bb1/secrets.h
 2. Compile:
 
 ```bash
-arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/bb1 firmware/bb1
+arduino-cli compile --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 --output-dir build/bb1 firmware/bb1
 ```
 
 3. Upload (find the port with `ls /dev/cu.usbmodem*`):
 
 ```bash
-arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn rp2040:rp2040:rpipicow --input-dir build/bb1 firmware/bb1
+arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 --input-dir build/bb1 firmware/bb1
 ```
 
 Or drag `firmware/uf2/bb1.ino.uf2` onto the Pico in BOOTSEL mode (its own-network password is the template's `change-me-please`). Full guide, Arduino IDE steps and troubleshooting: [docs/FLASHING.md](docs/FLASHING.md). Python tools: [docs/TOOLS.md](docs/TOOLS.md).

@@ -147,8 +147,16 @@ void loop1() {
   }
   if (requestMotorTest) {
     requestMotorTest = false;
-    if (!test.running && !balance.armed) motorTestStart();   // never a motor test while balancing
+    if (!test.running && !balance.armed && !otaActive) motorTestStart();   // never a motor test while balancing or updating
   }
+  // Firmware update over Wi-Fi (ota.h): core 0 only checked "disarmed" a
+  // moment ago, so make sure here, then tell it the motors are off. Writing
+  // flash will pause this core, and the balance loop can't stop in mid-air.
+  if (otaActive) {
+    if (balance.armed) balanceDisarm(REASON_UPDATE);
+    if (test.running) motorTestStop();
+  }
+  otaMotorsOff = otaActive && !balance.armed && !test.running;
   if (requestCalibrate) {
     if (test.running) motorTestStop();         // never calibrate with the wheels spinning
     if (balance.armed) balanceDisarm(REASON_CALIBRATE);
@@ -205,7 +213,7 @@ void loop1() {
   if (test.running && millis() - test.startMs >= test.durationMs) motorTestStop();   // time's up
 
   // Auto-arm (auto_arm.h): stood upright and held still -> start balancing.
-  if (autoArmUpdate(angle, imuOk)) {
+  if (!otaActive && autoArmUpdate(angle, imuOk)) {   // never during a firmware update
     armTimeMs = 0;                             // no arm timer: it balances until it falls, is lifted or you STOP
     armedFromWeb = false;                      // and needs no web page
     balanceArm(angle.pitch, test.running);
@@ -274,6 +282,7 @@ void printHelp() {
   Serial.println("  smode N   speed loop: 0 moves the setpoint (sp si sdi), 1 wheel speed loop on the PWM (wsp wsi) (now " + String((int)speedMode) + ")");
   Serial.println("  wsp N     smode 1: PWM per turn/s too fast (now " + String(gainWheelSpeedP, 1) + ")");
   Serial.println("  wsi N     smode 1: PWM per wheel turn ahead of the target (now " + String(gainWheelSpeedI, 1) + ")");
+  Serial.println("  irelax N  after a drive, the angle I term decays to 0 with this time constant, s; 0 = off (now " + String(gainIRelax, 2) + ")");
   Serial.println("  auto 1 / auto 0   start balancing by itself when stood upright and still (now " + String((int)autoArm) + ")");
   Serial.println("  trim N    balance point in deg (now " + String(balanceTrim, 2) + ");  trim here = use the current pitch");
   Serial.println("  cap N     PWM limit while armed (now " + String(pwmCap, 0) + ");  deadband N  (now " + String(motorDeadband, 0) + ")");

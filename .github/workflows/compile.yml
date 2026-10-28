@@ -1,5 +1,5 @@
 # Compile firmware/bb1 on every push and pull request to main.
-# Board: Raspberry Pi Pico W. FQBN rp2040:rp2040:rpipicow.
+# Board: Raspberry Pi Pico W. FQBN rp2040:rp2040:rpipicow:flash=2097152_1048576 (1 MB program, 1 MB for OTA updates; ota.h fails the build without it).
 # Core: Earle Philhower arduino-pico 6.3.0 (the version FLASHING.md and CLAUDE.md were tested with).
 # No prompts: a failing compile fails the job.
 
@@ -39,4 +39,4 @@ jobs:
         run: cp firmware/bb1/secrets.example.h firmware/bb1/secrets.h
 
       - name: Compile firmware/bb1
-        run: arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/bb1 firmware/bb1
+        run: arduino-cli compile --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 --output-dir build/bb1 firmware/bb1

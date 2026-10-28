@@ -149,6 +149,7 @@ curl "http://192.168.42.1/log?since=0" | head
 |---|---|
 | `firmware/bb1/wifi_setup.h` | own network / home network, saving settings to flash, fallback |
 | `firmware/bb1/web.h` | the routes above, one small function each |
+| `firmware/bb1/api.h` | the `GET /api` list of every route and its limits (keep it in step with `web.h`) |
 | `firmware/bb1/page.h` | the page: HTML, CSS and JavaScript in one C++ raw string |
 | `firmware/bb1/log_meta.h` | the `# setting` lines at the top of every log file |
 | `tools/mock_bb1.py` | the offline mock |

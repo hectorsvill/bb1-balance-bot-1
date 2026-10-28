@@ -42,6 +42,7 @@ enum Reason : uint8_t {
   REASON_TIMER,          // the arm time you set ran out
   REASON_LIFTED,         // wheels spun fast for a while: picked up, or in the air
   REASON_BATTERY,        // pack under BATTERY_LOW_V while a reading is present (armed cut-out, or arm refused)
+  REASON_UPDATE,         // arm refused: a firmware update over Wi-Fi is running (ota.h)
 };
 
 const char *reasonText(uint8_t r) {
@@ -59,6 +60,7 @@ const char *reasonText(uint8_t r) {
     case REASON_TIMER:          return "arm time finished";
     case REASON_LIFTED:         return "picked up (wheels spinning in the air)";
     case REASON_BATTERY:        return "battery low (under 3.3 V per cell)";
+    case REASON_UPDATE:         return "a firmware update is running";
     default:                    return "";
   }
 }
@@ -100,6 +102,7 @@ void balanceDisarm(uint8_t reason) {
 void balanceArm(float pitch, bool motorTestOn) {
   balance.fallen = false;
   if (motorTestOn)                              { disarmReason = REASON_MOTOR_TEST; return; }
+  if (otaActive)                                { disarmReason = REASON_UPDATE; return; }   // flash writes pause this core (ota.h)
   // Same batteryTooLow() as auto-arm and the tick below: a low pack must not
   // start. No sense wire (under BATTERY_MIN_SENSE_V) is allowed.
   if (batteryTooLow())                          { disarmReason = REASON_BATTERY; return; }
@@ -236,6 +239,14 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   pid.gainP = gainP;  pid.gainI = gainI;  pid.gainD = gainD;
   pid.limit = pwmCap;
   float error = a.pitch - setpoint;             // forward lean past the balance point = positive
+  // I-term relax (irelax, config.h): just after a drive, drain the I term
+  // toward 0 so it can't keep the wheels rolling the old way. Before the
+  // update, so this tick's P, I, D already use the drained value.
+  if (drive.relaxLeft > 0 && gainIRelax > 0) {
+    pid.integral *= 1.0f - min(1.0f, dt / gainIRelax);
+    drive.relaxLeft -= dt;
+    r.flags |= FLAG_I_RELAX;
+  }
   float out = pid.update(error, a.pitchRate, dt);
   // Drive feedforward: while driving, the PWM that speed needs goes straight
   // in, so the I term only fixes what's left (and has little to unwind when

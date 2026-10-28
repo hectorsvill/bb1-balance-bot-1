@@ -1,5 +1,7 @@
 # Build output from arduino-cli (prebuilt .uf2 files live in firmware/uf2/ and ARE tracked)
 build/
+# Written by tools/flash.py before each compile (firmware/bb1/version.h)
+build_id.h
 
 # Photos: iPhone HEIC files can carry GPS location in their metadata
 images/
@@ -32,6 +34,6 @@ credentials*
 venv/
 __pycache__/
 
-# Recorded runs (can get big; copy the ones worth keeping into the vault Logs/ or a dataset folder)
-logs/
+# Recorded runs: logs is a link to the private repo bb1-private/logs (no trailing slash: a link isn't a folder to git)
+logs
 graphify-out/

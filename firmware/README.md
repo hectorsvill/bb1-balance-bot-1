@@ -6,7 +6,13 @@
 | `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
-## bb1, milestone 2: driving (`drive.h`, 2026-10-25; changes of 2026-10-26 not flashed yet)
+## Firmware updates over Wi-Fi (`ota.h`, 2026-10-27, flashed)
+
+`POST /update` takes a new firmware over Wi-Fi; `tools/flash.py --ota` sends it. Lying down and disarmed only (BB1 checks), password `BB1_OTA_PASSWORD` in `secrets.h`. Needs Flash Size "Sketch: 1MB, FS: 1MB" (`flash.py` and CI use it; the first one goes on over USB). How it works and what to do when it fails: `docs/FLASHING.md`, "Flashing over Wi-Fi".
+
+`version.h` says which firmware this is: `FIRMWARE_VERSION` (bump it by hand per firmware change) and `BB1_BUILD_ID` (written by `flash.py` into the gitignored `build_id.h`). Shown in `/sys`, `/api`, the main page and the log files.
+
+## bb1, milestone 2: driving (`drive.h`, 2026-10-25; changes of 2026-10-26 flashed)
 
 BB1 drives by moving the **targets** of the speed loop and heading hold, never by sending PWM straight to the wheels, so the balance loop stays in charge (quad picture: angle mode with position hold, and the sticks move the hold point).
 
@@ -19,6 +25,7 @@ BB1 drives by moving the **targets** of the speed loop and heading hold, never b
 - `driveCommand()` in `drive.h` is the one place that clamps a command and hands it to core 1, for both `POST /drive` and serial `drive`; non-numbers (`nan`) are refused (HTTP 400). An encoder fault also ends the command already running.
 - Drive speed I, setting **`sdi`** (default 4 since the 2026-10-26 evening drive tests; was 2): while driving, degrees of lean added per second per turn/s it is slower than asked, so it can't get stuck short of the asked speed (it did going forward with the speed loop's P alone). Capped by `SPEED_SHIFT_MAX`, fades out after a stop.
 - **Speed loop mode `smode`** (2026-10-26): 0 = the speed loop moves the setpoint (sp, si, sdi). 1 = wheel speed loop: `wsp` x speed error + `wsi` x position error straight to the PWM (±100), the balance-car layout, for use with a lower ki. Why: with smode 0 the angle I term holds the wheel speed and the speed loop can't reach it (BB1 rolled backward with no command).
+- **I-term relax `irelax`** (2026-10-26, default 0.5 s, 0 = off): when a drive command has ramped down to a stop, the angle loop's I term decays toward 0 with that time constant for 2 x irelax (`drive.h` starts it, `control.h` does it, flag 64 in the log). Why: after driving the I term kept -4 to -9 PWM and rolled BB1 slowly backward, out of the box in unattended runs. Like Betaflight's I-term relax. Driving again cancels it. Live on /tune, serial `irelax N`, `/state`, saved in flash (settings layout v8; older saves get the default).
 - How to send it: the **Drive** panel on http://bb1.local, `POST /drive` (docs/API.md), or serial `drive 0.3 0 2000` / `drive stop`.
 - Log format 9: `drive_speed`, `drive_turn` (the operator command), flag 16 = stopping. Log format 10 (2026-10-26): `speed_l`/`speed_r` fixed, they read 3.3x low before (`constrain()` macro called `update()` 3 times a tick). Record is 76 bytes; static RAM 225.6 KB (heap about 36 KB, was 44 KB): check **Heap free** in Pico memory stays over 20 KB.
 
@@ -220,11 +227,11 @@ Missing ticks 0, spacing exactly 5000 us, and the plot shows your tilts.
 Motors stay off (STBY held low). Flash it, keep the robot still on the table for the first 2 s (gyro calibration), then watch the serial readout.
 
 ```bash
-arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/bb1 firmware/bb1
+arduino-cli compile --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 --output-dir build/bb1 firmware/bb1
 ```
 
 ```bash
-arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn rp2040:rp2040:rpipicow firmware/bb1
+arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 firmware/bb1
 ```
 
 Or drag `uf2/bb1.ino.uf2` onto RPI-RP2. Full flashing steps, power order and troubleshooting: [docs/FLASHING.md](../docs/FLASHING.md). To capture 20 s of output into a file:

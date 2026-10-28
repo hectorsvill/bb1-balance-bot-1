@@ -397,6 +397,7 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
         <div class="tile"><div class="name">Log buffer</div><div class="val" id="logBuf">--</div></div>
         <div class="tile"><div class="name">This page</div><div class="val" id="pageSize">--</div></div>
         <div class="tile"><div class="name">CPU clock</div><div class="val" id="cpu">--</div></div>
+        <div class="tile"><div class="name">Firmware</div><div class="val" id="fwVersion">--</div></div>
       </div>
     </div>
   </div>
@@ -959,6 +960,7 @@ async function pollSys() {
     el('logBuf').textContent = kb(m.log_buffer);
     el('pageSize').textContent = kb(m.page);
     el('cpu').textContent = m.cpu_mhz + ' MHz';
+    el('fwVersion').textContent = m.version ? m.version + ' (' + m.build_id + ')' : '--';
   } catch (e) {}
   setTimeout(pollSys, 2000);                           // memory changes slowly
 }

@@ -39,6 +39,7 @@ struct Drive {
   float diff  = 0;      // heading target, right-minus-left wheel turns since arming
   bool  stopping = false; // the command ran out (or was stopped) and it is ramping down
   float lean  = 0;      // deg the speed I (sdi) has built up while driving (control.h)
+  float relaxLeft = 0;  // s left of the I-term relax after a drive (irelax, control.h)
 };
 
 Drive drive;            // only core 1 touches this
@@ -115,6 +116,10 @@ void driveUpdate(float dt, float posNow, float diffNow) {
   // way it faces now. (Per axis, like above.)
   if (wasDriving && drive.speed == 0 && speedMode < 0.5f) drive.pos = posNow;   // smode 1 keeps the target: stops where it was asked to
   if (wasTurning && drive.turn == 0)  drive.diff = diffNow;
+  // Just came to a full stop (both ramps at 0): start the I-term relax (control.h).
+  // Driving again cancels it: the I term is needed to hold the new speed.
+  if ((wasDriving || wasTurning) && !moving) drive.relaxLeft = 2 * gainIRelax;
+  else if (moving)                           drive.relaxLeft = 0;
 
   driveSpeedNow = drive.speed;
   driveTurnNow  = drive.turn;

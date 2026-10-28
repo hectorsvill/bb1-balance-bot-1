@@ -109,6 +109,7 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
     <label class="box"><span class="name tip" data-tip="Speed loop mode. 0 = the speed loop moves the balance setpoint (sp, si, sdi), as before. 1 = wheel speed loop: speed and position errors go straight to the PWM (wsp, wsi), like a balance car. Use 1 with a lower ki: the wheel speed loop takes over holding the wheel speed from the angle I term.">Speed mode (smode)</span><input id="smode" inputmode="numeric"></label>
     <label class="box"><span class="name tip" data-tip="smode 1: PWM per wheel turn/s faster than asked. Pushes the wheels further ahead so the body tips back and the angle loop brakes. Too little = drifts and drives sloppily. Too much = fast fore-aft shaking. Start 20 (today's sp 1.2 x kp 18).">Wheel speed P (wsp)</span><input id="wsp" inputmode="decimal"></label>
     <label class="box"><span class="name tip" data-tip="smode 1: PWM per wheel turn BB1 is ahead of where it should be (standing: where it stopped; driving: a target moving at the asked speed). The I of the wheel speed loop: holds position and reaches the asked speed. Too little = drifts. Too much = slow rocking back and forth. Start 10.">Wheel speed I (wsi)</span><input id="wsi" inputmode="decimal"></label>
+    <label class="box"><span class="name tip" data-tip="I-term relax: when a drive command has ramped down to a stop, the angle I term fades to 0 with this time constant (seconds), like Betaflight I-term relax. Stops the I term from carrying the drive on: without it BB1 rolled slowly backward after stopping. 0 = off.">I relax (irelax)</span><input id="irelax" inputmode="decimal"></label>
     <label class="box"><span class="name tip" data-tip="Auto-arm: 1 = BB1 starts balancing by itself after power-up (or after a fall) once you stand it upright and hold it still for 1 s. STOP turns it off until the next ARM or power-up. 0 = only ARM starts it. Careful: held upright in the air, the wheels will spin.">Auto-arm (1/0)</span><input id="auto" inputmode="numeric"></label>
   </div>
   <div class="muted" id="tipText" style="margin-top:8px; min-height:1.4em">Hover over (or tap) P, I or D to see what it does.</div>
@@ -220,7 +221,7 @@ function showBattery(s) {
 }
 
 const el = id => document.getElementById(id);
-const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si', 'th', 'auto', 'dff', 'sdi', 'smode', 'wsp', 'wsi'];
+const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si', 'th', 'auto', 'dff', 'sdi', 'smode', 'wsp', 'wsi', 'irelax'];
 let gains = null, filledVer = -1;   // the gains BB1 last reported, and the version shown in the boxes
 
 // Put BB1's current gains in the boxes. Only when asked or when BB1's version

@@ -49,7 +49,7 @@ START = time.time()
 alpha = 0.98
 bias = [-0.50, 2.07, -2.20]      # deg/s, like a real calibration
 tests = []                        # motor tests: [first_tick, end_tick, left_pwm, right_pwm]
-gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": -4.39, "cap": 80.0, "deadband": 0.0, "sp": 0.0, "si": 0.0, "th": 0.0, "auto": 1, "dff": 25.0, "sdi": 2.0, "smode": 0, "wsp": 20.0, "wsi": 10.0}
+gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": -4.39, "cap": 80.0, "deadband": 0.0, "sp": 0.0, "si": 0.0, "th": 0.0, "auto": 1, "dff": 25.0, "sdi": 2.0, "smode": 0, "wsp": 20.0, "wsi": 10.0, "irelax": 0.5}
 armed_from = None                 # tick it was armed at, or None
 reason = ""                       # why it last disarmed / refused, like disarmReason in control.h
 arm_attempts = 0
@@ -146,6 +146,7 @@ def csv_line(r):
 
 def meta_lines():
     return ("# firmware,bb1 MOCK (tools/mock_bb1.py)\n"
+            "# firmware_version,MOCK,build_id,MOCK\n"
             "# log_format,11\n"
             f"# gyro_bias_dps,{bias[0]:.3f},{bias[1]:.3f},{bias[2]:.3f}\n"
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
@@ -154,6 +155,51 @@ def meta_lines():
             "# battery_divider,12.07,battery_pin,GP26,battery_cells,2\n"
             "# gains_ver,{ver},kp,{kp:.3f},ki,{ki:.3f},kd,{kd:.3f},trim,{trim:.2f},pwm_cap,{cap:.0f},deadband,{deadband:.0f}\n"
             .format(**gains))
+
+
+# GET /api: the same list as firmware/bb1/api.h (keep the two in step).
+GAIN_LIMITS = {"kp": (0, 100), "ki": (0, 100), "kd": (0, 20), "trim": (-20, 20), "cap": (0, 255), "deadband": (0, 100), "sp": (0, 20), "si": (0, 20), "th": (0, 200), "auto": (0, 1), "dff": (0, 150), "sdi": (0, 20), "smode": (0, 1), "wsp": (0, 200), "wsi": (0, 200), "irelax": (0, 5)}
+API_ENDPOINTS = [   # method, path, args, answer, moves, does
+    ("GET", "/api", "", "json", False, "this list"),
+    ("GET", "/state", "", "json", False, "everything now; also the heartbeat for heartbeat arms"),
+    ("GET", "/log", "since", "csv", False, "every 5 ms record from tick since on (max log_max_per_request)"),
+    ("GET", "/log/meta", "", "text", False, "the # setting lines for the top of a log file"),
+    ("GET", "/sys", "", "json", False, "RAM and flash use"),
+    ("GET", "/wifi", "", "json", False, "network mode and saved home network name"),
+    ("POST", "/arm", "seconds,heartbeat", "text", True, "start balancing; refused unless within arm_angle of trim; result in /state armed, reason"),
+    ("POST", "/disarm", "why", "text", False, "stop balancing; auto-arm off until the next arm"),
+    ("POST", "/drive", "speed,turn,ms", "json", True, "drive while balancing; runs out after ms, then ramps to a stop"),
+    ("POST", "/drive/stop", "", "json", False, "ramp to a stop now, keep balancing"),
+    ("POST", "/motor/stop", "", "text", False, "STOP: end a motor test and disarm"),
+    ("POST", "/step", "", "text", True, "step test while armed: setpoint +2 deg for 1 s"),
+    ("POST", "/gains", ",".join(GAIN_LIMITS), "text", False, "change settings (see gains for limits)"),
+    ("POST", "/gains/save", "", "text", False, "store settings in flash (disarmed only)"),
+    ("POST", "/gains/defaults", "", "text", False, "back to the config.h defaults"),
+    ("POST", "/alpha", "value", "text", False, "angle filter weight"),
+    ("POST", "/cal", "", "text", False, "recalibrate the gyro (2 s, keep still; disarms)"),
+    ("POST", "/motor", "left,right,ms", "text", True, "timed motor test, disarmed only, wheels in the air"),
+    ("POST", "/wifi", "ssid,password", "text", False, "save a home network and restart"),
+    ("POST", "/wifi/forget", "", "text", False, "forget the home network and restart"),
+    ("POST", "/update", "firmware", "json", False,
+     "new firmware over Wi-Fi (multipart file, Basic auth bb1); lying down and disarmed only; restarts"),
+    ("GET", "/", "", "html", False, "the main page"),
+    ("GET", "/tune", "", "html", False, "the PID tuning page"),
+]
+
+
+def api_list():
+    return {
+        "api": 3, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 11,
+        "units": {"angle": "deg (forward +)", "speed": "wheel turns/s (forward +)",
+                  "turn": "wheel turns/s left minus right (right +)", "pwm": "-255..255 (forward +)", "counts_per_rev": 520},
+        "limits": {"drive_max_speed": DRIVE_MAX_SPEED, "drive_max_turn": DRIVE_MAX_TURN, "drive_hold_ms": DRIVE_HOLD_MS,
+                   "drive_hold_max_ms": DRIVE_HOLD_MAX_MS, "arm_seconds_max": 600, "arm_angle": 10.0, "fall_angle": 45.0,
+                   "heartbeat_ms": 2000, "motor_test_max_pwm": MOTOR_TEST_MAX_PWM, "motor_test_max_ms": MOTOR_TEST_MAX_MS,
+                   "alpha": [0.9, 0.999], "log_max_per_request": LOG_MAX_PER_REQUEST},
+        "gains": {k: list(v) for k, v in GAIN_LIMITS.items()},
+        "endpoints": [{"method": m, "path": p, "args": a.split(",") if a else [], "answer": ans, "moves": mv, "does": d}
+                      for m, p, a, ans, mv, d in API_ENDPOINTS],
+    }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -173,6 +219,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(read_page(), "text/html")
         elif url.path == "/tune":
             self.reply(read_page(TUNE_H, "TUNE_HTML"), "text/html")
+        elif url.path == "/api":
+            self.reply(json.dumps(api_list()), "application/json")
         elif url.path == "/state":
             global armed_from, reason
             if armed_from is not None and arm_until and total_written() >= arm_until:   # the arm timer ran out
@@ -208,7 +256,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(self.log(int(args.get("since", 0))), "text/csv")
         elif url.path == "/sys":
             self.reply('{"ram_total":262144,"ram_static":181200,"heap_total":80944,"heap_used":%d,'
-                       '"log_buffer":112000,"flash_total":2097152,"flash_used":433000,"page":%d,"cpu_mhz":133}'
+                       '"log_buffer":112000,"flash_total":2097152,"flash_used":433000,"page":%d,"cpu_mhz":133,'
+                       '"fs_total":1048576,"build":"MOCK","version":"MOCK","build_id":"MOCK"}'
                        % (21000 + random.randint(0, 3000), len(read_page()) + 1), "application/json")
         elif url.path == "/wifi":
             self.reply('{"mode":"own","saved_ssid":"","note":"mock"}', "application/json")
@@ -232,6 +281,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         global alpha, armed_from, reason, arm_attempts, arm_until
         length = int(self.headers.get("Content-Length") or 0)
+        if self.path == "/update":             # firmware upload (ota.h): binary, so before the form parsing
+            self.rfile.read(length)
+            if armed_from is not None:
+                return self.reply('{"ok":false,"error":"balancing: disarm and lay it down first"}', "application/json", 409)
+            return self.reply('{"ok":false,"error":"mock: there is no firmware here to replace"}', "application/json", 409)
         form = {k: v[0] for k, v in parse_qs(self.rfile.read(length).decode()).items()}
         if self.path == "/cal":
             self.reply("calibrating, keep the robot still for 2 s (mock)")
@@ -270,15 +324,14 @@ class Handler(BaseHTTPRequestHandler):
                 reason = "the page was hidden (tab switched or screen locked)" if hidden else "disarmed by you"
             self.reply("disarmed")
         elif self.path == "/gains":
-            limits = {"kp": (0, 100), "ki": (0, 100), "kd": (0, 20), "cap": (0, 255), "deadband": (0, 100), "trim": (-20, 20), "sp": (0, 20), "si": (0, 20), "th": (0, 200), "auto": (0, 1), "dff": (0, 150), "sdi": (0, 20), "smode": (0, 1), "wsp": (0, 200), "wsi": (0, 200)}
-            for k, (lo, hi) in limits.items():
+            for k, (lo, hi) in GAIN_LIMITS.items():
                 v = form.get(k)
                 if k == "trim" and v == "here":
                     gains["trim"] = round(record(total_written() - 1)["pitch"], 2)
                 elif v:
                     gains[k] = max(lo, min(hi, float(v)))
             gains["ver"] += 1
-            self.reply("gains v{ver}: kp {kp}  ki {ki}  kd {kd}  trim {trim} deg  cap {cap}  deadband {deadband}  sp {sp}  si {si}  th {th}  auto {auto}  dff {dff:g}  sdi {sdi:g}  smode {smode:g}  wsp {wsp:g}  wsi {wsi:g}".format(**gains))
+            self.reply("gains v{ver}: kp {kp}  ki {ki}  kd {kd}  trim {trim} deg  cap {cap}  deadband {deadband}  sp {sp}  si {si}  th {th}  auto {auto}  dff {dff:g}  sdi {sdi:g}  smode {smode:g}  wsp {wsp:g}  wsi {wsi:g}  irelax {irelax:g}".format(**gains))
         elif self.path == "/gains/save":
             if armed_from is not None:
                 return self.reply("disarm first: saving pauses the control loop for a moment", status=409)

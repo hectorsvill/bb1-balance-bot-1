@@ -100,7 +100,7 @@ const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about
 // Heading hold (2026-10-24): keeps both wheels rolling the same distance, so BB1
 // goes straight (the right wheel is about 7% faster at the same PWM). Unit: PWM
 // moved from one wheel to the other per wheel turn of difference. 0 = off.
-const float DEFAULT_TURN_HOLD = 20;
+const float DEFAULT_TURN_HOLD = 60;   // 20 turned 0.1-0.4 of turn 0.5 asked; 60 turns 0.46-0.56 both ways, standing unchanged (turn tests, 2026-10-26)
 const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
 // Driving (milestone 2, drive.h): the page or the API asks for a wheel speed
 // and a turn rate; drive.h moves the speed loop's and the heading hold's
@@ -148,6 +148,18 @@ const float DEFAULT_WHEEL_SPEED_I  = 10;    // PWM per wheel turn ahead of the t
 const float WHEEL_SPEED_GAIN_MAX   = 200;
 const float WHEEL_SPEED_PWM_MAX    = 100;   // the wheel speed loop never adds more than this (fits the log's int8)
 const float DRIVE_POS_MAX_LAG      = 0.3;   // smode 1: the target position runs at the asked speed, at most this many wheel turns from the wheels
+
+// I-term relax after a drive (setting "irelax", 2026-10-26). When a drive
+// command has ramped down to a stop, the angle loop's I term decays toward 0
+// with this time constant, for 2 x irelax (to about 14%). Why: on wood the
+// I term is the real wheel-speed command. After driving it kept -4 to -9 PWM,
+// so BB1 rolled backward 0.1-0.4 turns/s with no command, leaning forward,
+// and the speed loop couldn't reach it (it only moves the setpoint, which
+// the angle loop tracks with error about 0). It rolled out of the box in
+// unattended runs. Quad picture: Betaflight's I-term relax, which stops I
+// from carrying a move on after you centre the stick. 0 = off.
+const float DEFAULT_I_RELAX_S = 0.5;
+const float I_RELAX_MAX_S     = 5.0;
 const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, added straight to the steering (feedforward, like Betaflight's).
                                       // Tried 45 on 2026-10-26 from a misread log (logged wheel speed is 3.3x low): real turn rate went
                                       // 0.5 asked -> 0.80. At 15 it turned 0.42-0.51 (encoder counts)

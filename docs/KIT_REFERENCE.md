@@ -1,6 +1,6 @@
 # Motor kit reference (what came with the chassis and D153C)
 
-The vendor folder is on Hector's Mac at `~/Desktop/B570 balance trolley` (not in this repo: 319 MB, mostly videos and 3D models). Read 2026-10-24. This page keeps what matters for BB1.
+The vendor folder is on our Mac at `~/Desktop/B570 balance trolley` (not in this repo: 319 MB, mostly videos and 3D models). Read 2026-10-24. This page keeps what matters for BB1.
 
 ## What's in the folder
 

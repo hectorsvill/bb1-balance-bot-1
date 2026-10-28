@@ -10,11 +10,11 @@ of --box metres around where it started: it tracks x, y and heading from the
 encoders (odometry) and, near the edge, turns toward the middle and drives
 back. Every command is a "# step" line in the log, like drive_test.py.
 
-Safety (same commands as drive_test.py: 1 s each, re-sent every 100 ms):
+Safety (same commands as drive_test.py: 3 s each, re-sent every 100 ms, stopped after every move):
   - stops for good on a fall, an encoder fault, battery under --min-cell volts
     per cell, or BB1 past the box edge (odometry drifts: the box is shrunk to
     80% to leave room)
-  - a Wi-Fi stall only pauses driving (BB1 stops by itself within 1 s); after
+  - a Wi-Fi stall only pauses driving (BB1 stops by itself within 3 s); after
     30 s with no answer it gives up
   - Ctrl-C stops driving and saves
 
@@ -35,8 +35,8 @@ import drive_test
 from drive_test import COUNTS_PER_REV, Run, Stop
 from logger import get, log_path, save_log
 
-WHEEL_TURN_M = 0.204   # metres per wheel turn: 65 mm wheel (assumed, not measured)
-TRACK_M = 0.17         # metres between the wheels (assumed, not measured)
+WHEEL_TURN_M = 0.178   # metres per wheel turn: rolled one turn on the wood floor, 177.8 mm (we measured it 2026-10-26; = 56.6 mm wheel)
+TRACK_M = 0.127        # metres between the tyre centres (measured 2026-10-26)
 SAFE_BOX = 0.8         # use 80% of the box: odometry drifts
 
 
@@ -93,7 +93,13 @@ class Explorer:
         self.meta = get(f"{base}/log/meta")
 
     def state(self):
-        s = json.loads(get(f"{self.base}/state", timeout=1))
+        """/state, or None during a short Wi-Fi stall (ridden out like every other request:
+        one slow answer while the Pico sends a slow /log ended a run after 18 s, 2026-10-26).
+        Odometry loses nothing: it works from encoder counts, so the next answer catches up."""
+        text = self.run.ask(get, f"{self.base}/state", timeout=1)
+        if text is None:
+            return None
+        s = json.loads(text)
         self.odo.update(s["enc_l"], s["enc_r"])
         return s
 
@@ -126,7 +132,9 @@ class Explorer:
             r.record()
             if time.time() - getattr(self, "last_state", 0) > 0.25:   # 4 a second: keep the Pico's load like the page's
                 self.last_state = time.time()
-                self.watch(self.state())
+                s = self.state()
+                if s:
+                    self.watch(s)
             # Heading out of the box: cut the move short so the next one brings it back
             if moving and self.outside(0.9) and speed and math.cos(self.odo.home_angle()) * speed < 0:
                 break
@@ -151,8 +159,8 @@ class Explorer:
         a = self.odo.home_angle()
         if abs(a) > math.radians(25):
             # turn + = right = heading goes down; at about 0.4 turns/s difference that's
-            # roughly 0.4 * 0.204 / 0.17 = 0.5 rad/s, so spin about |a| / 0.5 seconds
-            self.drive_for("home turn", 0.0, -0.4 if a > 0 else 0.4, min(3.0, abs(a) / 0.5))
+            # 0.4 * 0.178 / 0.127 = 0.56 rad/s, so spin about |a| / 0.56 seconds
+            self.drive_for("home turn", 0.0, -0.4 if a > 0 else 0.4, min(3.0, abs(a) / 0.56))
         dist = math.hypot(self.odo.x, self.odo.y)
         self.drive_for("home fwd", 0.25, 0.0, min(4.0, dist / (0.25 * WHEEL_TURN_M)))
 
