@@ -1,7 +1,7 @@
 # Compile firmware/bb1 on every push and pull request to main.
 # Board: Raspberry Pi Pico W. FQBN rp2040:rp2040:rpipicow:flash=2097152_1048576 (1 MB program, 1 MB for OTA updates; ota.h fails the build without it).
 # Core: Earle Philhower arduino-pico 6.3.0 (the version FLASHING.md and CLAUDE.md were tested with).
-# No prompts: a failing compile fails the job.
+# No prompts: a failing compile fails the job. First, a quick check that docs/AGENT.md matches API_VERSION.
 
 name: Compile bb1
 
@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
+
+      - name: docs/AGENT.md matches the firmware's /api version
+        run: python3 tools/check_agent_doc.py
 
       - name: Install arduino-cli 1.5.1
         run: |

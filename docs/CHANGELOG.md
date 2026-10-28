@@ -32,6 +32,15 @@ Newest first.
 - **New `tools/runs_db.py`:** `build` reads `logs/bb1_*.csv` into `logs/runs.sqlite`: table `runs` (one row per log: label, surface, firmware and version, log format, the starting gains as columns, duration, time armed and driving, disarm count, pitch error RMS, battery start and end, outcome) and table `disarms` (one row per disarm: time, reason code and text). Incremental: unchanged files (same size and time) are skipped; `--rebuild` starts over. `query "SQL"`, `tables`, and named queries `recent`, `longest`, `falls`, `by-gains`. Parsing reuses `dataset.py` and `check_dump.py`; mock logs skipped. Only the standard library's sqlite3 plus pandas
 - The CSVs stay the source of truth; the catalog is never committed (bb1-private's `.gitignore` now has `*.sqlite`)
 - Docs: `docs/TOOLS.md` (with real example output), `docs/CALIBRATION_AND_LOGS.md` ("Finding runs"), `CLAUDE.md`
+
+## 2026-10-28 - `docs/AGENT.md`: the manual an AI agent drives BB1 from
+
+- **Why:** an agent needs one place that says how to drive BB1 safely: the API reference is written for people and doesn't say what to do when something goes wrong
+- **New `docs/AGENT.md`:** settings the owner edits at the top (address, max speed and turn, longest command, max travel, may it arm, person present, allowed commands), what BB1 is, units in metres and degrees, the `tools/bb1.py` commands, what every `state` field and disarm reason means and what to do, a step-by-step way to drive, safety rules, and what it must never touch (gains, motor tests, firmware updates, Wi-Fi)
+- **Kept current:** AGENT.md names the `/api` version it was written for (3). `bb1.py api` (new) prints `/api`, and an agent runs it first and stops on a mismatch. New `tools/check_agent_doc.py` runs in CI and fails when `API_VERSION` in `api.h` and AGENT.md's version line differ. `CLAUDE.md` lists what else needs an AGENT.md update
+- Docs: `docs/TOOLS.md`, `docs/API.md`, `CLAUDE.md` (milestones 3 and 4 named; checklists in the vault Roadmap)
+- **`bb1.py` records every command** (asked by Hector: "with sqlite we should always track all data"): one row per call in `logs/agent_commands.csv` (time, host, cmd, args as JSON, exit code, the JSON answer), header written on a new file; calls to the mock (localhost, 127.*) aren't recorded; a failed write never breaks the command. `tools/runs_db.py` imports it (branch `logs-db`)
+- **`bb1.py drive` fixes** from a live test on carpet: speed and turn both 0 is refused (it used to run an empty drive), and the answer's `cut` lists anything the tool cut (`--for 11` -> 10, speeds past `--max`). AGENT.md and TOOLS.md have the carpet results (much weaker than wood). `docs/API.md` no longer lists the wheel and track measurements as to do
 ## 2026-10-28 - 1N5819 diode fitted, power rule gone
 
 - 1N5819 Schottky diode soldered into the D153C 5V to VSYS wire, stripe toward the Pico. USB no longer back-feeds the D153C's 5V regulator, so USB and the battery go on and off in any order
