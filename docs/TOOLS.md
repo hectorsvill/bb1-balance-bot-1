@@ -72,7 +72,7 @@ tools/venv/bin/python -m pip install -r tools/requirements.txt
 Full detail, power order and troubleshooting: [FLASHING.md](FLASHING.md).
 
 ```bash
-arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/bb1 firmware/bb1
+arduino-cli compile --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 --output-dir build/bb1 firmware/bb1
 ```
 
 ```bash
@@ -80,7 +80,7 @@ ls /dev/cu.usbmodem*
 ```
 
 ```bash
-arduino-cli upload -p /dev/cu.usbmodem21401 --fqbn rp2040:rp2040:rpipicow firmware/bb1
+arduino-cli upload -p /dev/cu.usbmodem21401 --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 firmware/bb1
 ```
 
 `--fqbn` is the board name ("fully qualified board name"). Only one program can use the serial port at a time: close the Serial Monitor before uploading.

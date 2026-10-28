@@ -66,7 +66,7 @@ BB1 can take a new firmware over Wi-Fi (`firmware/bb1/ota.h`). The new file land
    - `== BB1 after the restart`: the same build id, `auto-arm: waiting...` and the `gains v...` line
    - `Done: flashed over Wi-Fi.` and `Recorded in logs/flash_history.csv: ...`
 
-**Safety:** BB1 checks it too: it refuses an update while armed, during a motor test, or unless lying down, and blocks arming until the update is done (flash writes pause the control core). Wrong password = refused.
+**Safety:** BB1 checks it too: it refuses an update while armed, during a motor test, or unless lying down, and blocks arming until the update is done (flash writes pause the control core). Wrong password = refused. The password travels in plain HTTP (Basic auth, not encrypted), so anyone watching the same network could read it: keep it different from your other passwords, and only update on a network you trust (home or BB1's own).
 
 **Which firmware is on BB1:** `curl -s $B/sys` shows `version` (hand-bumped in `firmware/bb1/version.h`, one step per firmware change) and `build_id` (branch, commit, `+` if the firmware folder had uncommitted changes, compile time; written by `flash.py`). The main page shows both in the Pico memory panel, and every log file has them. `logs/flash_history.csv` (bb1-private) has one line per flash, USB or Wi-Fi. Bump `FIRMWARE_VERSION` when a firmware change is ready to go on BB1, and name the version in its CHANGELOG entry.
 
@@ -102,7 +102,7 @@ ls /dev/cu.usbmodem*
 Upload (replace the port with what `ls` printed):
 
 ```bash
-arduino-cli upload -p /dev/cu.usbmodem21401 --fqbn rp2040:rp2040:rpipicow firmware/bb1
+arduino-cli upload -p /dev/cu.usbmodem21401 --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 firmware/bb1
 ```
 
 What happens: arduino-cli asks the running sketch to reboot into the bootloader, copies the UF2, and the Pico restarts with the new code. The port name can change after a reboot; run `ls` again if the next command can't find it.
