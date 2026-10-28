@@ -198,7 +198,10 @@ Then check it with `check_dump.py`, which it prints for you at the end.
 
 **`drive` moves BB1.** One command per call, one line of JSON back. Set the address once per terminal with `export BB1_HOST=192.168.1.240` (or pass `--host`).
 
+An AI agent gets **`docs/AGENT.md`** as its instructions for this tool (settings, safety rules, what every answer means).
+
 ```bash
+tools/venv/bin/python tools/bb1.py api                         # firmware version, limits, every endpoint (an agent runs it first)
 tools/venv/bin/python tools/bb1.py state                       # short summary (--full: all of /state)
 tools/venv/bin/python tools/bb1.py arm                         # start balancing (stand it up first)
 tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2   # forward 0.3 wheel turns/s for 2 s, then stop
@@ -210,6 +213,14 @@ tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1
 Units are the firmware's: wheel turns/s (one turn is 0.178 m, measured), turn = left-minus-right turns/s, right +. Every answer has `"ok"`; on false, `"error"` says why. Exit code 0 done, 1 refused or stopped by a safety check, 2 BB1 didn't answer. `drive` answers what was asked (after the caps), then waits up to 2 s for the wheels to stop and gives `moved_turns` (forward +), `turned_turns` (left-minus-right wheel turns, right +), `settled` (stopped before answering) and the summary state. First runs on BB1 (2026-10-26, wood): 2 s at 0.3 moved +0.27 forward but −0.51 back; 1 s turns at 0.4 turned 0.28 right, 0.10 left at th 20 and 0.32-0.48 both ways at th 60 (about 0.4 asked). An agent should read these and correct, not assume. One turn of `turned_turns` = 0.178 / 0.127 rad = about 80 deg of heading.
 
 Safety: `drive` refuses unless armed with no encoder fault; speed and turn are capped at `--max` (default 0.5); `--for` is at most 10 s. Each `/drive` lasts 1 s and is re-sent every 100 ms, so BB1 stops by itself within 1 s if the tool dies (it never fetches `/log`, so the Pico's slow `/log` answers can't starve it). It checks `/state` twice a second and stops on a disarm, an encoder fault, or more than 3 wheel turns from the start. Ctrl-C sends `/drive/stop`. `arm` uses `heartbeat=0` (keeps balancing with nobody polling) and also turns auto-arm back on, even when it is refused, so a fallen BB1 re-arms by itself once stood up. Test it on the mock: `--host localhost:8080`.
+
+### check_agent_doc.py: is AGENT.md current?
+
+```bash
+python3 tools/check_agent_doc.py
+```
+
+Checks that the "Written for `/api` version" line in `docs/AGENT.md` matches `API_VERSION` in `firmware/bb1/api.h`. CI runs it on every pull request, so bumping `API_VERSION` without updating the agent manual fails the build. No venv needed (standard library only).
 
 ### drive_test.py: drive tests over Wi-Fi, recorded and reported
 

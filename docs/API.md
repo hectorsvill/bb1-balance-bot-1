@@ -163,7 +163,7 @@ The list of every endpoint and its limits, as JSON, so a program or an AI agent 
  "endpoints":[{"method":"POST","path":"/drive","args":["speed","turn","ms"],"answer":"json","moves":true,"does":"..."}, ...]}
 ```
 
-Adding an endpoint: route it in `web.h`, add a row to `API_ENDPOINTS` in `api.h` (and bump `API_VERSION`), the same row in `tools/mock_bb1.py`, and a row here.
+Adding an endpoint: route it in `web.h`, add a row to `API_ENDPOINTS` in `api.h` (and bump `API_VERSION`), the same row in `tools/mock_bb1.py`, a row here, and an update to `docs/AGENT.md` with its version line set to the new `API_VERSION` (CI checks they match).
 
 ### `GET /sys`
 
@@ -200,7 +200,9 @@ RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_bu
 | `GET /api` | every endpoint and its limits, JSON (see above) |
 | `POST /update` | new firmware over Wi-Fi (`ota.h`): multipart form field `firmware` = `build/bb1/bb1.ino.bin` (or gzipped), Basic auth user `bb1`, password `BB1_OTA_PASSWORD` from `secrets.h`. Refused (`409`, JSON `error`) while armed, during a motor test, or unless lying down (more than 45 deg from the trim); `401` for a wrong password. On success answers `{"ok":true,"bytes":N,...}` and restarts; the bootloader copies the new firmware in (about 10-20 s until Wi-Fi is back). While it runs, every arm is refused with reason "a firmware update is running" (code 14). A broken-off upload changes nothing |
 
-## Ready for an AI agent? (next milestone)
+## Ready for an AI agent? (milestone 3)
+
+**`docs/AGENT.md`** is the manual an agent gets: settings its owner edits, units, the `tools/bb1.py` commands, what every answer and reason means, and the safety rules. It names the `/api` version it was written for; CI (`tools/check_agent_doc.py`) fails when `API_VERSION` changes and it doesn't.
 
 The API is already usable by a script or an agent with plain HTTP: `/state` to see, `/drive` with `ms` to act, and the drive failsafe means a stuck agent can't leave BB1 driving. What the AI-agent milestone would still add (not built yet):
 

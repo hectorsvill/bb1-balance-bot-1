@@ -3,6 +3,7 @@
 Made for scripts and AI agents (milestone 3), and handy by hand too.
 
 Usage (BB1 on Wi-Fi; set BB1_HOST once to skip --host):
+    tools/venv/bin/python tools/bb1.py api                         # firmware version, limits, every endpoint
     tools/venv/bin/python tools/bb1.py state                       # short summary
     tools/venv/bin/python tools/bb1.py state --full                # everything /state says
     tools/venv/bin/python tools/bb1.py arm                         # start balancing (stand it up first)
@@ -10,6 +11,8 @@ Usage (BB1 on Wi-Fi; set BB1_HOST once to skip --host):
     tools/venv/bin/python tools/bb1.py drive --turn -0.4 --for 1   # turn left on the spot for 1 s
     tools/venv/bin/python tools/bb1.py stop                        # stop driving, keep balancing
     tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1 falls over!
+
+An agent's instructions for using this tool are in docs/AGENT.md.
 
 Units are the firmware's (docs/API.md): speed in wheel turns/s (forward +),
 turn in turns/s of left-minus-right wheel difference (right +). One wheel
@@ -105,6 +108,19 @@ def summary(s):
         "batt_v_per_cell": round(s["batt_v"] / cells, 2) if s.get("batt_ok") else None,
         "ip": s.get("ip"),
     }
+
+
+def cmd_api(base, args):
+    # GET /api (api.h): an agent checks "api" against the version docs/AGENT.md was written for.
+    try:
+        api = json.loads(get(f"{base}/api", timeout=5))
+    except urllib.error.HTTPError:          # firmware older than GET /api (before 3.1)
+        out(ok=False, error="this firmware has no /api: docs/AGENT.md doesn't match it")
+        return 1
+    except (OSError, ValueError) as e:
+        raise NoAnswer(f"/api: {e}")
+    out(ok=True, **api)
+    return 0
 
 
 def cmd_state(base, args):
@@ -208,6 +224,7 @@ def main():
     ap.add_argument("--host", default=os.environ.get("BB1_HOST", "bb1.local"),
                     help="robot address, optionally with :port (default $BB1_HOST or bb1.local)")
     sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("api", help="firmware version, limits and every endpoint (run first)")
     p = sub.add_parser("state", help="what BB1 is doing now")
     p.add_argument("--full", action="store_true", help="every /state field, not the summary")
     p = sub.add_parser("arm", help="start balancing (it must be standing near upright)")
@@ -221,7 +238,7 @@ def main():
     p.add_argument("--max", type=float, default=0.5, help="cap on speed and turn (default 0.5)")
     args = ap.parse_args()
 
-    commands = {"state": cmd_state, "arm": cmd_arm, "disarm": cmd_disarm, "stop": cmd_stop, "drive": cmd_drive}
+    commands = {"api": cmd_api, "state": cmd_state, "arm": cmd_arm, "disarm": cmd_disarm, "stop": cmd_stop, "drive": cmd_drive}
     try:
         sys.exit(commands[args.cmd](resolve(args.host), args))
     except NoAnswer as e:

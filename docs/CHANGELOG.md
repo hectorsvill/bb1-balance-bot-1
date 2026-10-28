@@ -9,6 +9,13 @@ Newest first.
 - Battery cradle (record the pack's size and capacity)
 
 
+
+## 2026-10-28 - `docs/AGENT.md`: the manual an AI agent drives BB1 from
+
+- **Why:** an agent needs one place that says how to drive BB1 safely: the API reference is written for people and doesn't say what to do when something goes wrong
+- **New `docs/AGENT.md`:** settings the owner edits at the top (address, max speed and turn, longest command, max travel, may it arm, person present, allowed commands), what BB1 is, units in metres and degrees, the `tools/bb1.py` commands, what every `state` field and disarm reason means and what to do, a step-by-step way to drive, safety rules, and what it must never touch (gains, motor tests, firmware updates, Wi-Fi)
+- **Kept current:** AGENT.md names the `/api` version it was written for (3). `bb1.py api` (new) prints `/api`, and an agent runs it first and stops on a mismatch. New `tools/check_agent_doc.py` runs in CI and fails when `API_VERSION` in `api.h` and AGENT.md's version line differ. `CLAUDE.md` lists what else needs an AGENT.md update
+- Docs: `docs/TOOLS.md`, `docs/API.md`, `CLAUDE.md` (milestones 3 and 4 named; checklists in the vault Roadmap)
 ## 2026-10-28 - 1N5819 diode fitted, power rule gone
 
 - 1N5819 Schottky diode soldered into the D153C 5V to VSYS wire, stripe toward the Pico. USB no longer back-feeds the D153C's 5V regulator, so USB and the battery go on and off in any order

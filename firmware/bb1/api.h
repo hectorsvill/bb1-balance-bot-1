@@ -5,7 +5,8 @@
 // from config.h, so they can't go stale when a limit changes.
 //
 // Adding an endpoint: route it in webBegin() (web.h), add a row here, a fake
-// answer in tools/mock_bb1.py, and a row in docs/API.md.
+// answer in tools/mock_bb1.py, a row in docs/API.md, and check docs/AGENT.md
+// (bump API_VERSION and AGENT.md's version line together; CI compares them).
 
 #pragma once
 #include "config.h"
