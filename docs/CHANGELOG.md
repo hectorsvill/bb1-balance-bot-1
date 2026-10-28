@@ -9,6 +9,13 @@ Newest first.
 - Battery cradle (record the pack's size and capacity)
 
 
+
+## 2026-10-28 - `tools/runs_db.py`: a SQLite catalog of every run
+
+- **Why:** 157 logs (187 min, 347 MB in bb1-private) are too many to open one by one. Now "every wood run at ki 100 longer than 5 min, and how did it end" is one query
+- **New `tools/runs_db.py`:** `build` reads `logs/bb1_*.csv` into `logs/runs.sqlite`: table `runs` (one row per log: label, surface, firmware and version, log format, the starting gains as columns, duration, time armed and driving, disarm count, pitch error RMS, battery start and end, outcome) and table `disarms` (one row per disarm: time, reason code and text). Incremental: unchanged files (same size and time) are skipped; `--rebuild` starts over. `query "SQL"`, `tables`, and named queries `recent`, `longest`, `falls`, `by-gains`. Parsing reuses `dataset.py` and `check_dump.py`; mock logs skipped. Only the standard library's sqlite3 plus pandas
+- The CSVs stay the source of truth; the catalog is never committed (bb1-private's `.gitignore` now has `*.sqlite`)
+- Docs: `docs/TOOLS.md` (with real example output), `docs/CALIBRATION_AND_LOGS.md` ("Finding runs"), `CLAUDE.md`
 ## 2026-10-28 - 1N5819 diode fitted, power rule gone
 
 - 1N5819 Schottky diode soldered into the D153C 5V to VSYS wire, stripe toward the Pico. USB no longer back-feeds the D153C's 5V regulator, so USB and the battery go on and off in any order
