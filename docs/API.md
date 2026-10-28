@@ -207,7 +207,7 @@ RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_bu
 The API is already usable by a script or an agent with plain HTTP: `/state` to see, `/drive` with `ms` to act, and the drive failsafe means a stuck agent can't leave BB1 driving. What the AI-agent milestone would still add (not built yet):
 
 1. **A small client and CLI** (`tools/bb1.py`, **built 2026-10-26**, see `docs/TOOLS.md`): `state`, `arm`, `drive --speed 0.3 --for 2`, `stop`, `disarm`, one JSON line out, exit codes for scripts. An agent can call a CLI or the HTTP API; an MCP server wrapping the same calls is the next step after that.
-2. **Real-world units:** measure the wheel diameter and track width so `speed` can be m/s and `turn` deg/s of heading, plus odometry in `/state` (distance and heading since arming).
+2. **Real-world units:** measured 2026-10-26 (177.8 mm per wheel turn, 127 mm track; `tools/bb1.py` and `docs/AGENT.md` convert with them). Still to do: `speed` in m/s and `turn` in deg/s of heading in the API itself, plus odometry in `/state` (distance and heading since arming).
 3. **Machine-readable answers everywhere:** `GET /api` (**built 2026-10-27**) lists every endpoint and its limits, so an agent can discover them. Still to do: the older actions answer human text; add JSON answers (for example with `Accept: application/json`).
 4. **Safety for unattended use:** an "agent mode" with a lower speed limit, a maximum distance from where it armed, and maybe a token so only the agent (and you) can drive. Today anyone on the network can.
 5. **Events:** a way to know "it fell" or "it stopped" without polling (for example a counter in `/state` an agent can watch, or a WebSocket later).

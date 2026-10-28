@@ -55,7 +55,9 @@ tools/venv/bin/python tools/bb1.py stop                         # stop driving, 
 tools/venv/bin/python tools/bb1.py disarm                       # motors off: BB1 FALLS OVER
 ```
 
-Always pass `--max` = your `max_speed` (or `max_turn` for turns). `drive` blocks until it is done and BB1 has settled.
+Always pass `--max` = your `max_speed` (or `max_turn` for turns). `drive` blocks until it is done and BB1 has settled (or 2 s have passed). A drive with `--speed` and `--turn` both 0 is refused. If the tool cut anything you asked for (past `--max`, or `--for` past 10 s), the answer's `cut` list says so: plan with what you got, not what you asked.
+
+Every command you run is recorded (`logs/agent_commands.csv`: time, command, options, exit code, answer), so your owner can replay your session next to BB1's own logs.
 
 **Exit codes:** 0 done; 1 BB1 refused, or a safety check ended the command (read `error` and `reason`); 2 BB1 didn't answer.
 
@@ -103,7 +105,7 @@ Work in small steps and look after every one:
 3. Not armed: if `may_arm` is `ask`, ask your owner and say what you will do. They stand it up. Then `arm`. If it refuses, read `reason`.
 4. Plan the move in turns (see Units). Keep a running total of how far you are from where you armed; never let it pass `max_travel_m` (0.5 m = 2.8 turns).
 5. `drive` for at most `max_drive_s`. Read `moved_turns`, `turned_turns` and `state`.
-6. Compare with what you asked. Short is normal (forward reaches about 60-90% of the asked speed). Wrong direction, or `ok: false`: stop and think before the next move.
+6. Compare with what you asked. Short is normal, and the floor matters: on wood forward reaches about 60-90% of the asked speed; on carpet much less (3 s at 0.3 moved anywhere from −0.06 to +0.29 turns, back reached a third of the asked speed, 1 s turns at 0.4 gave 0.27, and it often hadn't settled after 2 s). Correct with the next step, but don't expect to land on a target: five tries on carpet reached half of a 1-turn target. Wrong direction, or `ok: false`: stop and think before the next move.
 7. Repeat from step 5. When done: `stop`, and leave it balancing unless your owner says otherwise.
 
 Turning on the spot: `--speed 0 --turn 0.4`. Curves: both at once. To go back where you started, drive the same distance the other way: there's no position target yet, so expect some error.
@@ -138,7 +140,7 @@ Update this file in the same change as any of these, and set the version line at
 
 - an endpoint, argument, limit or `/state` field changes (`web.h`, `api.h`, `config.h`): bump `API_VERSION` in `api.h`
 - a disarm reason or auto-arm state is added or renamed (`control.h`, `auto_arm.h`)
-- `tools/bb1.py` gets a new command, option, output field or safety check
+- `tools/bb1.py` gets a new command, option, output field or safety check (including what goes into `logs/agent_commands.csv`)
 - a unit is measured again (wheel turn, track width, counts per turn)
 
 `tools/check_agent_doc.py` (run by CI) fails when the version line here doesn't match `API_VERSION` in `firmware/bb1/api.h`.
