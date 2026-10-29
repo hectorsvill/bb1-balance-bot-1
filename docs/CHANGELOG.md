@@ -21,6 +21,13 @@ Newest first.
 - **Why:** the MCP server (`tools/bb1_mcp.py`) needs Python 3.10+; the old venv was Xcode's 3.9.6
 - Rebuilt from Homebrew's `/opt/homebrew/bin/python3` (3.14.8) with `tools/requirements.txt`: `tools/tests` ran 29 tests, OK, none skipped. `docs/TOOLS.md` updated
 
+## 2026-10-28 - No logs in the public repo
+
+- **Why:** recorded runs belong in the private repo bb1-private, never on the public GitHub repo
+- `tools/tests/fixtures/` removed: its two logs were 60-tick slices of real runs, plus real flash-history and command-log rows. `tools/tests/make_fixtures.py` now writes made-up logs with the same layout to a temp folder each time the tests run
+- `.gitignore`: every `*.csv` and `*.log`, and `logs/` too (besides the `logs` link). A test fails if a CSV, SQLite file or `logs` path is tracked anyway
+- The old files are still in git history (`logs/deadband_2026-10-23_21-37-35.csv` from 2026-10-23, and the fixtures from PR #9) until the history is rewritten
+
 ## Open items
 
 - Measure counts per wheel turn cleanly (520 assumed)
