@@ -10,7 +10,7 @@ Newest first.
 
 
 
-## 2026-10-28 - Fast drive step 1: `aff`, `dacc`, `lmax` (firmware 3.4, not flashed yet)
+## 2026-10-28 - Fast drive step 1: `aff`, `dacc`, `lmax` (firmware 3.4, flashed 2026-10-29)
 
 - **Why:** "those motors are fast but we're not utilizing them." Driving at 0.5 turns/s on wood BB1 used about 24 of 200 PWM and leaned under 1 deg on average (max 2.8). The limits were the firmware's: speed ramp 1 turn/s² (`DRIVE_ACCEL`), setpoint shift ±6 deg (`SPEED_SHIFT_MAX`), and the lean only came once a speed error had built up (sp, sdi), so BB1 lagged and fell short. Physics: to accelerate at a, an inverted pendulum must lean atan(a/g); 1 turn/s² = 0.178 m/s² = about 1.04 deg
 - **Three new live settings, defaults = the old behavior** (on /tune with tooltips, serial, `POST /gains`, `/state` gains, `gainsLine`, saved in flash as settings layout v9; older saves load with the defaults):
