@@ -34,8 +34,14 @@ credentials*
 venv/
 __pycache__/
 
-# Recorded runs: logs is a link to the private repo bb1-private/logs (no trailing slash: a link isn't a folder to git)
+# Recorded runs never go in this public repo: they live in the private repo
+# bb1-private. logs is a link to bb1-private/logs (no trailing slash: a link isn't
+# a folder to git). Every log format we write is CSV, so no CSV is committed here;
+# the tests make up their own (tools/tests/make_fixtures.py).
 logs
+logs/
+*.csv
+*.log
 graphify-out/
 
 # SQLite catalogs (tools/runs_db.py, logs/runs.sqlite): rebuilt from the CSVs, never committed
