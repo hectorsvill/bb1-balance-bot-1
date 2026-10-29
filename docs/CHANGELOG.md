@@ -23,6 +23,7 @@ Newest first.
 - Tools: `mock_bb1.py` (gains, limits, answer text, api 4), `logger.py` `GAIN_KEYS`, `runs_db.py` header names (`SCHEMA_VERSION` 3: the runs and gains tables get `aff`, `dacc`, `lmax` columns, rebuilt by itself)
 - Firmware 3.4: 550,076 B flash (+2,784 vs 3.3), 217,992 B static RAM (+32)
 - Docs: `firmware/README.md`, `docs/API.md`, `docs/AGENT.md`, `docs/PID_TUNING.md`, `docs/FIRMWARE_PLAN.md`, `docs/TOOLS.md`
+- Flashed over Wi-Fi 2026-10-29 07:55 (`fast-drive b1db774`): `/api` says 4, `/sys` 3.4; saved gains unchanged, `aff 0`, `dacc 1`, `lmax 6` (today's behavior); a `/log` read had no gaps. Floor test next
 
 ## 2026-10-28 - `tools/todo.py`: a todo dashboard from the vault Roadmap
 
