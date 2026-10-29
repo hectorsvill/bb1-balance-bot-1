@@ -19,7 +19,7 @@
 //   POST /arm         start balancing (refused unless upright; see control.h). seconds=N: disarm after N s (0 = no limit);
 //                     heartbeat=0: don't stop when the page goes away (main page)
 //   POST /disarm      stop balancing
-//   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband, sp, si, th, auto, dff, sdi, smode, wsp, wsi, irelax
+//   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband, sp, si, th, auto, dff, sdi, smode, wsp, wsi, irelax, aff, dacc, lmax
 //   POST /gains/save  store them in flash (disarmed only);  POST /gains/defaults  back to config.h
 //   POST /step        step test while armed: setpoint +2 deg for 1 s
 //   POST /drive       args speed, turn (wheel turns/s), ms: drive while balancing (drive.h). Lasts 500 ms unless re-sent
@@ -73,7 +73,11 @@ void handleState() {
   uint32_t total = totalWritten;
   bool have = total > 0 && logGet(total - 1, r);
 
-  char json[1400];
+  // On core 0's small stack (4 KB), so sized to fit, not generous: with every
+  // number and text at its widest the answer is about 1440 bytes (estimated
+  // 2026-10-28 with aff/dacc/lmax; was 1390 before them, with 1400 here).
+  // snprintf cuts it off rather than overflow, but cut JSON won't parse.
+  char json[1536];
   snprintf(json, sizeof(json),
            "{\"have\":%s,\"tick\":%lu,\"t_us\":%lu,\"mode\":%u,\"flag_bits\":%u,"
            "\"pitch\":%.2f,\"accel_pitch\":%.2f,\"pitch_rate\":%.2f,\"work_us\":%u,"
@@ -85,7 +89,7 @@ void handleState() {
            "\"enc_fault\":%u,"
            "\"drive\":{\"speed\":%.2f,\"turn\":%.2f,\"speed_now\":%.2f,\"turn_now\":%.2f,\"left_ms\":%ld,\"commands\":%lu,\"max_speed\":%.2f,\"max_turn\":%.2f},"
            "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,\"batt_cells\":%d,"
-           "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f,\"sdi\":%.2f,\"smode\":%d,\"wsp\":%.1f,\"wsi\":%.1f,\"irelax\":%.2f}}",
+           "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f,\"sdi\":%.2f,\"smode\":%d,\"wsp\":%.1f,\"wsi\":%.1f,\"irelax\":%.2f,\"aff\":%.2f,\"dacc\":%.2f,\"lmax\":%.1f}}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
            have ? r.mode : 0, have ? r.flags : 0,
@@ -106,7 +110,7 @@ void handleState() {
            driveLeftMs > 0 ? driveSpeedCmd : 0.0, driveLeftMs > 0 ? driveTurnCmd : 0.0, driveSpeedNow, driveTurnNow, driveLeftMs,
            (unsigned long)driveCommands, DRIVE_MAX_SPEED, DRIVE_MAX_TURN,
            batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V, BATTERY_CELLS,
-           (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, (int)autoArm, gainDriveFF, gainDriveSpeedI, (int)speedMode, gainWheelSpeedP, gainWheelSpeedI, gainIRelax);
+           (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, (int)autoArm, gainDriveFF, gainDriveSpeedI, (int)speedMode, gainWheelSpeedP, gainWheelSpeedI, gainIRelax, gainAccelFF, driveAccelRate, driveLeanMax);
   server.send(200, "application/json", json);
 }
 

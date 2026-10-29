@@ -114,6 +114,8 @@ All gains change live from the tuning page (above) or serial. Change one thing a
 4. **Speed loop** (later step): raise its gain until the robot stops wandering, but not so much it rocks slowly back and forth.
 5. **Save** the gains (disarmed) and log a run with the gains in the note.
 
+6. **Fast driving (firmware 3.4):** once it drives well at the defaults, try `aff` (acceleration lean, about 1.0 by physics: 1 turn/s per s needs 1.04 deg of lean), then a faster ramp `dacc`, then a bigger lean limit `lmax`. One at a time, same drive test each time. Quad picture: `aff` is Betaflight feedforward for the speed loop (lean when the stick moves, not after the error builds), `lmax` is the angle-mode max tilt. In the log, the setpoint should move before the pitch does, and `pwm_l`/`pwm_r` should stay well under the cap.
+
 Use the **step test** (setpoint +2 deg for 1 s) to compare gains: a good response settles in well under a second with one small overshoot.
 
 | You see | Likely cause | Try |

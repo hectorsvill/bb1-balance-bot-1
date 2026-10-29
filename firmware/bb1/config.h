@@ -109,7 +109,11 @@ const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds th
 // Units are wheel turns per second (520 counts = 1 turn) until the wheel size is measured.
 constexpr float DRIVE_MAX_SPEED = 1.0;   // turns/s, forward or back. On the floor BB1 stays under about 2; the lift detector trips at 4
 constexpr float DRIVE_MAX_TURN  = 1.0;   // turns/s of left-minus-right wheel difference (+ = turn right)
-const float DRIVE_ACCEL       = 1.0;   // turns/s per second: how fast the speed target ramps (0 to full in 1 s)
+// Drive acceleration (setting "dacc", live on /tune, saved in flash, 2026-10-28;
+// was the constant DRIVE_ACCEL): turns/s per second the speed target ramps at.
+// 1.0 = 0 to full in 1 s, as before. Faster ramps need more lean (aff, lmax below).
+const float DEFAULT_DRIVE_ACCEL = 1.0;
+const float DRIVE_ACCEL_MAX     = 6.0;
 const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
 // Drive feedforward (setting "dff", live on /tune, saved in flash): PWM per
 // turn/s of speed target, added straight to both wheels. These motors are
@@ -130,6 +134,29 @@ const float DRIVE_FF_MAX      = 150;
 const float DEFAULT_DRIVE_SPEED_I = 4.0;   // 2 fell a third short at 0.3 turns/s, 6 overshoots (3 runs each, 2026-10-26)
 const float DRIVE_SPEED_I_MAX     = 20;
 const float DRIVE_LEAN_FADE_S     = 0.5;   // after stopping, the built-up lean fades to 0 over about this long
+
+// Fast drive, step 1 (2026-10-28). Driving at 0.5 turns/s BB1 used about 24 of
+// 200 PWM and leaned under 1 deg: the motors have lots left, the firmware's
+// lean limits were holding it back. A balancing robot can only speed up by
+// leaning first: to accelerate at a it must lean atan(a / g). One turn/s per s
+// = 0.178 m/s^2 (177.8 mm per wheel turn) = atan(0.178 / 9.81) = about 1.04 deg.
+//
+// Acceleration feedforward (setting "aff", live, saved): deg of extra lean per
+// turn/s^2 of the ramped speed target's acceleration. While the target ramps
+// up forward, lean forward by aff x dacc straight away; ramping down, lean
+// back. Physics says about 1.0. Like Betaflight feedforward: act on the stick
+// moving, before the speed loop sees any error. 0 = off (as before).
+const float DEFAULT_ACCEL_FF  = 0;
+const float ACCEL_FF_MAX      = 5;
+const float ACCEL_FF_SMOOTH_S = 0.05;  // s: smooths the feedforward's on/off edges at each end of a ramp (like Betaflight's ff smoothing)
+// Lean limit while driving (setting "lmax", live, saved): the speed loop's
+// whole setpoint shift (sp + si + sdi + aff) is clamped to this while a speed
+// target is set or ramping down. Standing still the clamp is SPEED_SHIFT_MAX
+// (6). 6 = as before. Can't go under 6: then starting to drive could cut the
+// shift short in one tick (a setpoint step).
+const float DEFAULT_LEAN_MAX  = 6.0;
+const float LEAN_MAX_MAX      = 15.0;
+const float LEAN_LIMIT_EASE_DPS = 10.0; // deg/s: after a drive the clamp eases back down to SPEED_SHIFT_MAX this fast (drive.h says why)
 
 // Speed loop mode (setting "smode", 2026-10-26).
 //   0 = the speed loop moves the angle setpoint (sp, si, sdi), as since step 8.

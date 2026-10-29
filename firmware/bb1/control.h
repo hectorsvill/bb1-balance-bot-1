@@ -178,10 +178,16 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     // fades out instead of snapping, so the setpoint doesn't jump.
     if (drive.speed != 0) drive.lean += gainDriveSpeedI * (drive.speed - turnsPerSec) * dt;
     else                  drive.lean -= drive.lean * min(1.0f, dt / DRIVE_LEAN_FADE_S);
-    drive.lean = constrain(drive.lean, -SPEED_SHIFT_MAX, SPEED_SHIFT_MAX);
+    // Both clamps use drive.leanLimit (drive.h): lmax while driving, easing
+    // back to SPEED_SHIFT_MAX after a stop.
+    drive.lean = constrain(drive.lean, -drive.leanLimit, drive.leanLimit);
     if (speedMode < 0.5f) {
-      float shift = -(gainSpeedP * (turnsPerSec - drive.speed) + gainSpeedI * (turns - drive.pos)) + drive.lean;
-      setpoint += constrain(shift, -SPEED_SHIFT_MAX, SPEED_SHIFT_MAX);
+      // Acceleration feedforward (aff, drive.h): while the speed target ramps,
+      // lean into it right away (forward + while speeding up forward, back
+      // while slowing), about 1.04 deg per turn/s^2 by physics. sp and sdi
+      // only lean once BB1 is already behind; this leans before it falls behind.
+      float shift = -(gainSpeedP * (turnsPerSec - drive.speed) + gainSpeedI * (turns - drive.pos)) + drive.lean + drive.accelLean;
+      setpoint += constrain(shift, -drive.leanLimit, drive.leanLimit);
       balance.speedPwm = 0;
     } else {
       // smode 1: the wheel speed loop. Faster than asked, or ahead of the target

@@ -10,6 +10,20 @@ Newest first.
 
 
 
+## 2026-10-28 - Fast drive step 1: `aff`, `dacc`, `lmax` (firmware 3.4, not flashed yet)
+
+- **Why:** "those motors are fast but we're not utilizing them." Driving at 0.5 turns/s on wood BB1 used about 24 of 200 PWM and leaned under 1 deg on average (max 2.8). The limits were the firmware's: speed ramp 1 turn/s² (`DRIVE_ACCEL`), setpoint shift ±6 deg (`SPEED_SHIFT_MAX`), and the lean only came once a speed error had built up (sp, sdi), so BB1 lagged and fell short. Physics: to accelerate at a, an inverted pendulum must lean atan(a/g); 1 turn/s² = 0.178 m/s² = about 1.04 deg
+- **Three new live settings, defaults = the old behavior** (on /tune with tooltips, serial, `POST /gains`, `/state` gains, `gainsLine`, saved in flash as settings layout v9; older saves load with the defaults):
+  - `aff` (deg per turn/s², 0-5, default 0 = off): acceleration lean feedforward. `drive.h` takes the ramped speed target's acceleration each tick (+dacc, -dacc or 0), smooths `aff x accel` over 0.05 s, and `control.h` adds it to the speed loop's setpoint shift in smode 0: lean forward while speeding up forward, back while slowing. Like Betaflight feedforward
+  - `dacc` (turns/s², 0.1-6, default 1): the speed ramp, replaces the constant `DRIVE_ACCEL`. Turn ramp unchanged
+  - `lmax` (deg, 6-15, default 6): the clamp on the setpoint shift and on the `sdi` lean while a speed target is set or ramping down; 6 (`SPEED_SHIFT_MAX`) standing. Raising is instant, lowering eases at 10 deg/s (`LEAN_LIMIT_EASE_DPS`) so the setpoint never jumps when a drive ends
+- `DRIVE_MAX_SPEED` stays 1.0; step 2 (raise it: widen the int8 drive log fields, rework the lift detector) is planned in `docs/FIRMWARE_PLAN.md` section 7
+- Log: no new columns (the setpoint column already includes the shift), `LOG_FORMAT` stays 11. `# gains_ver` line gets `accel_ff`, `drive_accel`, `lean_max`; the `# drive_max_speed` line's `drive_accel` is now the live `dacc`, plus `speed_shift_max` and `lean_limit_ease_dps`
+- `GET /api` version 4 (gains `aff`, `dacc`, `lmax` with their ranges); `docs/AGENT.md` version line 4. `/state` buffer 1400 -> 1536 bytes (widest answer about 1440 with the new fields)
+- Tools: `mock_bb1.py` (gains, limits, answer text, api 4), `logger.py` `GAIN_KEYS`, `runs_db.py` header names (`SCHEMA_VERSION` 3: the runs and gains tables get `aff`, `dacc`, `lmax` columns, rebuilt by itself)
+- Firmware 3.4: 550,076 B flash (+2,784 vs 3.3), 217,992 B static RAM (+32)
+- Docs: `firmware/README.md`, `docs/API.md`, `docs/AGENT.md`, `docs/PID_TUNING.md`, `docs/FIRMWARE_PLAN.md`, `docs/TOOLS.md`
+
 ## 2026-10-28 - `tools/todo.py`: a todo dashboard from the vault Roadmap
 
 - **Why:** one page (and JSON for agents) that shows what's left per milestone and what state things are in, without a second todo list to keep in step

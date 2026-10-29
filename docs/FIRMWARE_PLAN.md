@@ -220,6 +220,11 @@ What is still missing, smallest fix first:
 | 8 | Speed loop on the encoders, stop drift | stands still in place | yes |
 | 9 | (milestone 2) Drive pad: forward/back, turn (`drive.h`, `POST /drive`, docs/API.md; built 2026-10-25) | drives around | yes |
 
+| 10 | (milestone 4) Fast drive step 1: live `aff` (acceleration lean feedforward), `dacc` (speed ramp), `lmax` (lean limit while driving), defaults = old behavior (firmware 3.4, 2026-10-28) | drive tests: time to speed, lean, PWM headroom, after-stop creep | yes |
+| 11 | (milestone 4) Fast drive step 2: raise `DRIVE_MAX_SPEED` (plan below) | faster drive tests | yes |
+
+**Fast drive step 2 plan (not built).** Raising `DRIVE_MAX_SPEED` past 1.0 needs, in one change: (1) widen the log's `drive_speed`, `drive_turn`, `drive_speed_now`, `drive_turn_now` from int8 hundredths (max 1.27) to int16, or switch them to int8 in 0.05 steps; either way bump `LOG_FORMAT` to 12 and update `telemetry.h`, `docs/CALIBRATION_AND_LOGS.md`, `tools/runs_db.py` and `dataset.py` (the `static_assert` in `control.h` catches a forgotten widening). (2) Rework the lift detector: it trips at 4 wheel turns/s for 0.5 s (`LIFT_TURNS_PER_SEC`), so a 3 turns/s drive leaves little margin. Compare the wheel speed to the speed target instead (lifted = wheels much faster than the target with the pitch steady, or wheel speed with no matching pitch/acceleration), or scale the threshold with `|drive.speed|` + a margin. (3) Measure first: free wheel speed at the cap on the bench (wheels in the air, timed motor test), and PWM vs speed on wood from step 1 logs, so the new limit leaves PWM headroom for balancing (at least about 30%). (4) The failsafe stop at speed: when a command runs out, stopping from 2 turns/s at `dacc` 1 takes 2 s and about 0.36 m, so the run-out stop may need its own faster ramp. Then the limits in `api.h`, `mock_bb1.py`, `bb1.py` caps, `docs/AGENT.md`.
+
 Each step is its own commit. Before any step that can move the motors I'll ask first, and you confirm the wheels are off the table.
 
 ## 8. Choices made (2026-10-21)

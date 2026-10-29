@@ -40,7 +40,7 @@ curl -X POST $B/drive -d speed=-0.3 -d turn=-0.2  # back and left, 500 ms (the d
 curl -X POST $B/drive/stop                        # ramp to a stop, keep balancing
 
 # Settings
-curl -X POST $B/gains -d sdi=2 -d dff=25          # change any of kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax (RAM only)
+curl -X POST $B/gains -d sdi=2 -d dff=25          # change any of kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax aff dacc lmax (RAM only)
 curl -X POST $B/gains -d trim=here                # trim = the current pitch
 curl -X POST $B/disarm && curl -X POST $B/gains/save   # store the gains in flash (disarmed only: hold BB1)
 curl -X POST $B/gains/defaults                    # back to the config.h defaults (save to keep)
@@ -82,9 +82,11 @@ Not balancing: `409` and `{"ok":false,"error":"not balancing: arm first (POST /a
 
 **The failsafe:** every command runs out. To keep driving, send it again before it does (the page sends every 100 ms). When it runs out, BB1 ramps to a stop and keeps balancing where it is; it does not disarm. So a dropped Wi-Fi, a closed page or a crashed script can never leave BB1 driving for more than `ms`. A single command can ask for up to 3 s, for "drive forward for 2 s" without a loop.
 
-Speed and turn ramp toward what you ask (1 turn/s per second, turn twice as fast), so a full jab can't tip it over. Disarming, a fall or a new arm clears the command.
+Speed and turn ramp toward what you ask (speed at the setting `dacc`, default 1 turn/s per second; turn at 2), so a full jab can't tip it over. Disarming, a fall or a new arm clears the command.
 
 Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are by default (sp 3, si 0.5, th 60). With `th 0` turning still works on feedforward alone (`DRIVE_TURN_FF`, 15 PWM per turn/s), just less exactly. Turning on the spot keeps the position hold, and driving straight keeps the full heading hold (each axis only lets go of its own hold). Speed has an I term while driving, the setting `sdi` (degrees of lean per second for every turn/s it is slower than asked, default 4): without it BB1 stayed stuck going forward, because on wood the angle loop's I term is the real wheel-speed command and the speed loop only moves the setpoint. **`smode 1`** swaps that for a wheel speed loop: speed and position errors go straight to the PWM (`wsp` PWM per turn/s, `wsi` PWM per wheel turn), the classic balance-car layout, meant for use with a lower `ki` (tested 2026-10-26: it drove the wrong way at every ki from 100 to 25 on wood, so it stays off); `smode 0` (default) is the layout above. Speed also has a feedforward, the setting `dff` (PWM per turn/s, default 25): the PWM a speed needs goes straight to the wheels, so the angle loop's I term doesn't have to wind up to it and unwind it when you reverse. When a command has ramped down to a stop, the setting `irelax` (seconds, default 0.5, 0 = off) drains the angle I term toward 0 for 2 x irelax, so the I term can't keep the wheels rolling the old way (it rolled BB1 slowly backward after stops, 2026-10-26).
+
+**Fast drive settings (firmware 3.4, 2026-10-28; defaults = the old behavior).** `dacc` (turns/s per second, 0.1-6, default 1): how fast the speed target ramps. `aff` (deg per turn/s², 0-5, default 0 = off): acceleration lean feedforward; while the speed target ramps, BB1 leans `aff x dacc` deg into it at once (forward when speeding up forward, back when slowing), instead of waiting for a speed error. Physics: 1 turn/s² = 0.178 m/s² needs atan(0.178 / 9.81) = about 1.04 deg of lean, so about 1 is the textbook value. `lmax` (deg, 6-15, default 6): the most the speed loop may shift the balance setpoint while a speed target is set or ramping down; standing still the limit stays 6 (`SPEED_SHIFT_MAX`), and after a stop it eases back down at 10 deg/s, never in one jump. `drive_max_speed` stays 1.0 turns/s for now.
 
 ### `POST /drive/stop`
 
@@ -123,7 +125,7 @@ The newest values, as one JSON object. The page asks about 20 times a second. As
 | `enc_l`, `enc_r`, `speed_l`, `speed_r` | encoder counts since boot, wheel speed in counts/s (forward +) |
 | `pwm_l`, `pwm_r` | PWM sent to each motor this tick |
 | `drive` | `speed`, `turn`: the command in force (0 when none); `speed_now`, `turn_now`: the ramped targets BB1 aims for; `left_ms`: time left on the command; `commands`: accepted since boot; `max_speed`, `max_turn`: the limits |
-| `gains` | `ver` (counts every change), `kp`, `ki`, `kd`, `trim`, `cap`, `deadband`, `sp`, `si`, `th`, `auto`, `dff` (drive feedforward), `sdi` (drive speed I), `smode` (speed loop mode), `wsp`, `wsi` (wheel speed loop), `irelax` (I-term relax after a drive, s) |
+| `gains` | `ver` (counts every change), `kp`, `ki`, `kd`, `trim`, `cap`, `deadband`, `sp`, `si`, `th`, `auto`, `dff` (drive feedforward), `sdi` (drive speed I), `smode` (speed loop mode), `wsp`, `wsi` (wheel speed loop), `irelax` (I-term relax after a drive, s), `aff` (acceleration lean, deg per turn/s²), `dacc` (speed ramp, turns/s²), `lmax` (lean limit while driving, deg) |
 | `batt_v`, `batt_ok`, `batt_warn_v`, `batt_low_v`, `batt_cells` | whole-pack volts; false = no sense wire; orange and red limits; 2 cells |
 | `test_running`, `tests_done`, `test_moved`, `test_ms` | motor test status and the last result |
 | `alpha`, `bias`, `calibrations`, `cal_ok`, `ever_cal`, `imu` | angle filter weight; gyro bias x/y/z (deg/s); calibration status; IMU found |
@@ -149,15 +151,15 @@ The list of every endpoint and its limits, as JSON, so a program or an AI agent 
 
 | Field | Meaning |
 |---|---|
-| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first, 2 = `POST /update`, 3 = `version`, `build_id`) |
+| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first, 2 = `POST /update`, 3 = `version`, `build_id`, 4 = gains `aff`, `dacc`, `lmax`) |
 | `firmware`, `version`, `build_id`, `log_format` | firmware name (the mock says `bb1 MOCK`), version and build id (see `GET /sys`), log column version |
 | `units` | what `angle`, `speed`, `turn`, `pwm` mean, and `counts_per_rev` |
 | `limits` | `drive_max_speed`, `drive_max_turn` (turns/s), `drive_hold_ms` (default command length), `drive_hold_max_ms`, `arm_seconds_max`, `arm_angle` (must be this close to trim to arm, deg), `fall_angle` (deg), `heartbeat_ms`, `motor_test_max_pwm`, `motor_test_max_ms`, `alpha` [min, max], `log_max_per_request` |
-| `gains` | each `/gains` setting and its [min, max]; values outside are clamped. `auto` and `smode` are 0 or 1; `trim` also takes `here` |
+| `gains` | each `/gains` setting and its [min, max]; values outside are clamped. `auto` and `smode` are 0 or 1; `trim` also takes `here`; `dacc` starts at 0.1 and `lmax` at 6 |
 | `endpoints` | one object per route: `method`, `path`, `args` (names), `answer` (`json`, `text`, `csv`, `html`), `moves` (true = can turn the wheels), `does` |
 
 ```json
-{"api":3,"firmware":"bb1 milestone 2","version":"3.2","build_id":"ota 1a2b3c4+ 2026-10-27 14:05","log_format":11,
+{"api":4,"firmware":"bb1 milestone 2","version":"3.4","build_id":"ota 1a2b3c4+ 2026-10-27 14:05","log_format":11,
  "limits":{"drive_max_speed":1.00,"drive_hold_ms":500, ...},
  "gains":{"kp":[0.000,100.000], ...},
  "endpoints":[{"method":"POST","path":"/drive","args":["speed","turn","ms"],"answer":"json","moves":true,"does":"..."}, ...]}
@@ -182,7 +184,7 @@ RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_bu
 
 | Request | Does |
 |---|---|
-| `POST /gains` | any of `kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax`; `trim=here` uses the current pitch. Answers the full set as text |
+| `POST /gains` | any of `kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax aff dacc lmax`; `trim=here` uses the current pitch. Answers the full set as text |
 | `POST /gains/save` | store them in flash (disarmed only) |
 | `POST /gains/defaults` | back to the `config.h` defaults (save to keep) |
 | `POST /alpha` | `value=0.90..0.999`: angle filter weight |
