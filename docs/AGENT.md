@@ -17,6 +17,8 @@ max_travel_m    = 0.5             # never end up farther than this from where yo
 may_arm         = ask             # ask = ask your owner before every arm; yes = arm when needed
 person_present  = required        # required = only drive while your owner says they are watching
 allowed         = state, api, arm, drive, stop, disarm   # everything else is off limits (see Never)
+                  # through MCP the same are: bb1_state, bb1_api, bb1_arm, bb1_drive, bb1_stop, bb1_disarm,
+                  # plus the read-only logs_schema, logs_runs, logs_show, logs_ticks, logs_sql
 ```
 
 If a setting is missing, use the most careful choice: smaller numbers, ask first.
@@ -49,15 +51,29 @@ export BB1_HOST=192.168.1.240                                   # once, from the
 tools/venv/bin/python tools/bb1.py api                          # firmware version and limits (run first)
 tools/venv/bin/python tools/bb1.py state                        # what BB1 is doing now
 tools/venv/bin/python tools/bb1.py arm                          # start balancing (it must be standing near upright)
-tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2 --max 0.3   # forward 0.3 turns/s for 2 s, then stop
-tools/venv/bin/python tools/bb1.py drive --turn 0.4 --for 2 --max 0.4    # spin right on the spot for 2 s
+tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2 --max 0.3 --max-turn 0.4 --max-for 3   # forward 0.3 turns/s for 2 s, then stop
+tools/venv/bin/python tools/bb1.py drive --turn 0.4 --for 2 --max 0.3 --max-turn 0.4 --max-for 3    # spin right on the spot for 2 s
 tools/venv/bin/python tools/bb1.py stop                         # stop driving, keep balancing
 tools/venv/bin/python tools/bb1.py disarm                       # motors off: BB1 FALLS OVER
 ```
 
-Always pass `--max` = your `max_speed` (or `max_turn` for turns). `drive` blocks until it is done and BB1 has settled (or 2 s have passed). A drive with `--speed` and `--turn` both 0 is refused. If the tool cut anything you asked for (past `--max`, or `--for` past 10 s), the answer's `cut` list says so: plan with what you got, not what you asked.
+Always pass your settings as the caps: `--max` = `max_speed`, `--max-turn` = `max_turn`, `--max-for` = `max_drive_s`. `drive` blocks until it is done and BB1 has settled (or 2 s have passed). A drive with `--speed` and `--turn` both 0 is refused. If the tool cut anything you asked for (`--speed` past `--max`, `--turn` past `--max-turn`, `--for` past `--max-for` or 10 s), the answer's `cut` list says so: plan with what you got, not what you asked.
 
-Every command you run is recorded (`logs/agent_commands.csv`: time, command, options, exit code, answer), so your owner can replay your session next to BB1's own logs.
+### Through MCP instead
+
+Your owner may have connected BB1 as MCP tools instead (`tools/bb1_mcp.py`; to connect it: `claude mcp add bb1 -- "$PWD/tools/venv/bin/python" "$PWD/tools/bb1_mcp.py" --host 192.168.1.240 --max-speed 0.3 --max-turn 0.4 --max-for 3`, from the repo folder, Python 3.10+). Then you call tools, not commands, and everything in this file still applies: each tool runs the same `bb1.py` command with the same checks and gives the same JSON, plus `exit_code`.
+
+| Tool | Command |
+|---|---|
+| `bb1_api`, `bb1_state(full)` | `api`, `state [--full]` |
+| `bb1_arm(seconds)` | `arm` (ask first if `may_arm` = ask) |
+| `bb1_drive(speed, turn, secs)` | `drive`; the caps are set when the server is added, so you don't pass them (the tool's description shows them) |
+| `bb1_stop`, `bb1_disarm` | `stop`, `disarm` |
+| `logs_schema`, `logs_runs`, `logs_show`, `logs_ticks`, `logs_sql` | `tools/logs.py` (read only) |
+
+If the server's caps are higher than your settings, your settings win: ask for no more than them.
+
+Every command you run is recorded (`logs/agent_commands.csv`: time, command (`mcp:drive` and so on when it came through MCP), options, exit code, answer), so your owner can replay your session next to BB1's own logs.
 
 To see what happened (your commands, BB1's runs, every tick), use `tools/venv/bin/python tools/logs.py` (read only, JSON out): `runs`, `show <run>`, `ticks <run>`, `schema`, `sql`.
 
@@ -130,11 +146,12 @@ These change how BB1 works or can damage it, and are only for your owner (`allow
 - firmware updates (`/update`, `tools/flash.py`)
 - Wi-Fi settings (`/wifi`, `/wifi/forget`): BB1 would restart and could drop off the network
 - calling the HTTP API directly to get around the tool's limits
+- changing the MCP server's caps or how it is started (`claude mcp add` / `remove`, its `--max-*` options), or editing `tools/bb1.py` / `tools/bb1_mcp.py`: the caps are your owner's
 
 ## More
 
 - Every endpoint: `docs/API.md`, or `bb1.py api` for the live list with its limits.
-- The tool itself: `tools/bb1.py` (its top comment lists every safety check).
+- The tool itself: `tools/bb1.py` (its top comment lists every safety check); the MCP server: `tools/bb1_mcp.py` (`docs/TOOLS.md`).
 - Reading logs: `tools/logs.py` (read only; `docs/TOOLS.md`).
 
 ## Keeping this file current (for maintainers)
@@ -143,7 +160,7 @@ Update this file in the same change as any of these, and set the version line at
 
 - an endpoint, argument, limit or `/state` field changes (`web.h`, `api.h`, `config.h`): bump `API_VERSION` in `api.h`
 - a disarm reason or auto-arm state is added or renamed (`control.h`, `auto_arm.h`)
-- `tools/bb1.py` gets a new command, option, output field or safety check (including what goes into `logs/agent_commands.csv`)
+- `tools/bb1.py` gets a new command, option, output field or safety check (including what goes into `logs/agent_commands.csv`), or `tools/bb1_mcp.py` gets a new tool or option
 - a unit is measured again (wheel turn, track width, counts per turn)
 
 `tools/check_agent_doc.py` (run by CI) fails when the version line here doesn't match `API_VERSION` in `firmware/bb1/api.h`.

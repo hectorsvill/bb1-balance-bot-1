@@ -1,0 +1,2 @@
+time,host,cmd,args,exit_code,answer
+2026-10-28T10:01:04.280-04:00,192.168.1.240,state,"{""full"": false}",0,"{""ok"": true, ""state"": {""armed"": true, ""reason"": """", ""auto_state"": ""balancing"", ""pitch_deg"": -0.66, ""speed"": -0.92, ""position_turns"": -1.05, ""drive"": {""speed"": 0.0, ""turn"": 0.0, ""left_ms"": 0}, ""enc_fault"": 0, ""batt_v_per_cell"": 3.96, ""ip"": ""192.168.1.240""}}"

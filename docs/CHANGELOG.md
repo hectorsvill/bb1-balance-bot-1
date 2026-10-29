@@ -10,6 +10,17 @@ Newest first.
 
 
 
+## 2026-10-28 - CI tests the Python tools; MCP server `tools/bb1_mcp.py`
+
+- **Why:** CI compiled the firmware but nothing checked the Python tools; and milestone 3 wants BB1 as MCP tools an agent app can call
+- **New `tools/tests/test_tools.py`** (stdlib `unittest`, about 10 s, no robot, no private logs): compiles every `tools/*.py`; builds `runs.sqlite` from `tools/tests/fixtures/` (two 60-tick logs cut from real ones, a fall on wood and a carpet drive with its steps shortened to fit, plus tiny `flash_history.csv` / `agent_commands.csv`; checked free of Wi-Fi names and passwords) and checks every table; checks `logs.py`'s JSON and that `sql` refuses writes; runs `bb1.py` against `mock_bb1.py` (refusals, caps, `cut`, exit code 2, no command-log rows for the mock); and the MCP server in memory and over stdio. Run it with `tools/venv/bin/python -m unittest discover -s tools/tests -v`
+- **New CI workflow `.github/workflows/tools.yml`** ("Test tools", PRs and pushes to main): installs `tools/requirements.txt` and runs the tests on Python 3.9 (macOS's Xcode Python, what `tools/venv` uses today; the MCP tests skip) and 3.12
+- **New `tools/bb1_mcp.py`** (official `mcp` SDK 2.x, `MCPServer`, which is FastMCP renamed): tools `bb1_api`, `bb1_state`, `bb1_arm`, `bb1_drive`, `bb1_stop`, `bb1_disarm`, `logs_schema`, `logs_runs`, `logs_show`, `logs_ticks`, `logs_sql`. No robot logic of its own: it calls `bb1.run()` and the `logs.py` functions, so every safety check and the command log stay in `bb1.py`. The owner sets the caps when adding it (`--max-speed 0.3 --max-turn 0.4 --max-for 3`, AGENT.md's defaults); one robot command at a time. Tested on the mock only
+- **`tools/bb1.py`:** `run(argv)` returns the answer instead of only printing it (the MCP server uses it); new `drive --max-turn` (turn cap, default `--max`, so old calls work the same) and `--max-for` (can only lower the 10 s); command-log rows from MCP say `mcp:<command>`
+- **`tools/logs.py`:** `--db <file>` reads another catalog (the tests' fixture one)
+- **`tools/requirements.txt`:** `mcp>=2,<3` only on Python 3.10+ (pip skips it on 3.9, so the current venv still installs)
+- Docs: `docs/TOOLS.md`, `tools/README.md`, `docs/AGENT.md` (MCP section, caps, allowed tools, Never list; `/api` version unchanged), `docs/API.md`, `CLAUDE.md`
+
 ## 2026-10-28 - One store for all logs: recorders write to `runs.sqlite`, `tools/logs.py` reads it
 
 - **Why:** `logs/runs.sqlite` is now the unified way to store and find BB1 data, and an AI agent (or Hector) should be able to see and use any log without opening CSVs
