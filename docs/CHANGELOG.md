@@ -2,6 +2,14 @@
 
 Newest first.
 
+## 2026-10-28 - `bb1.py` records BB1's telemetry by itself (`tools/session_log.py`)
+
+- **Why:** an agent's drive left only its own command rows; BB1's 5 ms telemetry was lost unless someone ran `logger.py` by hand. Now every agent session is a run in `logs/runs.sqlite`, with its commands linked to it
+- **How:** once BB1 balances after an `arm` or `drive`, `bb1.py` starts `tools/session_log.py` in the background (one at a time, detached, so it outlives the command). It reads `GET /log` like `logger.py` (from 2 s back), and saves with `logger.save_log`, so the file is the usual layout in `logs/` and catalogued at once. It stops and saves when BB1 has been disarmed 10 s with no command, after 5 min with no command, 30 s with no answer, or 30 min
+- **`bb1.py log status | start | stop`** (`--surface`, `-n` note): see it, label it, save now (answers with `run_id`). MCP: `bb1_log`. AGENT.md: a `surface` setting, `log start` after `state`, `log stop` and the `run_id` in the report; AGENT_PROMPT.md the same
+- Working files in `logs/.recorder/` (gitignored in bb1-private). The mock is never recorded. Tests: the recorder loop against the mock with its files in a temp folder (no gaps, label, gains), and `log` refused on the mock (31 tests)
+- First real use: an agent session at 22:15 was recorded with 0 lost records
+
 ## 2026-10-28 - `docs/AGENT_PROMPT.md`; firmware 3.3 balances
 
 - **`docs/AGENT_PROMPT.md`:** the prompt to paste into Claude Code so it drives BB1 from `docs/AGENT.md`: setup checklist, two ways to start it (`bb1.py` with `--allowedTools`, or the MCP server), the prompt, task ideas easy to hard, and how to read back what it did. Linked from AGENT.md's More section

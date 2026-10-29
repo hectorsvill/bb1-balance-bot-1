@@ -372,12 +372,61 @@ class Bb1MockTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("didn't answer", a["error"])
 
+    def test_9_the_mock_is_never_recorded(self):
+        for action in ("status", "start", "stop"):
+            code, a = self.bb1("log", action)
+            self.assertEqual(code, 1)
+            self.assertIn("mock is never recorded", a["error"])
+
+
+# --- 4b. session_log.py: the recorder bb1.py starts ------------------------------------------------
+
+class SessionLogTest(unittest.TestCase):
+    """The recorder loop against the mock, with every file it writes moved to a temp
+    folder (the real tool refuses the mock, so nothing here can reach logs/)."""
+
+    def test_records_and_saves(self):
+        import signal
+        import threading
+        import session_log
+        start_mock()
+        tmp = Path(tempfile.mkdtemp())
+        saved_files = {}
+        old = {k: getattr(session_log, k) for k in ("DIR", "STATUS", "LABEL", "LAST", "LAST_COMMAND", "log_path", "save_log")}
+        handlers = signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGINT)
+        try:
+            session_log.DIR = tmp
+            session_log.STATUS, session_log.LABEL, session_log.LAST = tmp / "status.json", tmp / "label.json", tmp / "last.json"
+            session_log.LAST_COMMAND = tmp / "last_command"
+            session_log.log_path = lambda note, started: tmp / "bb1_test.csv"
+            session_log.save_log = lambda out, meta, note, started, header, rows, lost, versions, surface: \
+                saved_files.update(out=out, header=header, rows=rows, note=note, surface=surface, versions=versions)
+            session_log.set_label(note="ci test", surface="wood")
+            session_log.touch_command()
+            session_log.stop_asked = False
+            threading.Timer(1.5, session_log.ask_stop, (None, None)).start()   # like 'bb1.py log stop'
+            session_log.record(f"http://{mock_host}", mock_host)
+        finally:
+            for k, v in old.items():
+                setattr(session_log, k, v)
+            signal.signal(signal.SIGTERM, handlers[0])
+            signal.signal(signal.SIGINT, handlers[1])
+        last = json.loads((tmp / "last.json").read_text())
+        shutil.rmtree(tmp, ignore_errors=True)
+        self.assertEqual(last["stopped"], "asked to stop")
+        self.assertGreater(len(saved_files["rows"]), 200)                  # 2 s of look-back plus 1.5 s
+        self.assertTrue(saved_files["header"].startswith("tick,"))
+        ticks = [int(r.split(",")[0]) for r in saved_files["rows"]]
+        self.assertEqual(ticks, list(range(ticks[0], ticks[0] + len(ticks))))   # no gaps
+        self.assertEqual((saved_files["note"], saved_files["surface"]), ("ci test", "wood"))
+        self.assertTrue(saved_files["versions"])                           # the gains went in
+
 
 # --- 5. bb1_mcp.py: the same through MCP -----------------------------------------------------------
 
 @unittest.skipUnless(HAVE_MCP, "the mcp package isn't installed (needs Python 3.10+)")
 class McpTest(unittest.TestCase):
-    TOOLS = {"bb1_api", "bb1_state", "bb1_arm", "bb1_drive", "bb1_stop", "bb1_disarm",
+    TOOLS = {"bb1_api", "bb1_state", "bb1_arm", "bb1_drive", "bb1_stop", "bb1_disarm", "bb1_log",
              "logs_schema", "logs_runs", "logs_show", "logs_ticks", "logs_sql"}
 
     @classmethod

@@ -210,6 +210,9 @@ tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2   # forward 0.3 whe
 tools/venv/bin/python tools/bb1.py drive --turn -0.4 --for 1   # left on the spot
 tools/venv/bin/python tools/bb1.py stop                        # stop driving, keep balancing
 tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1 falls over
+tools/venv/bin/python tools/bb1.py log status                  # is BB1's telemetry being recorded? last saved run
+tools/venv/bin/python tools/bb1.py log start --surface wood -n "square"   # label the log (starts it if needed)
+tools/venv/bin/python tools/bb1.py log stop                    # save the log now
 ```
 
 Units are the firmware's: wheel turns/s (one turn is 0.178 m, measured), turn = left-minus-right turns/s, right +. Every answer has `"ok"`; on false, `"error"` says why. Exit code 0 done, 1 refused or stopped by a safety check, 2 BB1 didn't answer. `drive` answers what was asked (after the caps), then waits up to 2 s for the wheels to stop and gives `moved_turns` (forward +), `turned_turns` (left-minus-right wheel turns, right +), `settled` (stopped before answering) and the summary state. First runs on BB1 (2026-10-26, wood): 2 s at 0.3 moved +0.27 forward but −0.51 back; 1 s turns at 0.4 turned 0.28 right, 0.10 left at th 20 and 0.32-0.48 both ways at th 60 (about 0.4 asked). An agent should read these and correct, not assume. On carpet (2026-10-28) it's weaker still: 3 s at 0.3 moved −0.06 to +0.29 turns and often hadn't settled within 2 s; five correcting tries reached only +0.50 / −0.48 of a 1-turn target; 1 s turns at 0.4 gave 0.27 both ways; fwd-back-30 reached 0.18 forward and 0.10 back of 0.3. One turn of `turned_turns` = 0.178 / 0.127 rad = about 80 deg of heading.
@@ -217,6 +220,12 @@ Units are the firmware's: wheel turns/s (one turn is 0.178 m, measured), turn = 
 Safety: `drive` refuses unless armed with no encoder fault; speed is capped at `--max` (default 0.5) and turn at `--max-turn` (default: the same as `--max`); `--for` is at most `--max-for`, which can lower the tool's own 10 s but never raise it (so an owner's `max_drive_s` from `docs/AGENT.md` can be passed straight in). Each `/drive` lasts 1 s and is re-sent every 100 ms, so BB1 stops by itself within 1 s if the tool dies (it never fetches `/log`, so the Pico's slow `/log` answers can't starve it). It checks `/state` twice a second and stops on a disarm, an encoder fault, or more than 3 wheel turns from the start. Ctrl-C sends `/drive/stop`. A drive with speed and turn both 0 is refused (exit 1); anything the tool cut (`--speed` past `--max`, `--turn` past `--max-turn`, `--for` past `--max-for` or 10 s) is listed in the answer's `cut`. `arm` uses `heartbeat=0` (keeps balancing with nobody polling) and also turns auto-arm back on, even when it is refused, so a fallen BB1 re-arms by itself once stood up. Test it on the mock: `--host localhost:8080`.
 
 **Command log:** every call against the real robot appends one row to `logs/agent_commands.csv` (in bb1-private): `time` (local, with offset), `host`, `cmd` (`mcp:drive` and so on when it came through `bb1_mcp.py`), `args` (the parsed options as JSON, as asked, before any cut), `exit_code`, `answer` (the exact JSON line printed). The header is written when the file is new. Calls to the mock (`localhost`, `127.*`) aren't recorded, so mock data never mixes with real data. If the file can't be written the command still runs, with a warning on stderr. `tools/runs_db.py` imports it next to the logs.
+
+**Telemetry is recorded automatically** (`tools/session_log.py`). Once BB1 is balancing after an `arm` or a `drive`, `bb1.py` starts a background recorder that does what `logger.py` does: it reads every 5 ms record from `GET /log` (starting 2 s back, so the arm is in it), and saves the same file layout to `logs/` with `logger.save_log`, which puts it in `logs/runs.sqlite`. There, the session's commands get its `run_id` (`commands` table). One recorder at a time; every `bb1.py` command tells it the agent is still busy. It saves and stops by itself when BB1 has been disarmed for 10 s with no command, after 5 min with no command, after 30 s with no answer, or after 30 min (the next command starts a new log). `log start` labels the log (`--surface`, `-n` note; default surface `$BB1_SURFACE` or `unknown`, note "agent session") and starts it even when BB1 isn't balancing; `log stop` saves now and answers with the file and `run_id`; `log status` shows seconds, records, lost, and `last_saved`. Working files: `logs/.recorder/` (pid, status, label, last saved, `out.txt` = what it printed; gitignored in bb1-private). The mock is never recorded.
+
+### session_log.py: the recorder bb1.py starts
+
+Not run by hand. See the paragraph above, and its top comment for the stop rules (`DISARMED_STOP_S`, `IDLE_STOP_S`, `NO_ANSWER_STOP_S`, `MAX_RECORD_S`). If something goes wrong, `logs/.recorder/out.txt` says what it did; a stuck one: `bb1.py log stop`, or `kill $(cat logs/.recorder/pid)` (it saves on the way out).
 
 ### bb1_mcp.py: BB1 as MCP tools (for Claude Code and other agent apps)
 
@@ -232,6 +241,7 @@ There is no robot logic in it: every robot tool calls `bb1.run()` with the same 
 | `bb1_drive(speed, turn, secs)` | `bb1.py drive ... --max --max-turn --max-for` | the caps come from the server's options, not the agent |
 | `bb1_stop` | `bb1.py stop` | |
 | `bb1_disarm` | `bb1.py disarm` | BB1 falls over |
+| `bb1_log(action, note, surface)` | `bb1.py log status / start / stop` | the automatic telemetry recording; moves nothing |
 | `logs_schema`, `logs_runs(where, limit)`, `logs_show(run)`, `logs_ticks(run, cols, start_s, end_s, every, limit)`, `logs_sql(query, limit)` | `logs.py schema / runs / show / ticks / sql` | read only; `logs_ticks` returns at most 500 rows by default |
 
 Each answer is the same JSON as the command line, plus `exit_code`. Add it to Claude Code (once, from the repo folder; the caps are the owner's, like the settings in `docs/AGENT.md`):

@@ -42,14 +42,15 @@ You are driving BB1, my self-balancing robot, over Wi-Fi. I'm next to it and wat
 2. Drive only with tools/bb1.py (or the bb1_* MCP tools if you have them). Never call
    BB1's HTTP API directly, never change gains, settings or firmware, never edit files.
 3. Start with `api`, then `state`. Tell me the firmware version, battery per cell and
-   whether it is armed before you move anything.
+   whether it is armed before you move anything. Then label this session's log:
+   `log start --surface <the floor below> -n "<the task, in a few words>"`.
 4. Ask me before every `arm`. I stand it up for you.
 5. Work in small steps: one drive command, read moved_turns / turned_turns / state, tell me
    in one line what it did, then plan the next step. Stop and ask me after anything
    unexpected (fell, wrong direction, ok: false, exit code 2 twice).
-6. When done: `stop`, leave it balancing, and give me a short report: what you asked,
-   what it did (turns and meters), every surprise, and anything in AGENT.md that was
-   wrong or unclear.
+6. When done: `stop`, leave it balancing, `log stop`, and give me a short report: the
+   run_id, what you asked, what it did (turns and meters), every surprise, and anything
+   in AGENT.md that was wrong or unclear.
 
 Floor: wood        (or: carpet)
 Task: drive forward about 20 cm, turn about 90 degrees right, then come back to where you started.
@@ -66,5 +67,6 @@ Task: drive forward about 20 cm, turn about 90 degrees right, then come back to 
 
 ## Afterwards
 
-- Every command it ran is in `logs/agent_commands.csv` and `logs/runs.sqlite` (`commands` table): `tools/venv/bin/python tools/logs.py sql "SELECT time, cmd, ok, moved_turns FROM commands ORDER BY time DESC LIMIT 20"`.
+- BB1's telemetry for the session was recorded by itself and saved to `logs/runs.sqlite` (the agent's report gives the `run_id`; `tools/venv/bin/python tools/logs.py show <run_id>` or the page at http://localhost:8090 to plot it).
+- Every command it ran is in `logs/agent_commands.csv` and `logs/runs.sqlite` (`commands` table, linked to the run): `tools/venv/bin/python tools/logs.py sql "SELECT time, cmd, ok, moved_turns FROM commands ORDER BY time DESC LIMIT 20"`.
 - Its report's "wrong or unclear in AGENT.md" list is how the manual gets better: fix AGENT.md (and keep its version line, see its last section).
