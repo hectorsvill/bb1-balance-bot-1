@@ -10,6 +10,15 @@ Newest first.
 
 
 
+## 2026-10-28 - Firmware 3.3: 8 KB more RAM (the log buffer stores no tick number)
+
+- **Why:** firmware 3.2 used 226.0 KB of static RAM (86%, the compiler warned), and milestone 3 adds more (JSON answers, odometry, events)
+- **Where RAM goes** (`arm-none-eabi-nm` on the build): the log ring buffer 152.0 KB (67%), lwIP's TCP/IP buffers 58.4 KB (packet pool 36.8 KB, lwIP heap 16 KB; prebuilt in the core, already its smallest "IPv4 Only" setting), CYW43 Wi-Fi 3.2 KB, USB and core 11.5 KB, everything else of ours 0.6 KB. Table in `firmware/README.md`, "RAM"
+- **Change:** `telemetry.h` splits the record into `LogData` (what the buffer stores) and `LogRecord` (`LogData` + `tick`). Record n in the buffer is always tick n (core 1 pushes exactly one record per tick, and a calibration pause skips the tick counter too), so `logGet()` writes n back into `tick` instead of storing it. 76 -> 72 bytes a record: static RAM 225,960 -> 217,960 bytes (heap at link time 36.2 -> 44.2 KB). Same 10 s of history, same CSV, same endpoints, control code untouched. `logMetaLines()` reserves its String up front (one heap block instead of many)
+- **Not changed, our choice:** a shorter history (`LOG_SECONDS`): 8 s saves 28.8 KB more (and ends the compiler warning, under 75%), 6 s saves 57.6 KB. Recorders poll `/log` every 0.25 s, so they'd still have 3x the worst stall seen (2.5 s), but a recorder paused longer than that loses records. Packing `pitch`/`pitch_rate`/`accel_pitch` into 16 bits would save 12 KB but changes the logged numbers: not done
+- **`/log` and the 1-2.5 s quiet spells:** `handleLog` already streams in 2 KB pieces from a stack buffer, no big Strings or heap, so the RAM work doesn't touch it. A normal answer (0.25 s of records, about 8 KB) fits lwIP's 11.7 KB send buffer, so the Pico isn't blocked waiting for the Mac either; the 1-2.5 s steps look like TCP retransmission timeouts instead: lwIP resends a lost packet only on its 0.5 s timer (about 1 s at the least), a lost connection-opening packet (SYN) is resent after about 1 s, then 2 s, and every request is a new connection (`route()` closes it), so each one has a handshake that can only be resent on a timer. Not proven. Next test, no firmware change: capture a stall with `tcpdump` on the Mac and look for a resent packet about 1 s after the gap starts
+- `version.h` 3.3; mock `/sys` `log_buffer` 144000. Flashed over Wi-Fi 2026-10-28 21:18 (`ram 72047e4`): `/sys` shows 3.3, `log_buffer` 144000, `ram_static` 217960, heap 13.9 of 44.2 KB used; gains unchanged (kp 18 / ki 100 / kd 0.5, sp 3, sdi 4, th 60); a `/log` read gave 418 ticks with no gaps, tick column = `/state` tick
+
 ## 2026-10-28 - One store for all logs: recorders write to `runs.sqlite`, `tools/logs.py` reads it
 
 - **Why:** `logs/runs.sqlite` is now the unified way to store and find BB1 data, and an AI agent (or Hector) should be able to see and use any log without opening CSVs

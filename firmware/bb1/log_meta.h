@@ -17,6 +17,7 @@ const int   LOG_FORMAT    = 11;  // 2: step 5 added enc_l..pwm_r; 3: step 6 adde
 
 String logMetaLines() {
   String m;
+  m.reserve(1024);   // about 900 bytes: one heap block up front instead of growing it line by line
   m += "# firmware," + String(FIRMWARE_NAME) + "\n";
   m += "# firmware_version," + String(FIRMWARE_VERSION) + ",build_id," + String(BB1_BUILD_ID) + "\n";   // version.h
   m += "# log_format," + String(LOG_FORMAT) + "\n";
