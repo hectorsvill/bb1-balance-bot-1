@@ -29,7 +29,7 @@ Two-wheel self-balancing robot. Milestone 1 (Pico W + D153C motor driver + MPU-6
 - Core 0 also runs Wi-Fi and the web server (`wifi_setup.h`, `web.h`, `page.h`); the page only reads log records and sets the same `shared.h` requests as serial commands. Home Wi-Fi settings live in Pico flash (EEPROM library); the own-network password is in `secrets.h` (gitignored; template `secrets.example.h`). See `docs/WEB_INTERFACE.md`. Page panels sit in one column (reorderable, wide content scrolls inside its panel); the page lives in flash, not RAM.
 - `tools/mock_bb1.py` serves the real `page.h` with fake data at http://localhost:8080 for page work without the robot. Any new endpoint in `web.h` needs a fake answer there too, a row in `docs/API.md`, and a row in `api.h` (bump `API_VERSION`). Mock logs say `firmware,bb1 MOCK`: never mix them into real data.
 - Every log file (serial `dump`, page Download, `logger.py`) is the same layout and lands in `logs/runs.sqlite` (`tools/runs_db.py`): `# setting` lines from `log_meta.h`, then the CSV. Bump `LOG_FORMAT` when columns change.
-- Every tick fills one `LogRecord` (`telemetry.h`) into a mutex-guarded ring buffer. New fields go at the end of the struct, in `csvHeader()`/`printCsv()`, and in the column table in `docs/CALIBRATION_AND_LOGS.md`.
+- Every tick fills one `LogRecord` (`telemetry.h`) into a mutex-guarded ring buffer. New fields go at the end of `LogData` (the stored part; the tick number is not stored, record n = tick n), in `csvHeader()`/`printCsv()`, and in the column table in `docs/CALIBRATION_AND_LOGS.md`.
 
 ## Directions and signs (measured 2026-10-20)
 
