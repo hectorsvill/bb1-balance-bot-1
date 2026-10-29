@@ -19,6 +19,9 @@ Python helpers that run on the Mac, with their own virtual environment in `tools
 | `logs.py` | Read-only viewer: list, show, slice, download logs and run SQL, JSON out for AI agents; `serve` = a web page at http://localhost:8090 |
 | `todo.py` | The todo list from the vault Roadmap (by milestone, progress bars), tick or add todos, status of firmware/runs/PRs/CI; JSON out for AI agents; `serve` = a web page at http://localhost:8091 |
 | `mock_bb1.py` | A pretend BB1 on the Mac: serves the real page with made-up data at http://localhost:8080 |
+| `bb1.py` | Control BB1 from the command line (state, arm, drive, stop, disarm), one JSON line out, safety checks built in; for scripts and AI agents (`docs/AGENT.md`) |
+| `bb1_mcp.py` | **Can move BB1.** MCP server: the same `bb1.py` commands and `logs.py` lookups as tools for an agent app (`claude mcp add bb1 -- ...`, see docs/TOOLS.md). Python 3.10+ |
+| `tests/test_tools.py` | The tools' tests (CI runs them): `tools/venv/bin/python -m unittest discover -s tools/tests -v`. Uses the tiny logs in `tests/fixtures/` and the mock, never the robot |
 
 Quick start, from the repo folder:
 

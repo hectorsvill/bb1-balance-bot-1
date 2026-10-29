@@ -2,3 +2,6 @@ pyserial>=3.5
 numpy
 pandas
 matplotlib
+# MCP server (tools/bb1_mcp.py). The mcp package needs Python 3.10+: on an older
+# Python (macOS's Xcode python3 is 3.9) pip skips it and everything else still works.
+mcp>=2,<3; python_version >= "3.10"

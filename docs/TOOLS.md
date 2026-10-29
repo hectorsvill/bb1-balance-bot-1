@@ -53,6 +53,8 @@ tools/venv/bin/python -m pip install -r tools/requirements.txt
 
 `tools/venv/` is not in git; `tools/requirements.txt` is the list it's rebuilt from. Add a library: install it with pip, then add its name to `requirements.txt`.
 
+**Python version:** macOS's `python3` (from Xcode) is 3.9. Every tool works on it except the MCP server (`bb1_mcp.py`): the `mcp` package needs Python 3.10 or newer, so on 3.9 pip skips it (the line in `requirements.txt` says `python_version >= "3.10"`). To use the MCP server, build the venv from a newer Python, e.g. Homebrew's (`brew install python`, then `rm -rf tools/venv` and `/opt/homebrew/bin/python3 -m venv tools/venv`, then the pip line above). CI tests on both 3.9 and 3.12.
+
 ## Tool list
 
 | Tool | What it's for | Installed |
@@ -212,9 +214,41 @@ tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1
 
 Units are the firmware's: wheel turns/s (one turn is 0.178 m, measured), turn = left-minus-right turns/s, right +. Every answer has `"ok"`; on false, `"error"` says why. Exit code 0 done, 1 refused or stopped by a safety check, 2 BB1 didn't answer. `drive` answers what was asked (after the caps), then waits up to 2 s for the wheels to stop and gives `moved_turns` (forward +), `turned_turns` (left-minus-right wheel turns, right +), `settled` (stopped before answering) and the summary state. First runs on BB1 (2026-10-26, wood): 2 s at 0.3 moved +0.27 forward but −0.51 back; 1 s turns at 0.4 turned 0.28 right, 0.10 left at th 20 and 0.32-0.48 both ways at th 60 (about 0.4 asked). An agent should read these and correct, not assume. On carpet (2026-10-28) it's weaker still: 3 s at 0.3 moved −0.06 to +0.29 turns and often hadn't settled within 2 s; five correcting tries reached only +0.50 / −0.48 of a 1-turn target; 1 s turns at 0.4 gave 0.27 both ways; fwd-back-30 reached 0.18 forward and 0.10 back of 0.3. One turn of `turned_turns` = 0.178 / 0.127 rad = about 80 deg of heading.
 
-Safety: `drive` refuses unless armed with no encoder fault; speed and turn are capped at `--max` (default 0.5); `--for` is at most 10 s. Each `/drive` lasts 1 s and is re-sent every 100 ms, so BB1 stops by itself within 1 s if the tool dies (it never fetches `/log`, so the Pico's slow `/log` answers can't starve it). It checks `/state` twice a second and stops on a disarm, an encoder fault, or more than 3 wheel turns from the start. Ctrl-C sends `/drive/stop`. A drive with speed and turn both 0 is refused (exit 1); anything the tool cut (`--speed`/`--turn` past `--max`, `--for` past 10 s) is listed in the answer's `cut`. `arm` uses `heartbeat=0` (keeps balancing with nobody polling) and also turns auto-arm back on, even when it is refused, so a fallen BB1 re-arms by itself once stood up. Test it on the mock: `--host localhost:8080`.
+Safety: `drive` refuses unless armed with no encoder fault; speed is capped at `--max` (default 0.5) and turn at `--max-turn` (default: the same as `--max`); `--for` is at most `--max-for`, which can lower the tool's own 10 s but never raise it (so an owner's `max_drive_s` from `docs/AGENT.md` can be passed straight in). Each `/drive` lasts 1 s and is re-sent every 100 ms, so BB1 stops by itself within 1 s if the tool dies (it never fetches `/log`, so the Pico's slow `/log` answers can't starve it). It checks `/state` twice a second and stops on a disarm, an encoder fault, or more than 3 wheel turns from the start. Ctrl-C sends `/drive/stop`. A drive with speed and turn both 0 is refused (exit 1); anything the tool cut (`--speed` past `--max`, `--turn` past `--max-turn`, `--for` past `--max-for` or 10 s) is listed in the answer's `cut`. `arm` uses `heartbeat=0` (keeps balancing with nobody polling) and also turns auto-arm back on, even when it is refused, so a fallen BB1 re-arms by itself once stood up. Test it on the mock: `--host localhost:8080`.
 
-**Command log:** every call against the real robot appends one row to `logs/agent_commands.csv` (in bb1-private): `time` (local, with offset), `host`, `cmd`, `args` (the parsed options as JSON, as asked, before any cut), `exit_code`, `answer` (the exact JSON line printed). The header is written when the file is new. Calls to the mock (`localhost`, `127.*`) aren't recorded, so mock data never mixes with real data. If the file can't be written the command still runs, with a warning on stderr. `tools/runs_db.py` imports it next to the logs.
+**Command log:** every call against the real robot appends one row to `logs/agent_commands.csv` (in bb1-private): `time` (local, with offset), `host`, `cmd` (`mcp:drive` and so on when it came through `bb1_mcp.py`), `args` (the parsed options as JSON, as asked, before any cut), `exit_code`, `answer` (the exact JSON line printed). The header is written when the file is new. Calls to the mock (`localhost`, `127.*`) aren't recorded, so mock data never mixes with real data. If the file can't be written the command still runs, with a warning on stderr. `tools/runs_db.py` imports it next to the logs.
+
+### bb1_mcp.py: BB1 as MCP tools (for Claude Code and other agent apps)
+
+**Can move BB1** (through `bb1_drive`). An MCP server: an agent app (Claude Code, Claude Desktop, any MCP client) starts it and sees BB1 as a set of tools instead of shell commands. Needs Python 3.10+ (see the venv section above).
+
+There is no robot logic in it: every robot tool calls `bb1.run()` with the same arguments the command line gets, and every log tool calls the functions behind `logs.py`. So all of `bb1.py`'s safety checks and the `logs/agent_commands.csv` trace (rows say `mcp:drive` and so on) stay in one place.
+
+| Tool | Same as | Notes |
+|---|---|---|
+| `bb1_api` | `bb1.py api` | read only |
+| `bb1_state(full)` | `bb1.py state [--full]` | read only |
+| `bb1_arm(seconds)` | `bb1.py arm --seconds` | starts the motors: ask the owner first |
+| `bb1_drive(speed, turn, secs)` | `bb1.py drive ... --max --max-turn --max-for` | the caps come from the server's options, not the agent |
+| `bb1_stop` | `bb1.py stop` | |
+| `bb1_disarm` | `bb1.py disarm` | BB1 falls over |
+| `logs_schema`, `logs_runs(where, limit)`, `logs_show(run)`, `logs_ticks(run, cols, start_s, end_s, every, limit)`, `logs_sql(query, limit)` | `logs.py schema / runs / show / ticks / sql` | read only; `logs_ticks` returns at most 500 rows by default |
+
+Each answer is the same JSON as the command line, plus `exit_code`. Add it to Claude Code (once, from the repo folder; the caps are the owner's, like the settings in `docs/AGENT.md`):
+
+```bash
+claude mcp add bb1 -- "$PWD/tools/venv/bin/python" "$PWD/tools/bb1_mcp.py" --host 192.168.1.240 --max-speed 0.3 --max-turn 0.4 --max-for 3
+```
+
+Check it with `claude mcp list`; remove it with `claude mcp remove bb1`. Options: `--host` (default `$BB1_HOST` or `bb1.local`), `--max-speed` (default 0.3 wheel turns/s), `--max-turn` (0.4), `--max-for` (3 s; `bb1.py` allows 10), `--db` (the catalog for the `logs_*` tools). Try it on the mock first: start `tools/mock_bb1.py`, then add it with `--host localhost:8080` (mock calls aren't recorded). An agent can ask for more than the caps; `bb1.py` cuts it and says so in `cut`.
+
+### tests/test_tools.py: the tools' own tests (CI runs them)
+
+```bash
+tools/venv/bin/python -m unittest discover -s tools/tests -v
+```
+
+Takes about 10 s, needs no robot and no private logs. It compiles every `tools/*.py`; builds a catalog with `runs_db.py` from `tools/tests/fixtures/` (two 60-tick logs cut from real ones, a fall and a carpet drive, plus a tiny `flash_history.csv` and `agent_commands.csv`) in a temp folder and checks every table; checks `logs.py`'s JSON (`schema`, `runs`, `show`, `ticks`, `download`, `sql`) and that `sql` refuses writes; starts `mock_bb1.py` on a free port and runs `bb1.py` against it (state, api, arm, drive, stop, disarm, the refusals, the caps and `cut`, exit code 2 when nothing answers, no command-log rows for the mock); and, on Python 3.10+, the same through the MCP server in memory and over stdio. On Python 3.9 the 4 MCP tests are skipped. The fixtures are public: keep them tiny and free of Wi-Fi names and passwords (a test checks for `ssid`, `password`, `UniFi`). `.github/workflows/tools.yml` runs it on every pull request, on Python 3.9 and 3.12.
 
 ### check_agent_doc.py: is AGENT.md current?
 
@@ -335,6 +369,7 @@ tools/venv/bin/python tools/logs.py serve                        # web page: htt
 - **A run** is its `run_id`, its file name, or any part of the file name that matches one log (`sn3-agent`). If more match, the error lists them. `run_id`s can change after `runs_db.py build --rebuild`: note runs down by file name.
 - **`ticks`** returns at most `--limit` rows (default 2000) and thins evenly to fit: the answer says `rows_total`, `every` (kept every Nth row) and `returned`. Pass `--every 1 --limit 100000` for every row. Default columns: `t_s mode pitch setpoint speed_tps turn_tps pwm_l pwm_r drive_speed drive_turn`; `show` lists all of them (`tick_columns`).
 - **`sql`** takes one `SELECT` (or `WITH ... SELECT`); at most `--limit` rows, with `truncated` true if there were more.
+- **`--db <file>`** (before the command) reads another catalog, with its logs in the same folder; the tests use it on the fixture catalog.
 - **`serve`** (this computer only, `127.0.0.1`): a page to list and filter runs, open one (summary, disarms, drive steps, gains, bb1.py commands, header), plot any columns over any time range, download the original CSV or the plotted slice, and run SQL. The page only uses this JSON API, so an agent can use the same URLs: `/api/schema`, `/api/runs?where=&limit=`, `/api/runs/<run>`, `/api/runs/<run>/ticks?cols=&from=&to=&every=&limit=` (`&format=csv` to download), `/api/runs/<run>/csv` (the original file), `/api/sql?q=`. The page is `tools/logs_page.html`.
 
 ### todo.py: the todo list from the vault (JSON, for AI agents)

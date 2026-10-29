@@ -8,7 +8,7 @@
 // Why a record per tick: these logs are meant to train a model later, so we keep
 // everything the robot sensed (raw, unfiltered), what it estimated, and (from
 // step 5 on) what it was told to do and what it did. Add new fields at the END
-// of LogRecord and to csvHeader() / printCsv(), and document them in
+// of LogData (below) and to CSV_HEADER / formatCsv(), and document them in
 // docs/CALIBRATION_AND_LOGS.md.
 
 #pragma once
@@ -34,12 +34,13 @@ const uint8_t FLAG_DRIVE_STOPPING = 1 << 4;   // a drive command ran out or was 
 const uint8_t FLAG_ENC_FAULT = 1 << 5;   // an encoder isn't counting (control.h): heading hold off, driving refused
 const uint8_t FLAG_I_RELAX   = 1 << 6;   // the angle I term is being drained after a drive (irelax, control.h)
 
-// One control tick. 76 bytes (since log format 9); 2000 of them (10 s) use 144 KB of the 264 KB RAM.
+// What the ring buffer stores for one control tick: 72 bytes (since firmware 3.3);
+// 2000 of them (10 s) use 144,000 bytes of the 264 KB RAM, more than half of it.
 // (Step 5 added 16 bytes: encoders, wheel speeds, motor commands. Step 6 added
 // 12: the controller. Its terms are stored x10 as whole numbers, 2 bytes each
 // instead of 4 for a float, to keep the 10 s buffer within RAM.)
-struct LogRecord {
-  uint32_t tick;          // counts up by 1 every tick since boot; a gap means lost records
+// The tick number is NOT stored here: see LogRecord below.
+struct LogData {
   uint32_t t_us;          // micros() when the tick started
   uint16_t work_us;       // how long this tick's work took
   uint8_t  mode;          // Mode
@@ -78,6 +79,20 @@ struct LogRecord {
   int8_t   speed_pwm;       // PWM the wheel speed loop added this tick (smode 1; 0 in smode 0)
 };
 
+// One full record, as the rest of the firmware sees it: the stored fields plus
+// the tick number. tick counts up by 1 every tick since boot (a gap in a log
+// file means lost records); it's the first CSV column and what GET /log?since=
+// asks for.
+//
+// Why tick isn't kept in the buffer: loop1() pushes exactly one record per
+// tick, starting at tick 0 (a calibration pause skips the tick counter too), so
+// record number n in the buffer IS tick n. logGet(n) writes n back into .tick.
+// Storing it again would cost 4 bytes x 2000 records = 8 KB of RAM for a
+// number we already know (firmware 3.3; the CSV is exactly the same).
+struct LogRecord : LogData {
+  uint32_t tick;
+};
+
 // ---------- the ring buffer ----------
 //
 //   slot:    0    1    2    3   ...  1999
@@ -88,17 +103,18 @@ struct LogRecord {
 //
 // The mutex: core 1 writes a slot while core 0 might be copying the same slot.
 // Without a lock, core 0 could copy half an old record and half a new one.
-// Each side holds the lock only while copying one 40-byte record (about a
+// Each side holds the lock only while copying one 72-byte record (about a
 // microsecond), so core 1 never waits long.
 
-LogRecord logBuffer[LOG_BUFFER_RECORDS];
+LogData logBuffer[LOG_BUFFER_RECORDS];
 volatile uint32_t totalWritten = 0;
 auto_init_mutex(logMutex);
 
-// Core 1: add the newest record.
+// Core 1: add the newest record. It becomes record number totalWritten, which
+// is the same as r.tick (see LogRecord), so only the LogData part is copied.
 void logPush(const LogRecord &r) {
   mutex_enter_blocking(&logMutex);
-  logBuffer[totalWritten % LOG_BUFFER_RECORDS] = r;
+  logBuffer[totalWritten % LOG_BUFFER_RECORDS] = r;   // copies the LogData part
   totalWritten = totalWritten + 1;
   mutex_exit(&logMutex);
 }
@@ -110,7 +126,8 @@ bool logGet(uint32_t n, LogRecord &out) {
   mutex_enter_blocking(&logMutex);
   uint32_t total = totalWritten;
   if (n < total && total - n <= LOG_BUFFER_RECORDS) {
-    out = logBuffer[n % LOG_BUFFER_RECORDS];
+    static_cast<LogData &>(out) = logBuffer[n % LOG_BUFFER_RECORDS];   // the stored fields
+    out.tick = n;                                                     // record n = tick n
     ok = true;
   }
   mutex_exit(&logMutex);

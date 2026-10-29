@@ -9,10 +9,12 @@ Usage (BB1 on Wi-Fi; set BB1_HOST once to skip --host):
     tools/venv/bin/python tools/bb1.py arm                         # start balancing (stand it up first)
     tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2   # forward 0.3 wheel turns/s for 2 s
     tools/venv/bin/python tools/bb1.py drive --turn -0.4 --for 1   # turn left on the spot for 1 s
+    tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 5 --max 0.3 --max-turn 0.4 --max-for 3   # an owner's caps
     tools/venv/bin/python tools/bb1.py stop                        # stop driving, keep balancing
     tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1 falls over!
 
-An agent's instructions for using this tool are in docs/AGENT.md.
+An agent's instructions for using this tool are in docs/AGENT.md. The MCP
+server (tools/bb1_mcp.py) calls run() below, so it gets every check here too.
 
 Units are the firmware's (docs/API.md): speed in wheel turns/s (forward +),
 turn in turns/s of left-minus-right wheel difference (right +). One wheel
@@ -20,8 +22,10 @@ turn is 0.178 m (measured).
 
 Safety (an agent can make mistakes, so the tool checks for it):
   - drive refuses unless /state says armed with no encoder fault
-  - speed and turn are capped at --max (default 0.5, the firmware allows 1.0)
-  - --for is at most MAX_FOR_S (10 s); each /drive command lasts CMD_MS (1 s)
+  - speed is capped at --max (default 0.5, the firmware allows 1.0), turn at
+    --max-turn (default: the same as --max)
+  - --for is at most --max-for, which can only lower MAX_FOR_S (10 s); each
+    /drive command lasts CMD_MS (1 s)
     and is re-sent every 100 ms, so if this tool dies BB1 stops by itself
     within 1 s (the firmware failsafe)
   - it watches /state while driving: a fall, a disarm, an encoder fault or
@@ -61,7 +65,9 @@ SETTLED_SPEED = 0.05     # wheel turns/s: slower than this counts as stopped
 ARM_WAIT_S = 1.5         # how long to wait for an arm to be accepted or refused
 COMMAND_LOG = Path(__file__).resolve().parent.parent / "logs" / "agent_commands.csv"
 COMMAND_LOG_HEADER = ["time", "host", "cmd", "args", "exit_code", "answer"]
-printed_line = ""        # the JSON line out() printed last: it goes into the command log
+printed_line = ""        # the JSON line out() made last: it goes into the command log
+answer = {}              # the same answer as a dict, for run() (the MCP server)
+echo = True              # print answers? run() can turn it off: on MCP's stdio, stdout is the protocol
 
 
 class NoAnswer(Exception):
@@ -70,9 +76,11 @@ class NoAnswer(Exception):
 
 def out(**fields):
     """Print one JSON line: the tool's whole answer."""
-    global printed_line
+    global printed_line, answer
+    answer = fields
     printed_line = json.dumps(fields)
-    print(printed_line, flush=True)
+    if echo:
+        print(printed_line, flush=True)
 
 
 def is_mock(host):
@@ -91,9 +99,11 @@ def record(args, exit_code):
             w = csv.writer(f)
             if new:
                 w.writerow(COMMAND_LOG_HEADER)
-            options = {k: v for k, v in vars(args).items() if k not in ("cmd", "host")}
+            options = {k: v for k, v in vars(args).items() if k not in ("cmd", "host", "via")}
+            # cmd says who asked: "drive" from the command line, "mcp:drive" from tools/bb1_mcp.py
             w.writerow([datetime.datetime.now().astimezone().isoformat(timespec="milliseconds"),
-                        args.host, args.cmd, json.dumps(options), exit_code, printed_line])
+                        args.host, f"{args.via}:{args.cmd}" if args.via else args.cmd,
+                        json.dumps(options), exit_code, printed_line])
     except OSError as e:
         print(f"bb1.py: couldn't write {COMMAND_LOG}: {e}", file=sys.stderr)
 
@@ -197,9 +207,10 @@ def cmd_stop(base, args):
 
 
 def cmd_drive(base, args):
+    max_turn = args.max if args.max_turn is None else args.max_turn
     speed = max(-args.max, min(args.max, args.speed))   # clamp, like the firmware does
-    turn = max(-args.max, min(args.max, args.turn))
-    secs = max(0.0, min(MAX_FOR_S, args.secs))
+    turn = max(-max_turn, min(max_turn, args.turn))
+    secs = max(0.0, min(MAX_FOR_S, args.max_for, args.secs))   # --max-for can lower the 10 s, never raise it
     if speed == 0 and turn == 0:                # nothing to do: say so instead of standing still for secs
         out(ok=False, error="nothing to drive: give --speed and/or --turn (not both 0)")
         return 1
@@ -262,7 +273,7 @@ def cmd_drive(base, args):
     return 0 if why is None else 1
 
 
-def main():
+def parser():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--host", default=os.environ.get("BB1_HOST", "bb1.local"),
                     help="robot address, optionally with :port (default $BB1_HOST or bb1.local)")
@@ -278,12 +289,26 @@ def main():
     p.add_argument("--speed", type=float, default=0.0, help="wheel turns/s, forward +")
     p.add_argument("--turn", type=float, default=0.0, help="turns/s of left-minus-right, right +")
     p.add_argument("--for", dest="secs", type=float, default=1.0, help=f"seconds (max {MAX_FOR_S:g})")
-    p.add_argument("--max", type=float, default=0.5, help="cap on speed and turn (default 0.5)")
-    args = ap.parse_args()
+    p.add_argument("--max", type=float, default=0.5, help="cap on speed (and turn, unless --max-turn) (default 0.5)")
+    p.add_argument("--max-turn", type=float, help="cap on turn (default: --max)")
+    p.add_argument("--max-for", type=float, default=MAX_FOR_S, help=f"cap on --for; can only lower {MAX_FOR_S:g} s")
+    return ap
 
-    commands = {"api": cmd_api, "state": cmd_state, "arm": cmd_arm, "disarm": cmd_disarm, "stop": cmd_stop, "drive": cmd_drive}
+
+COMMANDS = {"api": cmd_api, "state": cmd_state, "arm": cmd_arm, "disarm": cmd_disarm, "stop": cmd_stop, "drive": cmd_drive}
+
+
+def run(argv, print_answer=True, via=None):
+    """Run one command from its argument list, exactly as the command line would.
+    Returns (exit code, answer dict). The MCP server calls this with
+    print_answer=False and via="mcp": the same parsing, caps, safety checks and
+    command log as the command line, with nothing printed."""
+    global echo
+    echo = print_answer
+    args = parser().parse_args(argv)
+    args.via = via
     try:
-        code = commands[args.cmd](resolve(args.host), args)
+        code = COMMANDS[args.cmd](resolve(args.host), args)
     except NoAnswer as e:
         out(ok=False, error=f"BB1 didn't answer: {e}")
         code = 2
@@ -294,6 +319,11 @@ def main():
         out(ok=False, error=f"BB1 didn't answer: {e}")
         code = 2
     record(args, code)                          # every call leaves a trace (real robot only)
+    return code, answer
+
+
+def main():
+    code, _ = run(sys.argv[1:])
     sys.exit(code)
 
 
