@@ -10,6 +10,14 @@ Newest first.
 
 
 
+## 2026-10-28 - `tools/todo.py`: a todo dashboard from the vault Roadmap
+
+- **Why:** one page (and JSON for agents) that shows what's left per milestone and what state things are in, without a second todo list to keep in step
+- **The vault stays the source:** todos are the checkboxes in `BB1 - Roadmap.md`, the focus is the Dashboard's Now / Next / Later. `list` groups them by section with done/total; `done` / `undo` rewrite only that one checkbox line (re-read first, refused if the line changed, temp file + rename); `add` appends `- [ ] text` to a section. Never runs git in the vault (Obsidian Git commits it)
+- **`status`:** last flash from `logs/flash_history.csv`, runs and armed minutes from `logs/runs.sqlite` (read only), git branches, open PRs and the last 3 CI runs through `gh`. Each fact fails soft; nothing talks to the robot
+- **`todo.py serve`:** a page at http://localhost:8091 (this computer only, `tools/todo_page.html`, same look as the logs page): status strip, progress bars, open todos first, tick a box, add a todo. Same JSON API for agents (`/api/todos`, `/api/status`, `POST /api/done|undo|add`)
+- Docs: `docs/TOOLS.md`, `tools/README.md`, `CLAUDE.md`
+
 ## 2026-10-28 - CI tests the Python tools; MCP server `tools/bb1_mcp.py`
 
 - **Why:** CI compiled the firmware but nothing checked the Python tools; and milestone 3 wants BB1 as MCP tools an agent app can call

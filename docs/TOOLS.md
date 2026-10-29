@@ -372,6 +372,26 @@ tools/venv/bin/python tools/logs.py serve                        # web page: htt
 - **`--db <file>`** (before the command) reads another catalog, with its logs in the same folder; the tests use it on the fixture catalog.
 - **`serve`** (this computer only, `127.0.0.1`): a page to list and filter runs, open one (summary, disarms, drive steps, gains, bb1.py commands, header), plot any columns over any time range, download the original CSV or the plotted slice, and run SQL. The page only uses this JSON API, so an agent can use the same URLs: `/api/schema`, `/api/runs?where=&limit=`, `/api/runs/<run>`, `/api/runs/<run>/ticks?cols=&from=&to=&every=&limit=` (`&format=csv` to download), `/api/runs/<run>/csv` (the original file), `/api/sql?q=`. The page is `tools/logs_page.html`.
 
+### todo.py: the todo list from the vault (JSON, for AI agents)
+
+The todos live in the Obsidian vault, not here: `BB1 - Roadmap.md` (milestone checklists, `- [ ]` / `- [x]`) and `BB1 - Dashboard.md` (Now / Next / Later, shown read only). `todo.py` reads them fresh every time; ticking a box rewrites only that one line of the Roadmap. Obsidian Git commits the vault by itself, so `todo.py` never runs git there. Every answer is one JSON document; exit code 0 ok, 1 refused (`{"ok": false, "error": ...}`), 2 bad usage.
+
+```bash
+tools/venv/bin/python tools/todo.py list --open                  # open todos by section (--section hardware to narrow)
+tools/venv/bin/python tools/todo.py done 961a2f8d                # tick one box (id from list)
+tools/venv/bin/python tools/todo.py undo 961a2f8d                # untick it
+tools/venv/bin/python tools/todo.py add --section "Hardware to fit" "Mount the OLED"
+tools/venv/bin/python tools/todo.py status                       # firmware, runs, branches, PRs, CI
+tools/venv/bin/python tools/todo.py serve                        # web page: http://localhost:8091
+```
+
+- **An id** is a short hash of the section title and the todo's text: ticking doesn't change it, editing the text does (run `list` again).
+- **Safe edits:** the file is re-read before every change, the page sends the exact line it showed and is refused if the file says something else now ("reload"), and the new file is written to a temp file and renamed in, so a crash can't leave half a roadmap. Line endings and file mode stay as they were.
+- **`add`** puts `- [ ] text` after the last box of the section (title or a unique part of it).
+- **`status`** never contacts the robot: last line of `logs/flash_history.csv`, run count and armed minutes from `logs/runs.sqlite` (read only), git branches, open PRs (`gh pr list`) and the last 3 CI runs (`gh run list`). Each fact fails on its own (`"ok": false` with the reason) without breaking the others.
+- **Options:** `--vault <folder>` (or `$BB1_VAULT`) for another copy of the vault, e.g. a test copy; `--logs <folder>` (default the repo's `logs/`; a worktree has none, so point it at the main repo's).
+- **`serve`** (this computer only, `127.0.0.1`): status strip, overall progress, the Dashboard's focus, then one card per section with a progress bar, open todos first (done ones folded), and an Add box. JSON for agents: `GET /api/todos`, `GET /api/status`, `POST /api/done` / `/api/undo` (`{"id", "line"}`, `line` optional), `POST /api/add` (`{"section", "text"}`). POSTs must be `Content-Type: application/json`, so another web page can't tick boxes behind our back. The page is `tools/todo_page.html`.
+
 ### mock_bb1.py: a pretend robot for working on the page
 
 ```bash

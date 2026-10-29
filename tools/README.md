@@ -17,6 +17,7 @@ Python helpers that run on the Mac, with their own virtual environment in `tools
 | `dataset.py` | Builds one clean training table from every real log (`logs/dataset/bb1_dataset.csv.gz`) and prints what's in it |
 | `runs_db.py` | Keeps all our data in `logs/runs.sqlite` (runs, every tick, disarms, drive steps, gains, flashes, bb1.py commands); the recorders add each log as they save it, `build` catches up |
 | `logs.py` | Read-only viewer: list, show, slice, download logs and run SQL, JSON out for AI agents; `serve` = a web page at http://localhost:8090 |
+| `todo.py` | The todo list from the vault Roadmap (by milestone, progress bars), tick or add todos, status of firmware/runs/PRs/CI; JSON out for AI agents; `serve` = a web page at http://localhost:8091 |
 | `mock_bb1.py` | A pretend BB1 on the Mac: serves the real page with made-up data at http://localhost:8080 |
 | `bb1.py` | Control BB1 from the command line (state, arm, drive, stop, disarm), one JSON line out, safety checks built in; for scripts and AI agents (`docs/AGENT.md`) |
 | `bb1_mcp.py` | **Can move BB1.** MCP server: the same `bb1.py` commands and `logs.py` lookups as tools for an agent app (`claude mcp add bb1 -- ...`, see docs/TOOLS.md). Python 3.10+ |
