@@ -6,8 +6,9 @@ Usage (from the repo folder):
 
 What it checks, without the robot and without our private logs:
   1. every tools/*.py compiles
-  2. runs_db.py builds a catalog from the tiny logs in tools/tests/fixtures/
-     (60 real ticks each, cut from two real logs) and fills every table
+  2. runs_db.py builds a catalog from two small made-up logs (make_fixtures.py
+     writes them to a temp folder: real logs never go in this public repo)
+     and fills every table
   3. logs.py answers schema / runs / show / ticks / download / sql in JSON from
      that catalog, and refuses anything that writes
   4. bb1.py against tools/mock_bb1.py (started here on a free port): state,
@@ -37,7 +38,7 @@ from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
 REPO = TOOLS.parent
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
+FIXTURES = Path(tempfile.mkdtemp(prefix="bb1_test_fixtures_"))   # made-up logs, written below
 PY = sys.executable                      # the same Python (venv) that runs the tests
 sys.path.insert(0, str(TOOLS))           # so bb1, logs and bb1_mcp import like the tools import each other
 
@@ -47,8 +48,8 @@ try:
 except ImportError:
     HAVE_MCP = False
 
-FIXTURE_LOGS = sorted(p.name for p in FIXTURES.glob("bb1_*.csv"))
-FIXTURE_TICKS = 60                       # rows in each fixture log
+from make_fixtures import TICKS as FIXTURE_TICKS, FALL_NOTE, write_fixtures   # noqa: E402
+FIXTURE_LOGS = sorted(write_fixtures(FIXTURES))
 
 
 def tool(script, *args, timeout=60):
@@ -137,6 +138,7 @@ def tearDownModule():
         mock.wait(timeout=5)
     if catalog_dir is not None:
         shutil.rmtree(catalog_dir, ignore_errors=True)
+    shutil.rmtree(FIXTURES, ignore_errors=True)
 
 
 # --- 1. every tool compiles ----------------------------------------------------------------------
@@ -154,17 +156,16 @@ class CompileTest(unittest.TestCase):
 
 # --- 2. runs_db.py: the fixture catalog -----------------------------------------------------------
 
-class FixtureTest(unittest.TestCase):
-    def test_fixtures_hold_no_secrets(self):
-        # The fixtures are committed to a public repo: no Wi-Fi names or passwords, ever
-        for f in FIXTURES.iterdir():
-            text = f.read_text().lower()
-            for word in ("ssid", "password", "unifi"):
-                self.assertNotIn(word, text, f"{f.name} mentions {word}")
-
-    def test_fixtures_are_tiny(self):
-        for f in FIXTURES.iterdir():
-            self.assertLess(f.stat().st_size, 50_000, f"{f.name}: fixtures stay small")
+class NoLogsInRepoTest(unittest.TestCase):
+    def test_no_logs_are_committed(self):
+        # This repo is public: recorded runs live in the private repo bb1-private.
+        # .gitignore keeps *.csv out; this catches one added with git add -f.
+        try:
+            tracked = subprocess.run(["git", "ls-files", "*.csv", "*.sqlite", "logs"], cwd=REPO,
+                                     capture_output=True, text=True, timeout=10).stdout.split()
+        except (OSError, subprocess.TimeoutExpired):
+            self.skipTest("git isn't available")
+        self.assertEqual(tracked, [], "log files are tracked in the public repo")
 
 
 class RunsDbTest(unittest.TestCase):
@@ -252,7 +253,7 @@ class LogsTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(a["disarms"][0]["reason_text"], "fell")
         self.assertIn("speed_tps", a["tick_columns"])
-        self.assertIn("note,CI fixture: 60 ticks around a real fall", a["header"])
+        self.assertIn(f"note,{FALL_NOTE}", a["header"])
         code, a = self.logs("show", "ci-")                                  # matches both: refused
         self.assertEqual(code, 1)
         self.assertFalse(a["ok"])
