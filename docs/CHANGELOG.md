@@ -13,6 +13,7 @@ Newest first.
 - Tools: `mock_bb1.py` (gain `tl`, `trim_learned`, api 5), `logger.py` `GAIN_KEYS`, `runs_db.py` header name `trim_learn` -> `tl` (`SCHEMA_VERSION` 4: runs and gains get a `tl` column). **Fixed:** when the schema version changed, `runs_db.catalog()` (called by every recorder on save) dropped every table and added only the new log, leaving a catalog of 1 run. It now rebuilds from every log in `logs/` instead (new test; `tools/tests` 31 tests OK)
 - Firmware 3.5: 551,804 B flash (+1,728 vs 3.4), 217,996 B static RAM (+4)
 - Docs: `firmware/README.md`, `docs/API.md`, `docs/AGENT.md`, `docs/PID_TUNING.md`, `docs/FIRMWARE_PLAN.md`
+- Flashed over Wi-Fi 2026-10-29 08:51 (`trim-learn a44ff04`): `/api` 5, `trim_learned` 0.0 at boot, `tl` 1, saved gains unchanged. Floor test next
 
 ## 2026-10-28 - `bb1.py` records BB1's telemetry by itself (`tools/session_log.py`)
 
