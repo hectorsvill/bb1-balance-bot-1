@@ -2,6 +2,11 @@
 
 Newest first.
 
+## 2026-10-28 - `docs/AGENT_PROMPT.md`; firmware 3.3 balances
+
+- **`docs/AGENT_PROMPT.md`:** the prompt to paste into Claude Code so it drives BB1 from `docs/AGENT.md`: setup checklist, two ways to start it (`bb1.py` with `--allowedTools`, or the MCP server), the prompt, task ideas easy to hard, and how to read back what it did. Linked from AGENT.md's More section
+- **Firmware 3.3 balances:** stood up after the OTA flash, it balanced like 3.2 (we checked by eye, 2026-10-28)
+
 ## 2026-10-28 - `tools/venv` rebuilt on Python 3.14
 
 - **Why:** the MCP server (`tools/bb1_mcp.py`) needs Python 3.10+; the old venv was Xcode's 3.9.6

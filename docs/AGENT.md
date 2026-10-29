@@ -150,6 +150,7 @@ These change how BB1 works or can damage it, and are only for your owner (`allow
 
 ## More
 
+- For owners: a ready prompt to start an agent session, with task ideas: `docs/AGENT_PROMPT.md`.
 - Every endpoint: `docs/API.md`, or `bb1.py api` for the live list with its limits.
 - The tool itself: `tools/bb1.py` (its top comment lists every safety check); the MCP server: `tools/bb1_mcp.py` (`docs/TOOLS.md`).
 - Reading logs: `tools/logs.py` (read only; `docs/TOOLS.md`).
