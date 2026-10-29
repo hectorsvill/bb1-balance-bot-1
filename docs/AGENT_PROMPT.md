@@ -4,11 +4,10 @@ A prompt to paste into a fresh Claude Code session so it drives BB1 from `docs/A
 
 ## Before you start
 
-1. BB1 on, on your home Wi-Fi: http://192.168.1.240 answers.
+1. BB1 on, on your home Wi-Fi: http://bb1.local answers. The tools find it by that name, so you don't need its IP.
 2. Space clear: at least 1 m around it, nothing it can fall off.
 3. You stay next to it the whole time (AGENT.md: `person_present = required`).
 4. Open a terminal in the repo folder: **`cd ~/"Desktop/bb1 - balance bot 1"`**.
-5. Tell the tools where BB1 is: **`export BB1_HOST=192.168.1.240`** (Claude Code passes it on to every command it runs).
 
 ## Start Claude Code
 
@@ -23,7 +22,7 @@ claude --allowedTools "Bash(tools/venv/bin/python tools/bb1.py *)" "Bash(tools/v
 **B. Through MCP.** Add the server once (the caps are fixed here, the agent can't change them), then start Claude Code:
 
 ```bash
-claude mcp add bb1 -- "$PWD/tools/venv/bin/python" "$PWD/tools/bb1_mcp.py" --host 192.168.1.240 --max-speed 0.3 --max-turn 0.4 --max-for 3
+claude mcp add bb1 -- "$PWD/tools/venv/bin/python" "$PWD/tools/bb1_mcp.py" --host bb1.local --max-speed 0.3 --max-turn 0.4 --max-for 3
 claude
 ```
 

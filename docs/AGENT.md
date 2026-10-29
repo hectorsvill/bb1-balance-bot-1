@@ -9,7 +9,7 @@ Your first command is always `api` (below). If its `"api"` number differs from t
 ## Settings (your owner edits these)
 
 ```text
-host            = 192.168.1.240   # BB1's address. bb1.local also works but can be slow; 192.168.42.1 on BB1's own network "BB1"
+host            = bb1.local       # BB1's address (the tool's default). 192.168.42.1 on BB1's own network "BB1"
 max_speed       = 0.3             # wheel turns/s, forward or back (firmware allows 1.0)
 max_turn        = 0.4             # turns/s of left-minus-right wheel difference (firmware allows 1.0)
 max_drive_s     = 3               # longest single drive command, seconds (tool allows 10)
@@ -47,7 +47,7 @@ Positions count from power-on, so only differences mean anything. The numbers ar
 Run every command from the repo folder. Each one prints **one line of JSON** and exits.
 
 ```bash
-export BB1_HOST=192.168.1.240                                   # once, from the settings
+export BB1_HOST=bb1.local                                       # once, from the settings (bb1.local is also the default)
 tools/venv/bin/python tools/bb1.py api                          # firmware version and limits (run first)
 tools/venv/bin/python tools/bb1.py state                        # what BB1 is doing now
 tools/venv/bin/python tools/bb1.py arm                          # start balancing (it must be standing near upright)
@@ -61,7 +61,7 @@ Always pass your settings as the caps: `--max` = `max_speed`, `--max-turn` = `ma
 
 ### Through MCP instead
 
-Your owner may have connected BB1 as MCP tools instead (`tools/bb1_mcp.py`; to connect it: `claude mcp add bb1 -- "$PWD/tools/venv/bin/python" "$PWD/tools/bb1_mcp.py" --host 192.168.1.240 --max-speed 0.3 --max-turn 0.4 --max-for 3`, from the repo folder, Python 3.10+). Then you call tools, not commands, and everything in this file still applies: each tool runs the same `bb1.py` command with the same checks and gives the same JSON, plus `exit_code`.
+Your owner may have connected BB1 as MCP tools instead (`tools/bb1_mcp.py`; to connect it: `claude mcp add bb1 -- "$PWD/tools/venv/bin/python" "$PWD/tools/bb1_mcp.py" --host bb1.local --max-speed 0.3 --max-turn 0.4 --max-for 3`, from the repo folder, Python 3.10+). Then you call tools, not commands, and everything in this file still applies: each tool runs the same `bb1.py` command with the same checks and gives the same JSON, plus `exit_code`.
 
 | Tool | Command |
 |---|---|

@@ -5,6 +5,7 @@ Newest first.
 ## 2026-10-28 - `docs/AGENT_PROMPT.md`; firmware 3.3 balances
 
 - **`docs/AGENT_PROMPT.md`:** the prompt to paste into Claude Code so it drives BB1 from `docs/AGENT.md`: setup checklist, two ways to start it (`bb1.py` with `--allowedTools`, or the MCP server), the prompt, task ideas easy to hard, and how to read back what it did. Linked from AGENT.md's More section
+- **Agents use `bb1.local`, not the IP:** `bb1.py` looks the name up once per command, IPv4 only, about 0.1 s (we timed it 5 times). Only `curl` is slow (about 5 s, waiting for an IPv6 answer). AGENT.md's `host` setting, AGENT_PROMPT.md and the MCP `claude mcp add` lines now say `bb1.local`
 - **Firmware 3.3 balances:** stood up after the OTA flash, it balanced like 3.2 (we checked by eye, 2026-10-28)
 
 ## 2026-10-28 - `tools/venv` rebuilt on Python 3.14

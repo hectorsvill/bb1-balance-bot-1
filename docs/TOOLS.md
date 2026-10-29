@@ -198,7 +198,7 @@ Then check it with `check_dump.py`, which it prints for you at the end.
 
 ### bb1.py: control BB1 from the command line (JSON out, for scripts and AI agents)
 
-**`drive` moves BB1.** One command per call, one line of JSON back. Set the address once per terminal with `export BB1_HOST=192.168.1.240` (or pass `--host`).
+**`drive` moves BB1.** One command per call, one line of JSON back. It finds BB1 as `bb1.local` by itself (it looks the name up once, IPv4 only, about 0.1 s; `curl http://bb1.local` takes about 5 s because it waits for an IPv6 answer BB1 never gives). Set `BB1_HOST` or pass `--host` only for another address, e.g. 192.168.42.1 on BB1's own network.
 
 An AI agent gets **`docs/AGENT.md`** as its instructions for this tool (settings, safety rules, what every answer means).
 
@@ -237,7 +237,7 @@ There is no robot logic in it: every robot tool calls `bb1.run()` with the same 
 Each answer is the same JSON as the command line, plus `exit_code`. Add it to Claude Code (once, from the repo folder; the caps are the owner's, like the settings in `docs/AGENT.md`):
 
 ```bash
-claude mcp add bb1 -- "$PWD/tools/venv/bin/python" "$PWD/tools/bb1_mcp.py" --host 192.168.1.240 --max-speed 0.3 --max-turn 0.4 --max-for 3
+claude mcp add bb1 -- "$PWD/tools/venv/bin/python" "$PWD/tools/bb1_mcp.py" --host bb1.local --max-speed 0.3 --max-turn 0.4 --max-for 3
 ```
 
 Check it with `claude mcp list`; remove it with `claude mcp remove bb1`. Options: `--host` (default `$BB1_HOST` or `bb1.local`), `--max-speed` (default 0.3 wheel turns/s), `--max-turn` (0.4), `--max-for` (3 s; `bb1.py` allows 10), `--db` (the catalog for the `logs_*` tools). Try it on the mock first: start `tools/mock_bb1.py`, then add it with `--host localhost:8080` (mock calls aren't recorded). An agent can ask for more than the caps; `bb1.py` cuts it and says so in `cut`.
