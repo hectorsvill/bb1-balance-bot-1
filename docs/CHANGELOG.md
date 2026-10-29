@@ -14,6 +14,8 @@ Newest first.
 - Firmware 3.5: 551,804 B flash (+1,728 vs 3.4), 217,996 B static RAM (+4)
 - Docs: `firmware/README.md`, `docs/API.md`, `docs/AGENT.md`, `docs/PID_TUNING.md`, `docs/FIRMWARE_PLAN.md`
 - Flashed over Wi-Fi 2026-10-29 08:51 (`trim-learn a44ff04`): `/api` 5, `trim_learned` 0.0 at boot, `tl` 1, saved gains unchanged. Floor test next
+- **Floor test 2026-10-29 (wood, 4.0 V per cell):** standing, `trim_learned` settled at +1.33 deg within 10 s and BB1 held within 0.04 turns (it used to roll back at about 0.25 turns/s). fwd-back-50 (3 runs, `tl 1`, other drive settings at 3.4 defaults): forward 0.45-0.50 of 0.5 (was 0.41-0.46), back 0.45-0.50, every pause about 0 turns/s (was −0.19 to −0.47), stops 0.23-0.44 turns, about 0.4 turns of drift per run (was 2.7). `trim_learned` crept up to about 2.0 over 13 runs: watch it
+- **Fast drive (3.4's settings), the same session:** time to 90% of 0.5 turns/s: 0.93 s (aff 0, dacc 1) → 0.53 s (aff 1) → 0.27-0.34 s (aff 1, dacc 2) → 0.25-0.29 s (dacc 3). Stops: 0.14-0.16 turns at aff 1, 0.06-0.11 at dacc 3. Peak PWM 85 of 200. At the 1.0 turns/s top speed (4 drives of 2 s): no saturation, PWM peak 102-106, but the lean sat on the 6 deg limit; with `lmax 8` it peaked at 7.5. New defaults in config.h: **aff 1, dacc 3, lmax 8** (gains also to be saved in flash). The top speed limit is next (step 2)
 
 ## 2026-10-28 - `bb1.py` records BB1's telemetry by itself (`tools/session_log.py`)
 
