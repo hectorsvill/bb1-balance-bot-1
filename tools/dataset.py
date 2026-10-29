@@ -8,7 +8,11 @@ What it does (rules: docs/FIRMWARE_PLAN.md section 6):
   1. reads logs/bb1_*.csv, skips mock logs (# firmware,bb1 MOCK) and logs
      older than format 9 (no drive_speed / drive_turn = no operator action)
   2. logs before format 10: multiplies speed_l/speed_r by 10/3 (they read
-     3.3x low, CHANGELOG 2026-10-26), so every row has the same speed scale
+     3.3x low, CHANGELOG 2026-10-26), so every row has the same speed scale.
+     Format 12 (firmware 3.6) needs nothing: its drive_ columns are stored
+     in 1/40 turns/s on BB1 (up to 3.17), but the CSV says turns/s like
+     before. Its flag 8 (saturated) also counts PID + drive feedforward at
+     the cap, not the PID alone
   3. drops rows with an IMU read error (flag 1) or an encoder fault (flag 32),
      and rows where the firmware's encoder fault rule trips on the log itself
      (older logs had a dead encoder before the detector existed): their sensor

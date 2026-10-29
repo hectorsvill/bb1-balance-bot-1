@@ -228,8 +228,8 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
             <div class="tile"><div class="name" id="h-dnow">target now</div><div class="val" id="driveNow">--</div></div>
             <div class="tile"><div class="name" id="h-dwheels">wheels</div><div class="val" id="driveWheels">--</div></div>
           </div>
-          <label class="field" style="margin-top:10px"><span class="name">Max speed <span id="driveMaxShow">50%</span></span>
-            <input type="range" id="driveMax" min="10" max="100" step="5" value="50"></label>
+          <label class="field" style="margin-top:10px"><span class="name">Max speed <span id="driveMaxShow">1.0 turns/s</span></span>
+            <input type="range" id="driveMax" min="0.1" max="3" step="0.1" value="1"></label>
           <div class="msg" id="driveMsg">Arm first: driving works only while BB1 balances.</div>
           <div class="keys" id="h-keys">Keys: <b>&#8593;</b><b>&#8595;</b><b>&#8592;</b><b>&#8594;</b> or <b>W</b><b>A</b><b>S</b><b>D</b> while held. <b>Space</b> = STOP.</div>
         </div>
@@ -458,7 +458,7 @@ const HINTS = {
   disarmBtn: 'Stop balancing now: brakes both wheels and puts the motor driver to sleep. Auto-arm stays off until you press ARM.',
   // Drive
   'h-pad': 'Press and drag to drive: up = forward, down = back, left / right = turn. Let go and BB1 slows to a stop and keeps balancing. Works only while it balances.',
-  driveMax: 'Scales the pad and the keys. 100% = the firmware limit (1 wheel turn per second forward, 1 turn/s of turn). Start low.',
+  driveMax: 'Full stick (or a held key) asks for this speed, in wheel turns/s (1 turn = 0.18 m). The slider goes up to the firmware limit (3.0); it starts at 1.0 so a full-stick jab is never 3.0 by surprise. Turning uses the same number, up to the 1.0 turn limit. Go up a step at a time.',
   'h-dask': 'What this page is asking for: speed in wheel turns per second (forward +) and turn (right +).',
   'h-dnow': 'What BB1 is aiming for right now. It ramps toward what you ask so a jab on the pad cannot tip it over.',
   'h-dwheels': 'How fast the wheels are really turning, average of both, wheel turns per second. Forward +.',
@@ -656,9 +656,12 @@ const want = { speed: 0, turn: 0, pad: false };
 const keysDown = new Set();
 let driveArmed = false, driveLimits = { max_speed: 1, max_turn: 1 }, driveBusy = false, driveWasOn = false;
 
-el('driveMax').value = store.get('bb1.driveMax', 50);
-function showDriveMax() { el('driveMaxShow').textContent = el('driveMax').value + '%'; }
-el('driveMax').oninput = () => { store.set('bb1.driveMax', +el('driveMax').value); showDriveMax(); };
+// Max speed is in turns/s since firmware 3.6 (it was % of a 1.0 limit). A new
+// store key, so an old "50" (%) can't come back as 50 turns/s; the firmware
+// clamps anyway, and the slider's max follows the limit /state reports.
+el('driveMax').value = store.get('bb1.driveMaxTps', 1);
+function showDriveMax() { el('driveMaxShow').textContent = (+el('driveMax').value).toFixed(1) + ' turns/s'; }
+el('driveMax').oninput = () => { store.set('bb1.driveMaxTps', +el('driveMax').value); showDriveMax(); };
 showDriveMax();
 
 // Pad: the knob follows your finger, clamped to the circle. y up = forward.
@@ -707,8 +710,9 @@ function driveAsk() {
     speed = (keysDown.has('f') ? 1 : 0) - (keysDown.has('b') ? 1 : 0);
     turn  = (keysDown.has('r') ? 1 : 0) - (keysDown.has('l') ? 1 : 0);
   }
-  const k = el('driveMax').value / 100;
-  return { speed: +(speed * k * driveLimits.max_speed).toFixed(2), turn: +(turn * k * driveLimits.max_turn).toFixed(2) };
+  const max = +el('driveMax').value;   // turns/s at full stick
+  return { speed: +(speed * Math.min(max, driveLimits.max_speed)).toFixed(2),
+           turn:  +(turn  * Math.min(max, driveLimits.max_turn)).toFixed(2) };
 }
 
 setInterval(async () => {
@@ -737,6 +741,7 @@ function showDrive(s) {
   const d = s.drive;
   if (!d) return;
   driveLimits = d;
+  if (+el('driveMax').max !== d.max_speed) { el('driveMax').max = d.max_speed; showDriveMax(); }   // the slider ends at the firmware limit
   const ask = driveAsk();
   el('driveAsk').innerHTML = ask.speed.toFixed(2) + ' / ' + ask.turn.toFixed(2) + ' <small>turns/s</small>';
   el('driveNow').innerHTML = d.speed_now.toFixed(2) + ' / ' + d.turn_now.toFixed(2);

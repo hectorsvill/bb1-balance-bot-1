@@ -23,7 +23,8 @@
 // pad; if Wi-Fi drops or the page closes, the command runs out and BB1 ramps
 // to a stop and keeps balancing where it is. It never disarms for that.
 // Targets ramp (dacc for speed, DRIVE_TURN_ACCEL for turn) so a full-stick
-// jab can't kick it over. While the speed target ramps, the acceleration
+// jab can't kick it over. Slowing down is never slower than
+// DRIVE_STOP_ACCEL_MIN, so a stop from full speed stays short even at a low dacc. While the speed target ramps, the acceleration
 // feedforward (aff, control.h) leans BB1 into it, and the lean limit is
 // lmax instead of the standing SPEED_SHIFT_MAX (leanLimit below).
 //
@@ -46,6 +47,9 @@ struct Drive {
   float accel = 0;      // turns/s per s the speed target moved this tick: +dacc, -dacc or 0
   float accelLean = 0;  // deg: aff x accel, smoothed (ACCEL_FF_SMOOTH_S); control.h adds it to the shift
   float leanLimit = SPEED_SHIFT_MAX;  // deg: the clamp on the speed loop's setpoint shift this tick
+  // Fast drive step 2 (firmware 3.6): the two speed guards (speedCeiling() below).
+  float satSeconds = 0;               // s the motor PWM has sat at the cap in a row while driving
+  float ceiling = DRIVE_MAX_SPEED;    // turns/s: the "too fast, back off" guard's limit on |speed target|
 };
 
 Drive drive;            // only core 1 touches this
@@ -80,9 +84,41 @@ float rampToward(float x, float target, float step) {
   return x;
 }
 
+// The fastest speed target BB1 allows this tick, turns/s (fast drive step 2).
+// Two guards, both there to keep PWM for balancing:
+//
+// 1. Headroom: the wheels get dff x speed of feedforward PWM before the angle
+//    loop adds anything. That part only holds the speed; balancing has to fit
+//    in what's left under the cap. So the target never asks for more than
+//    (cap - DRIVE_PWM_RESERVE) / dff. With dff 25, cap 200, reserve 80 that is
+//    4.8 turns/s, above DRIVE_MAX_SPEED: it only bites if someone raises dff
+//    or lowers cap. Quad picture: Betaflight's throttle headroom. Full
+//    throttle with nothing left over means the PID can't level the quad.
+//
+// 2. "Too fast, back off": if the motor PWM still sits at the cap for more
+//    than DRIVE_SAT_BACKOFF_S while driving (a slope, carpet, a weak pack),
+//    the ceiling comes down at DRIVE_STOP_ACCEL_MIN until it stops hitting
+//    the cap, then climbs back at dacc. Why: a balance loop at the cap can't
+//    push the wheels any further under the body, so if BB1 starts to tip
+//    forward there is nothing left to catch it with. Slowing down frees PWM.
+//
+// saturated: last tick's motor PWM hit the cap (balance.outSaturated, control.h).
+float speedCeiling(float dt, bool saturated) {
+  float headroom = gainDriveFF > 0 ? max(0.0f, pwmCap - DRIVE_PWM_RESERVE) / gainDriveFF : DRIVE_MAX_SPEED;
+  float maxSpeed = min(DRIVE_MAX_SPEED, headroom);
+
+  drive.satSeconds = saturated && drive.speed != 0 ? drive.satSeconds + dt : 0;
+  if (drive.satSeconds > DRIVE_SAT_BACKOFF_S)
+    drive.ceiling = max(0.0f, min(drive.ceiling, fabsf(drive.speed)) - DRIVE_STOP_ACCEL_MIN * dt);   // back off
+  else
+    drive.ceiling = min(maxSpeed, drive.ceiling + driveAccelRate * dt);                            // recover at dacc
+  return min(maxSpeed, drive.ceiling);
+}
+
 // One tick while armed. posNow / diffNow: where the wheels really are (turns
 // since arming, same as the speed loop and heading hold measure them).
-void driveUpdate(float dt, float posNow, float diffNow) {
+// saturated: the motor PWM hit the cap last tick (for speedCeiling()).
+void driveUpdate(float dt, float posNow, float diffNow, bool saturated) {
   uint32_t until = driveUntilMs;
   bool live = until && (int32_t)(until - millis()) > 0;
   drive.wantSpeed = live ? driveSpeedCmd : 0;
@@ -90,7 +126,17 @@ void driveUpdate(float dt, float posNow, float diffNow) {
 
   bool wasDriving = drive.speed != 0, wasTurning = drive.turn != 0;
   float speedBefore = drive.speed;
-  drive.speed = rampToward(drive.speed, drive.wantSpeed, driveAccelRate * dt);
+  // The command as logged (wantSpeed), but aimed at no faster than the guards allow.
+  float top = speedCeiling(dt, saturated);
+  float target = constrain(drive.wantSpeed, -top, top);
+  // Ramp rate: dacc, except that slowing down (toward 0, or reversing) is
+  // never slower than DRIVE_STOP_ACCEL_MIN. Why: a command that runs out
+  // (Wi-Fi drop) or /drive/stop at 3 turns/s with dacc 1 would roll on for
+  // 3 s and about 0.8 m. At 3 turns/s^2 it is 1 s and about 0.27 m. aff
+  // leans BB1 back for the braking, so a faster stop stays balanced.
+  bool slowing = fabsf(target) < fabsf(drive.speed) || target * drive.speed < 0;
+  float rate = slowing ? max((float)driveAccelRate, DRIVE_STOP_ACCEL_MIN) : (float)driveAccelRate;
+  drive.speed = rampToward(drive.speed, target, rate * dt);
   drive.accel = dt > 0 ? (drive.speed - speedBefore) / dt : 0;   // + = the target speeds up forward (or slows a reverse)
   drive.turn  = rampToward(drive.turn,  drive.wantTurn,  DRIVE_TURN_ACCEL * dt);
   bool moving = drive.speed != 0 || drive.turn != 0;

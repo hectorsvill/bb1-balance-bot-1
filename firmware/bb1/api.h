@@ -16,8 +16,9 @@
 // limit), so an agent can tell when to re-read it. 1 = first version,
 // 2 = POST /update (ota.h), 3 = version and build_id (version.h),
 // 4 = gains aff, dacc, lmax (fast drive step 1), 5 = gain tl and
-// /state trim_learned (trim learn, firmware 3.5).
-const int API_VERSION = 5;
+// /state trim_learned (trim learn, firmware 3.5), 6 = drive_max_speed 3.0
+// (fast drive step 2, firmware 3.6).
+const int API_VERSION = 6;
 
 struct ApiEndpoint {
   const char *method;   // "GET" or "POST"

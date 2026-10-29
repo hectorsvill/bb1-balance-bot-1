@@ -68,7 +68,7 @@ BB1 must be balancing (armed). It drives by moving the targets of its speed loop
 
 | Argument | Unit | Default | Limit | Meaning |
 |---|---|---|---|---|
-| `speed` | wheel turns/s | 0 | ±1.0 (`DRIVE_MAX_SPEED`) | forward +, back - |
+| `speed` | wheel turns/s | 0 | ±3.0 (`DRIVE_MAX_SPEED`; 1.0 before firmware 3.6) | forward +, back - |
 | `turn` | turns/s of left-minus-right wheel difference | 0 | ±1.0 (`DRIVE_MAX_TURN`) | right +, left - |
 | `ms` | ms | 500 (`DRIVE_HOLD_MS`) | 0..3000 (`DRIVE_HOLD_MAX_MS`) | how long this command lasts |
 
@@ -82,11 +82,13 @@ Not balancing: `409` and `{"ok":false,"error":"not balancing: arm first (POST /a
 
 **The failsafe:** every command runs out. To keep driving, send it again before it does (the page sends every 100 ms). When it runs out, BB1 ramps to a stop and keeps balancing where it is; it does not disarm. So a dropped Wi-Fi, a closed page or a crashed script can never leave BB1 driving for more than `ms`. A single command can ask for up to 3 s, for "drive forward for 2 s" without a loop.
 
-Speed and turn ramp toward what you ask (speed at the setting `dacc`, default 1 turn/s per second; turn at 2), so a full jab can't tip it over. Disarming, a fall or a new arm clears the command.
+Speed and turn ramp toward what you ask (speed at the setting `dacc`, default 3 turns/s per second; turn at 2), so a full jab can't tip it over. Slowing down (a stop, a run-out command, a lower speed) is never slower than 3 turns/s per second (`DRIVE_STOP_ACCEL_MIN`), whatever `dacc` is: from 3 turns/s BB1 stops in 1 s and about 1.5 wheel turns (0.27 m). Disarming, a fall or a new arm clears the command.
 
 Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are by default (sp 3, si 0.5, th 60). With `th 0` turning still works on feedforward alone (`DRIVE_TURN_FF`, 15 PWM per turn/s), just less exactly. Turning on the spot keeps the position hold, and driving straight keeps the full heading hold (each axis only lets go of its own hold). Speed has an I term while driving, the setting `sdi` (degrees of lean per second for every turn/s it is slower than asked, default 4): without it BB1 stayed stuck going forward, because on wood the angle loop's I term is the real wheel-speed command and the speed loop only moves the setpoint. **`smode 1`** swaps that for a wheel speed loop: speed and position errors go straight to the PWM (`wsp` PWM per turn/s, `wsi` PWM per wheel turn), the classic balance-car layout, meant for use with a lower `ki` (tested 2026-10-26: it drove the wrong way at every ki from 100 to 25 on wood, so it stays off); `smode 0` (default) is the layout above. Speed also has a feedforward, the setting `dff` (PWM per turn/s, default 25): the PWM a speed needs goes straight to the wheels, so the angle loop's I term doesn't have to wind up to it and unwind it when you reverse. When a command has ramped down to a stop, the setting `irelax` (seconds, default 0.5, 0 = off) drains the angle I term toward 0 for 2 x irelax, so the I term can't keep the wheels rolling the old way (it rolled BB1 slowly backward after stops, 2026-10-26).
 
-**Fast drive settings (firmware 3.4, 2026-10-28; defaults = the old behavior).** `dacc` (turns/s per second, 0.1-6, default 1): how fast the speed target ramps. `aff` (deg per turn/s², 0-5, default 0 = off): acceleration lean feedforward; while the speed target ramps, BB1 leans `aff x dacc` deg into it at once (forward when speeding up forward, back when slowing), instead of waiting for a speed error. Physics: 1 turn/s² = 0.178 m/s² needs atan(0.178 / 9.81) = about 1.04 deg of lean, so about 1 is the textbook value. `lmax` (deg, 6-15, default 6): the most the speed loop may shift the balance setpoint while a speed target is set or ramping down; standing still the limit stays 6 (`SPEED_SHIFT_MAX`), and after a stop it eases back down at 10 deg/s, never in one jump. `drive_max_speed` stays 1.0 turns/s for now.
+**Fast drive settings (firmware 3.4, 2026-10-28; defaults = the old behavior).** `dacc` (turns/s per second, 0.1-6, default 1): how fast the speed target ramps. `aff` (deg per turn/s², 0-5, default 0 = off): acceleration lean feedforward; while the speed target ramps, BB1 leans `aff x dacc` deg into it at once (forward when speeding up forward, back when slowing), instead of waiting for a speed error. Physics: 1 turn/s² = 0.178 m/s² needs atan(0.178 / 9.81) = about 1.04 deg of lean, so about 1 is the textbook value. `lmax` (deg, 6-15, default 6): the most the speed loop may shift the balance setpoint while a speed target is set or ramping down; standing still the limit stays 6 (`SPEED_SHIFT_MAX`), and after a stop it eases back down at 10 deg/s, never in one jump. (Defaults since 2026-10-29: `aff` 1, `dacc` 3, `lmax` 8.)
+
+**Fast drive step 2 (firmware 3.6, 2026-10-29).** `drive_max_speed` is 3.0 turns/s (0.53 m/s); `drive_max_turn` stays 1.0. Two guards can lower the speed BB1 really aims for (`/state` `drive.speed_now`) below what you asked (`drive.speed`), both to keep PWM for balancing: the drive feedforward `dff x speed` may use at most `cap - 80` PWM (`DRIVE_PWM_RESERVE`; with dff 25 and cap 200 that is 4.8 turns/s, so only a higher `dff` or a lower `cap` makes it bite), and if the motor PWM sits at the cap for more than 0.2 s while driving (`DRIVE_SAT_BACKOFF_S`), the speed comes down at 3 turns/s per second until it doesn't, then climbs back at `dacc`. The lift detector (disarm reason 12) now compares each wheel with the speed BB1 aims for: it trips when the wheels run more than 4 turns/s off it for 0.5 s, so standing still it is the same as before and driving fast doesn't trip it.
 
 **Trim learn (firmware 3.5, 2026-10-29).** `tl` (deg of lean per wheel turn rolled, 0-5, default 1, 0 = off): while BB1 stands still (no drive command, ramps at 0, the coast and I relax after a stop over), every wheel turn it rolls moves its lean target `tl` deg the other way, and it keeps that correction across drives, stops and re-arms until a restart (or `tl=0`, which also clears it). `/state` `trim_learned` shows it (deg, ±3 at most; + = BB1 really balances forward of `trim`). Why: the position hold point (`si`) moves to the wheels at every stop, so a trim error used to come back as a slow backward creep after each command (CHANGELOG 2026-10-29).
 
@@ -162,8 +164,8 @@ The list of every endpoint and its limits, as JSON, so a program or an AI agent 
 | `endpoints` | one object per route: `method`, `path`, `args` (names), `answer` (`json`, `text`, `csv`, `html`), `moves` (true = can turn the wheels), `does` |
 
 ```json
-{"api":4,"firmware":"bb1 milestone 2","version":"3.4","build_id":"ota 1a2b3c4+ 2026-10-27 14:05","log_format":11,
- "limits":{"drive_max_speed":1.00,"drive_hold_ms":500, ...},
+{"api":6,"firmware":"bb1 milestone 2","version":"3.6","build_id":"ota 1a2b3c4+ 2026-10-29 14:05","log_format":12,
+ "limits":{"drive_max_speed":3.00,"drive_hold_ms":500, ...},
  "gains":{"kp":[0.000,100.000], ...},
  "endpoints":[{"method":"POST","path":"/drive","args":["speed","turn","ms"],"answer":"json","moves":true,"does":"..."}, ...]}
 ```

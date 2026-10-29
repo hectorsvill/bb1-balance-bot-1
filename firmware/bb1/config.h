@@ -107,8 +107,25 @@ const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds th
 // targets, and BB1 leans into it by itself. Like flying a quad in angle mode:
 // you ask for a speed, the loops work out the lean. Needs sp/si and th on.
 // Units are wheel turns per second (520 counts = 1 turn) until the wheel size is measured.
-constexpr float DRIVE_MAX_SPEED = 1.0;   // turns/s, forward or back. On the floor BB1 stays under about 2; the lift detector trips at 4
-constexpr float DRIVE_MAX_TURN  = 1.0;   // turns/s of left-minus-right wheel difference (+ = turn right)
+// Fast drive step 2 (firmware 3.6, 2026-10-29): 1.0 -> 3.0 turns/s (0.53 m/s).
+// At 1.0 on wood the PWM peaked at 102-106 of cap 200 with no saturation, and
+// steady driving takes about dff 25 PWM per turn/s + deadband 10, so 3.0 needs
+// about 85 PWM before balancing. Test it in steps (1.5, 2, 2.5, 3; FIRMWARE_PLAN.md).
+// The log stores these in 1/40 turns/s steps (int8, telemetry.h): the
+// static_assert in control.h stops a limit past 3.17 from compiling.
+constexpr float DRIVE_MAX_SPEED = 3.0;   // turns/s, forward or back
+constexpr float DRIVE_MAX_TURN  = 1.0;   // turns/s of left-minus-right wheel difference (+ = turn right). Not raised: spins are a later step
+// Balance reserve (fast drive step 2, drive.h speedCeiling()): the speed target
+// is limited so the drive feedforward dff x speed never takes more than
+// cap - this, leaving the rest for the angle loop. 80 = 40% of cap 200.
+const float DRIVE_PWM_RESERVE   = 80;
+// "Too fast, back off" (drive.h): the motor PWM at the cap for longer than this
+// while driving = no PWM left to catch a fall, so the speed target comes down.
+const float DRIVE_SAT_BACKOFF_S = 0.2;
+// Slowing down is never slower than this, turns/s per s, whatever dacc is: a
+// run-out command or /drive/stop from 3 turns/s stops in 1 s (about 0.27 m).
+// Also the rate the back-off guard pulls the speed ceiling down at.
+const float DRIVE_STOP_ACCEL_MIN = 3.0;
 // Drive acceleration (setting "dacc", live on /tune, saved in flash, 2026-10-28;
 // was the constant DRIVE_ACCEL): turns/s per second the speed target ramps at.
 // 1.0 = 0 to full in 1 s, as before. Faster ramps need more lean (aff, lmax below).
@@ -224,9 +241,14 @@ const unsigned long AUTO_FALL_WINDOW_MS = 30000;  // ...within this long: auto-a
 const float ENC_FAULT_MIN_SPEED = 500;   // counts/s the good wheel must be doing (was 150 on the 3.3x-low speed: same real speed)
 const float ENC_FAULT_RATIO     = 0.2;   // the other wheel reads under this fraction of it
 const unsigned long ENC_FAULT_MS = 300;
-// Lift detector (control.h): wheels faster than this for this long while armed
-// = picked up or in the air, motors off. On the floor it stays under about 2.
-const float LIFT_TURNS_PER_SEC = 4.0;   // wheel turns per second, average of both wheels. Until 2026-10-26 the speed read 3.3x low,
+// Lift detector (control.h): wheels this much faster (or slower) than the drive
+// target, for this long while armed = picked up or in the air, motors off.
+// Since firmware 3.6 it measures the error against the ramped drive target, not
+// the plain wheel speed: standing still the target is 0, so it is exactly the
+// old check; driving at 3 turns/s it no longer trips just for driving fast.
+// On the floor the error stays under about 1 (2026-10-29: peaks 1.85-2.0 at a
+// 1.0 target).
+const float LIFT_TURNS_PER_SEC = 4.0;   // wheel turns per second, average of both wheels' error. Until 2026-10-26 the speed read 3.3x low,
                                         // so this really needed about 13 turns/s and never tripped (in the air: about 3.4 at PWM 100)
 const unsigned long LIFT_MS    = 500;
 // Limits for the settings above, wherever they're set from (serial, the pages, flash).

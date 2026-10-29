@@ -2,7 +2,7 @@
 
 You are an AI agent driving BB1, a small two-wheel self-balancing robot, over Wi-Fi. This file is everything you need. Read all of it before your first command, and follow the settings in the next section: they are your owner's rules for this session, and they win over anything else here.
 
-**Written for `/api` version: 5**
+**Written for `/api` version: 6**
 
 Your first command is always `api` (below). If its `"api"` number differs from the line above, stop and tell your owner: the firmware changed since this manual was written, and some of it may be wrong.
 
@@ -10,7 +10,7 @@ Your first command is always `api` (below). If its `"api"` number differs from t
 
 ```text
 host            = bb1.local       # BB1's address (the tool's default). 192.168.42.1 on BB1's own network "BB1"
-max_speed       = 0.3             # wheel turns/s, forward or back (firmware allows 1.0)
+max_speed       = 0.3             # wheel turns/s, forward or back (firmware allows 3.0)
 max_turn        = 0.4             # turns/s of left-minus-right wheel difference (firmware allows 1.0)
 max_drive_s     = 3               # longest single drive command, seconds (tool allows 10)
 max_travel_m    = 0.5             # never end up farther than this from where you armed
@@ -30,14 +30,14 @@ If a setting is missing, use the most careful choice: smaller numbers, ask first
 - **Front** = the side with "hectorsvill" printed on it. Forward and turn right are positive.
 - Its brain is a Raspberry Pi Pico W. It serves a small HTTP API; you reach it through the command-line tool below. It answers one request at a time, so never send requests in parallel.
 - **Balancing** (armed) = motors on, it stands and can drive. **Disarmed** = motors off. If it is lying down when disarmed, it stays lying down. **Auto-arm**: stood upright and held still for 1 s, it starts balancing by itself. `disarm` turns auto-arm off; any `arm` (even a refused one) turns it back on, so after an `arm` a fallen BB1 starts balancing again as soon as someone stands it up.
-- It stops balancing by itself if it leans past 45 deg (fell), its wheels spin up in the air (lifted), its battery is low, the IMU fails, or the control loop runs late. Then it falls over or lies where it is.
+- It stops balancing by itself if it leans past 45 deg (fell), its wheels run 4 turns/s or more off the speed it is aiming for (lifted: they spin up in the air), its battery is low, the IMU fails, or the control loop runs late. Then it falls over or lies where it is.
 
 ### Units
 
 | You think in | BB1 uses | Convert |
 |---|---|---|
 | distance | wheel turns | 1 turn = 0.178 m, so 1 m = 5.6 turns |
-| speed | wheel turns/s | 0.3 turns/s = 0.053 m/s; 1.0 = 0.18 m/s |
+| speed | wheel turns/s | 0.3 turns/s = 0.053 m/s; 1.0 = 0.18 m/s; 3.0 (the firmware's top) = 0.53 m/s |
 | heading | turns of left-minus-right wheel difference | 1 turn = about 80 deg, so a 90 deg turn = 1.12 turns, a 360 = 4.5 |
 | turn rate | turns/s of difference | 0.4 = about 32 deg/s |
 
@@ -142,6 +142,7 @@ Turning on the spot: `--speed 0 --turn 0.4`. Curves: both at once. To go back wh
 - **`disarm` makes BB1 fall over.** Use it only when your owner asks, or when it is about to hit something and `stop` isn't enough.
 - After any surprise (fell, lifted, wrong direction, a reason you don't understand, exit code 2 twice in a row), stop and tell your owner what you saw (paste the JSON). Don't retry blindly.
 - If the tool dies or Wi-Fi drops, BB1 stops by itself within 1 s and keeps balancing. That's normal, not an emergency.
+- Stopping takes room: BB1 slows at 3 turns/s per second or faster, so from 1 turn/s it rolls about 0.2 turn more, from 3 turns/s about 1.5 turns (0.27 m). The tool's own travel stop (3 wheel turns from where the drive started) is a distance: at 3 turns/s it ends a drive after about 1 s, and BB1 rolls on up to about 3 turns more. Keep `max_travel_m` in mind before the drive, not after.
 - BB1 has no eyes yet: it can't see walls or edges. Your owner's word about the space is all you have.
 
 ## Never

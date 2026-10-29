@@ -48,7 +48,7 @@ try:
 except ImportError:
     HAVE_MCP = False
 
-from make_fixtures import TICKS as FIXTURE_TICKS, FALL_NOTE, write_fixtures   # noqa: E402
+from make_fixtures import TICKS as FIXTURE_TICKS, FALL_NOTE, write_fixtures, write_fast_fixture, FAST_SPEED   # noqa: E402
 FIXTURE_LOGS = sorted(write_fixtures(FIXTURES))
 
 
@@ -197,6 +197,24 @@ class RunsDbTest(unittest.TestCase):
         self.assertAlmostEqual(self.count("SELECT max(t_s) FROM ticks"), (FIXTURE_TICKS - 1) / 200)
         # format 9 has no speed_pwm column: NULL there, a number in format 11
         self.assertEqual(self.count("SELECT count(speed_pwm) FROM ticks"), FIXTURE_TICKS)
+
+    def test_drive_speed_format_11_and_12(self):
+        # Format 12 (firmware 3.6) stores the drive_ columns in 1/40 turns/s so
+        # 3.0 fits; the CSV still says turns/s. Both formats must read the same way.
+        import runs_db
+        old = self.db.execute("SELECT max(drive_speed), max(drive_speed_now) FROM ticks t JOIN runs r USING (run_id) "
+                              "WHERE r.log_format = 11").fetchone()
+        self.assertEqual(old, (0.3, 0.3))
+        with tempfile.TemporaryDirectory() as folder:
+            got = runs_db.summarize(write_fast_fixture(folder))
+            self.assertEqual(got["run"]["log_format"], 12)
+            cols = runs_db.TICK_FIELDS + runs_db.TICK_ADDED
+            ticks = [dict(zip(cols, t)) for t in got["ticks"]]
+            self.assertEqual(max(t["drive_speed"] for t in ticks), FAST_SPEED)
+            self.assertEqual(max(t["drive_speed_now"] for t in ticks), FAST_SPEED)
+            self.assertAlmostEqual(max(t["speed_tps"] for t in ticks), FAST_SPEED)   # 1300 counts/s / 520
+            self.assertGreater(got["run"]["drive_s"], 0)
+            self.assertEqual([s[2] for s in got["steps"]], [0.0, FAST_SPEED])   # (n, name, speed, ...)
 
     def test_the_fall_is_a_disarm(self):
         row = self.db.execute("SELECT d.reason, d.reason_text, d.tick, r.outcome FROM disarms d "

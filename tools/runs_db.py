@@ -69,6 +69,9 @@ SURFACES = ("wood", "carpet", "tile", "air")    # looked for in the file name wh
 
 # Every column any log format has written (telemetry.h csvHeader(), docs/CALIBRATION_AND_LOGS.md).
 # Older formats lack the later ones: those are empty (NULL) for their rows.
+# drive_speed, drive_turn, drive_speed_now, drive_turn_now are turns/s in every
+# format: BB1 stores them in hundredths (format 9-11) or 1/40ths (12, so 3.0
+# fits) and divides before writing the CSV, so no scaling here.
 TICK_FIELDS = ["tick", "t_us", "work_us", "mode", "flag_bits", "ax_raw", "ay_raw", "az_raw", "temp_raw",
                "gx_raw", "gy_raw", "gz_raw", "pitch", "pitch_rate", "accel_pitch", "enc_l", "enc_r",
                "speed_l", "speed_r", "pwm_l", "pwm_r", "setpoint", "p_term", "i_term", "d_term", "gains_ver",

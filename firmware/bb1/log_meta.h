@@ -13,11 +13,11 @@
 
 // Bump this when the log columns change, so old and new files can be told apart.
 const char *FIRMWARE_NAME = "bb1 milestone 2";
-const int   LOG_FORMAT    = 11;  // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping; 10: speed_l/speed_r really over 10 ticks (before: 3 ticks, read 3.3x low); 11: drive_speed_now, drive_turn_now, speed_pwm
+const int   LOG_FORMAT    = 12;  // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping; 10: speed_l/speed_r really over 10 ticks (before: 3 ticks, read 3.3x low); 11: drive_speed_now, drive_turn_now, speed_pwm; 12: the four drive_ columns stored in 1/40 turns/s (CSV still turns/s, now 3 decimals, up to 3.17), flag 8 also counts PID + drive feedforward hitting the cap
 
 String logMetaLines() {
   String m;
-  m.reserve(1152);   // about 1000 bytes: one heap block up front instead of growing it line by line
+  m.reserve(1280);   // about 1100 bytes: one heap block up front instead of growing it line by line
   m += "# firmware," + String(FIRMWARE_NAME) + "\n";
   m += "# firmware_version," + String(FIRMWARE_VERSION) + ",build_id," + String(BB1_BUILD_ID) + "\n";   // version.h
   m += "# log_format," + String(LOG_FORMAT) + "\n";
@@ -34,6 +34,8 @@ String logMetaLines() {
        ",accel_ff," + String(gainAccelFF, 2) + ",drive_accel," + String(driveAccelRate, 2) + ",lean_max," + String(driveLeanMax, 1) + ",trim_learn," + String(gainTrimLearn, 2) + "\n";
   m += "# drive_max_speed," + String(DRIVE_MAX_SPEED, 2) + ",drive_max_turn," + String(DRIVE_MAX_TURN, 2) + ",drive_accel," + String(driveAccelRate, 2) +
        ",drive_turn_accel," + String(DRIVE_TURN_ACCEL, 2) + ",drive_turn_ff," + String(DRIVE_TURN_FF, 1) + ",drive_hold_ms," + String(DRIVE_HOLD_MS) +
-       ",speed_shift_max," + String(SPEED_SHIFT_MAX, 1) + ",lean_limit_ease_dps," + String(LEAN_LIMIT_EASE_DPS, 1) + "\n";
+       ",speed_shift_max," + String(SPEED_SHIFT_MAX, 1) + ",lean_limit_ease_dps," + String(LEAN_LIMIT_EASE_DPS, 1) +
+       ",drive_pwm_reserve," + String(DRIVE_PWM_RESERVE, 0) + ",drive_sat_backoff_s," + String(DRIVE_SAT_BACKOFF_S, 2) +
+       ",drive_stop_accel_min," + String(DRIVE_STOP_ACCEL_MIN, 2) + ",lift_tps," + String(LIFT_TURNS_PER_SEC, 1) + ",lift_ms," + String(LIFT_MS) + "\n";
   return m;
 }

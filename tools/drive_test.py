@@ -6,16 +6,25 @@ Usage (BB1 must already be balancing on the floor):
     tools/venv/bin/python tools/drive_test.py --list           # what each test does
     tools/venv/bin/python tools/drive_test.py --report logs/bb1_..._drive-test.csv   # re-read a saved run
 
-Tests: stand, fwd-back-30, fwd-back-50, turn, arc, all (the five in a row).
+Tests: stand, fwd-back-30, fwd-back-50, turn, arc, all (the five in a row),
+and the fast ones (firmware 3.6, run them one at a time in this order):
+fwd-back-100, fwd-back-150, fwd-back-200, fwd-back-250, fwd-back-300.
+Each fast step is 1.5 s long, ramp included, so it rolls at most speed x 1.5
+wheel turns out and the same back: fwd-back-300 goes about 4.5 turns (0.8 m)
+forward, then back. Give it a clear straight line of about 1.5 m ahead of
+the start and 0.5 m behind (room for the stop and the after-stop roll).
 
 Safety, in this order of importance:
   - refuses to start unless /state says armed and enc_fault 0
   - every /drive command lasts CMD_MS (3 s) and is re-sent every 100 ms,
     like the page; nothing longer than MAX_CMD_MS (3 s) is ever sent. If this
-    script dies, BB1 stops by itself within 3 s (the firmware failsafe)
+    script dies, BB1 stops by itself within 3 s (the firmware failsafe).
+    Steps faster than 1 turn/s send FAST_CMD_MS (1 s) commands instead
   - POST /drive/stop between steps, and on any error, fall or Ctrl-C
   - checks /state twice a second: disarmed (fell, STOP), encoder fault, or more than
-    MAX_TRAVEL (3) wheel turns from the start ends the test
+    MAX_TRAVEL (3) wheel turns from the start ends the test. A fast test plans
+    more than that, so its limit is its longest step (speed x seconds) plus
+    TRAVEL_MARGIN (travel_limit()): still a stop for a run that runs away
 
 The log is the same file logger.py writes (logs/bb1_<date>_<time>_<note>.csv),
 plus one "# step,name,speed,turn,start_tick,end_tick" line per step so the
@@ -46,6 +55,10 @@ RESEND_S = 0.1                 # re-send the command this often (the page does t
 FLAG_SAT, FLAG_STOPPING, FLAG_ENC_FAULT = 8, 16, 32   # telemetry.h
 MAX_TRAVEL = 3.0               # wheel turns (about 0.53 m) from where the test started: stop the test.
                                # Without it, fwd-back runs crept back 1 turn each and BB1 hit a wall (2026-10-26)
+TRAVEL_MARGIN = 1.5            # fast tests: turns allowed past the planned step (one 0.5 s /state check at 3 turns/s)
+FAST_CMD_MS = 1000             # steps faster than 1 turn/s: if this script dies at 3 turns/s, a 3 s command
+                               # would roll on 9 turns (1.6 m). 1 s + the 1 s stop is about 4.5 turns. A Wi-Fi
+                               # stall may cut such a step short (BB1 ramps to a stop): the report's "drop" shows it
 STALL_S = 2.0                  # give up after this long with no answer at all from BB1
 
 # A step is (name, speed turns/s, turn turns/s, seconds). Speed and turn 0 =
@@ -59,6 +72,18 @@ TESTS = {
     "arc":         [P, ("fwd 0.3 right 0.3", 0.3, 0.3, 3.0), P, ("fwd 0.3 left 0.3", 0.3, -0.3, 3.0), P],
 }
 TESTS["all"] = sum((TESTS[k] for k in ("stand", "fwd-back-30", "fwd-back-50", "turn", "arc")), [])
+# Fast drive step 2 (firmware 3.6). 1.5 s per step, ramp included: the target
+# ramps at dacc (3 turns/s^2 by default), so at 3 turns/s it takes 1 s to reach
+# speed and spends about 0.5 s there; at 1.5 turns/s, 1 s at speed. Up and down
+# ramps are the same shape, so a step rolls about speed x 1.5 wheel turns.
+for v in (1.0, 1.5, 2.0, 2.5, 3.0):
+    TESTS[f"fwd-back-{v * 100:.0f}"] = [P, (f"fwd {v:g}", v, 0.0, 1.5), P, (f"back {v:g}", -v, 0.0, 1.5), P]
+
+
+def travel_limit(steps):
+    """How far (wheel turns) a test may roll from the start before it is stopped:
+    MAX_TRAVEL, or for a fast test its longest planned step plus TRAVEL_MARGIN."""
+    return max(MAX_TRAVEL, max(abs(sp) * secs for _, sp, _, secs in steps) + TRAVEL_MARGIN)
 
 
 class Stop(Exception):
@@ -77,6 +102,7 @@ class Run:
         self.tick = 0                   # newest tick seen in /state
         self.home = None                # wheel position (turns) when the test started
         self.travel = 0.0               # turns from home, forward +
+        self.max_travel = MAX_TRAVEL    # run_test() raises it for a fast test (travel_limit())
 
     def ask(self, fn, *args, **kw):
         """Call BB1. Short Wi-Fi stalls (the Pico's server goes quiet for a second or
@@ -113,8 +139,8 @@ class Run:
         if self.home is None:
             self.home = pos
         self.travel = pos - self.home
-        if abs(self.travel) > MAX_TRAVEL:
-            raise Stop(f"{self.travel:+.1f} wheel turns from the start (limit {MAX_TRAVEL:g}): re-centre BB1")
+        if abs(self.travel) > self.max_travel:
+            raise Stop(f"{self.travel:+.1f} wheel turns from the start (limit {self.max_travel:g}): re-centre BB1")
         if s["enc_fault"]:
             raise Stop(f"encoder fault {s['enc_fault']} ({'left' if s['enc_fault'] == 1 else 'right'} encoder): check its wires")
 
@@ -135,7 +161,7 @@ class Run:
                 return
 
     def drive(self, speed, turn):
-        ms = min(CMD_MS, MAX_CMD_MS)
+        ms = min(CMD_MS if abs(speed) <= 1.0 else FAST_CMD_MS, MAX_CMD_MS)
         try:
             self.ask(post, f"{self.base}/drive", timeout=0.5, speed=speed, turn=turn, ms=ms)
         except urllib.error.HTTPError as e:     # 409: not balancing, or encoder fault
@@ -152,7 +178,7 @@ class Run:
 
     def step(self, name, speed, turn, secs):
         moving = speed or turn
-        print(f"  {name:20s} {secs:4.0f} s" + (f"  speed {speed:+.2f}  turn {turn:+.2f}" if moving else ""))
+        print(f"  {name:20s} {secs:4.1f} s" + (f"  speed {speed:+.2f}  turn {turn:+.2f}" if moving else ""))
         end = time.time() + secs
         while time.time() < end:
             if moving:
@@ -168,6 +194,7 @@ def run_test(base, test, note, surface, out):
     started = datetime.now()
     path = log_path(note or f"drive {test}", started, out)
     run = Run(base)
+    run.max_travel = max(run.max_travel, travel_limit(TESTS[test]))   # max(): drive_explore turns the limit off
     meta = get(f"{base}/log/meta")
     try:
         run.check(force=True)          # refuse to start unless armed and no encoder fault
