@@ -6,8 +6,9 @@ Usage (from the repo folder):
 
 What it checks, without the robot and without our private logs:
   1. every tools/*.py compiles
-  2. runs_db.py builds a catalog from the tiny logs in tools/tests/fixtures/
-     (60 real ticks each, cut from two real logs) and fills every table
+  2. runs_db.py builds a catalog from two small made-up logs (make_fixtures.py
+     writes them to a temp folder: real logs never go in this public repo)
+     and fills every table
   3. logs.py answers schema / runs / show / ticks / download / sql in JSON from
      that catalog, and refuses anything that writes
   4. bb1.py against tools/mock_bb1.py (started here on a free port): state,
@@ -37,7 +38,7 @@ from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
 REPO = TOOLS.parent
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
+FIXTURES = Path(tempfile.mkdtemp(prefix="bb1_test_fixtures_"))   # made-up logs, written below
 PY = sys.executable                      # the same Python (venv) that runs the tests
 sys.path.insert(0, str(TOOLS))           # so bb1, logs and bb1_mcp import like the tools import each other
 
@@ -47,8 +48,8 @@ try:
 except ImportError:
     HAVE_MCP = False
 
-FIXTURE_LOGS = sorted(p.name for p in FIXTURES.glob("bb1_*.csv"))
-FIXTURE_TICKS = 60                       # rows in each fixture log
+from make_fixtures import TICKS as FIXTURE_TICKS, FALL_NOTE, write_fixtures   # noqa: E402
+FIXTURE_LOGS = sorted(write_fixtures(FIXTURES))
 
 
 def tool(script, *args, timeout=60):
@@ -137,6 +138,7 @@ def tearDownModule():
         mock.wait(timeout=5)
     if catalog_dir is not None:
         shutil.rmtree(catalog_dir, ignore_errors=True)
+    shutil.rmtree(FIXTURES, ignore_errors=True)
 
 
 # --- 1. every tool compiles ----------------------------------------------------------------------
@@ -154,17 +156,16 @@ class CompileTest(unittest.TestCase):
 
 # --- 2. runs_db.py: the fixture catalog -----------------------------------------------------------
 
-class FixtureTest(unittest.TestCase):
-    def test_fixtures_hold_no_secrets(self):
-        # The fixtures are committed to a public repo: no Wi-Fi names or passwords, ever
-        for f in FIXTURES.iterdir():
-            text = f.read_text().lower()
-            for word in ("ssid", "password", "unifi"):
-                self.assertNotIn(word, text, f"{f.name} mentions {word}")
-
-    def test_fixtures_are_tiny(self):
-        for f in FIXTURES.iterdir():
-            self.assertLess(f.stat().st_size, 50_000, f"{f.name}: fixtures stay small")
+class NoLogsInRepoTest(unittest.TestCase):
+    def test_no_logs_are_committed(self):
+        # This repo is public: recorded runs live in the private repo bb1-private.
+        # .gitignore keeps *.csv out; this catches one added with git add -f.
+        try:
+            tracked = subprocess.run(["git", "ls-files", "*.csv", "*.sqlite", "logs"], cwd=REPO,
+                                     capture_output=True, text=True, timeout=10).stdout.split()
+        except (OSError, subprocess.TimeoutExpired):
+            self.skipTest("git isn't available")
+        self.assertEqual(tracked, [], "log files are tracked in the public repo")
 
 
 class RunsDbTest(unittest.TestCase):
@@ -252,7 +253,7 @@ class LogsTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(a["disarms"][0]["reason_text"], "fell")
         self.assertIn("speed_tps", a["tick_columns"])
-        self.assertIn("note,CI fixture: 60 ticks around a real fall", a["header"])
+        self.assertIn(f"note,{FALL_NOTE}", a["header"])
         code, a = self.logs("show", "ci-")                                  # matches both: refused
         self.assertEqual(code, 1)
         self.assertFalse(a["ok"])
@@ -372,12 +373,61 @@ class Bb1MockTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("didn't answer", a["error"])
 
+    def test_9_the_mock_is_never_recorded(self):
+        for action in ("status", "start", "stop"):
+            code, a = self.bb1("log", action)
+            self.assertEqual(code, 1)
+            self.assertIn("mock is never recorded", a["error"])
+
+
+# --- 4b. session_log.py: the recorder bb1.py starts ------------------------------------------------
+
+class SessionLogTest(unittest.TestCase):
+    """The recorder loop against the mock, with every file it writes moved to a temp
+    folder (the real tool refuses the mock, so nothing here can reach logs/)."""
+
+    def test_records_and_saves(self):
+        import signal
+        import threading
+        import session_log
+        start_mock()
+        tmp = Path(tempfile.mkdtemp())
+        saved_files = {}
+        old = {k: getattr(session_log, k) for k in ("DIR", "STATUS", "LABEL", "LAST", "LAST_COMMAND", "log_path", "save_log")}
+        handlers = signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGINT)
+        try:
+            session_log.DIR = tmp
+            session_log.STATUS, session_log.LABEL, session_log.LAST = tmp / "status.json", tmp / "label.json", tmp / "last.json"
+            session_log.LAST_COMMAND = tmp / "last_command"
+            session_log.log_path = lambda note, started: tmp / "bb1_test.csv"
+            session_log.save_log = lambda out, meta, note, started, header, rows, lost, versions, surface: \
+                saved_files.update(out=out, header=header, rows=rows, note=note, surface=surface, versions=versions)
+            session_log.set_label(note="ci test", surface="wood")
+            session_log.touch_command()
+            session_log.stop_asked = False
+            threading.Timer(1.5, session_log.ask_stop, (None, None)).start()   # like 'bb1.py log stop'
+            session_log.record(f"http://{mock_host}", mock_host)
+        finally:
+            for k, v in old.items():
+                setattr(session_log, k, v)
+            signal.signal(signal.SIGTERM, handlers[0])
+            signal.signal(signal.SIGINT, handlers[1])
+        last = json.loads((tmp / "last.json").read_text())
+        shutil.rmtree(tmp, ignore_errors=True)
+        self.assertEqual(last["stopped"], "asked to stop")
+        self.assertGreater(len(saved_files["rows"]), 200)                  # 2 s of look-back plus 1.5 s
+        self.assertTrue(saved_files["header"].startswith("tick,"))
+        ticks = [int(r.split(",")[0]) for r in saved_files["rows"]]
+        self.assertEqual(ticks, list(range(ticks[0], ticks[0] + len(ticks))))   # no gaps
+        self.assertEqual((saved_files["note"], saved_files["surface"]), ("ci test", "wood"))
+        self.assertTrue(saved_files["versions"])                           # the gains went in
+
 
 # --- 5. bb1_mcp.py: the same through MCP -----------------------------------------------------------
 
 @unittest.skipUnless(HAVE_MCP, "the mcp package isn't installed (needs Python 3.10+)")
 class McpTest(unittest.TestCase):
-    TOOLS = {"bb1_api", "bb1_state", "bb1_arm", "bb1_drive", "bb1_stop", "bb1_disarm",
+    TOOLS = {"bb1_api", "bb1_state", "bb1_arm", "bb1_drive", "bb1_stop", "bb1_disarm", "bb1_log",
              "logs_schema", "logs_runs", "logs_show", "logs_ticks", "logs_sql"}
 
     @classmethod

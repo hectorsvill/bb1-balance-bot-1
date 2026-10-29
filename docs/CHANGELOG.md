@@ -2,6 +2,32 @@
 
 Newest first.
 
+## 2026-10-28 - `bb1.py` records BB1's telemetry by itself (`tools/session_log.py`)
+
+- **Why:** an agent's drive left only its own command rows; BB1's 5 ms telemetry was lost unless someone ran `logger.py` by hand. Now every agent session is a run in `logs/runs.sqlite`, with its commands linked to it
+- **How:** once BB1 balances after an `arm` or `drive`, `bb1.py` starts `tools/session_log.py` in the background (one at a time, detached, so it outlives the command). It reads `GET /log` like `logger.py` (from 2 s back), and saves with `logger.save_log`, so the file is the usual layout in `logs/` and catalogued at once. It stops and saves when BB1 has been disarmed 10 s with no command, after 5 min with no command, 30 s with no answer, or 30 min
+- **`bb1.py log status | start | stop`** (`--surface`, `-n` note): see it, label it, save now (answers with `run_id`). MCP: `bb1_log`. AGENT.md: a `surface` setting, `log start` after `state`, `log stop` and the `run_id` in the report; AGENT_PROMPT.md the same
+- Working files in `logs/.recorder/` (gitignored in bb1-private). The mock is never recorded. Tests: the recorder loop against the mock with its files in a temp folder (no gaps, label, gains), and `log` refused on the mock (31 tests)
+- First real use: an agent session at 22:15 was recorded with 0 lost records
+
+## 2026-10-28 - `docs/AGENT_PROMPT.md`; firmware 3.3 balances
+
+- **`docs/AGENT_PROMPT.md`:** the prompt to paste into Claude Code so it drives BB1 from `docs/AGENT.md`: setup checklist, two ways to start it (`bb1.py` with `--allowedTools`, or the MCP server), the prompt, task ideas easy to hard, and how to read back what it did. Linked from AGENT.md's More section
+- **Agents use `bb1.local`, not the IP:** `bb1.py` looks the name up once per command, IPv4 only, about 0.1 s (we timed it 5 times). Only `curl` is slow (about 5 s, waiting for an IPv6 answer). AGENT.md's `host` setting, AGENT_PROMPT.md and the MCP `claude mcp add` lines now say `bb1.local`
+- **Firmware 3.3 balances:** stood up after the OTA flash, it balanced like 3.2 (we checked by eye, 2026-10-28)
+
+## 2026-10-28 - `tools/venv` rebuilt on Python 3.14
+
+- **Why:** the MCP server (`tools/bb1_mcp.py`) needs Python 3.10+; the old venv was Xcode's 3.9.6
+- Rebuilt from Homebrew's `/opt/homebrew/bin/python3` (3.14.8) with `tools/requirements.txt`: `tools/tests` ran 29 tests, OK, none skipped. `docs/TOOLS.md` updated
+
+## 2026-10-28 - No logs in the public repo
+
+- **Why:** recorded runs belong in the private repo bb1-private, never on the public GitHub repo
+- `tools/tests/fixtures/` removed: its two logs were 60-tick slices of real runs, plus real flash-history and command-log rows. `tools/tests/make_fixtures.py` now writes made-up logs with the same layout to a temp folder each time the tests run
+- `.gitignore`: every `*.csv` and `*.log`, and `logs/` too (besides the `logs` link). A test fails if a CSV, SQLite file or `logs` path is tracked anyway
+- The old files are still in git history (`logs/deadband_2026-10-23_21-37-35.csv` from 2026-10-23, and the fixtures from PR #9) until the history is rewritten
+
 ## Open items
 
 - Measure counts per wheel turn cleanly (520 assumed)

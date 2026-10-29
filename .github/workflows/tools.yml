@@ -1,6 +1,6 @@
 # Test the Python tools on every push and pull request to main (the firmware compile is compile.yml).
-# tools/tests/test_tools.py does it all: compiles every tools/*.py, builds runs.sqlite from the tiny
-# committed logs in tools/tests/fixtures/, checks logs.py's JSON, and drives tools/mock_bb1.py with
+# tools/tests/test_tools.py does it all: compiles every tools/*.py, builds runs.sqlite from two
+# made-up logs (tools/tests/make_fixtures.py; real logs never go in this repo), checks logs.py's JSON, and drives tools/mock_bb1.py with
 # bb1.py and the MCP server (bb1_mcp.py). It never talks to the real robot.
 # Two Pythons: 3.9 is what macOS's Xcode python3 gives tools/venv (the MCP tests skip there: the mcp
 # package needs 3.10+); 3.12 runs everything.

@@ -8,7 +8,7 @@ Usage:
     tools/venv/bin/python tools/logs.py download 158 --out run.csv # the original CSV (or --cols ... for a slice)
     tools/venv/bin/python tools/logs.py sql "SELECT surface, count(*) FROM runs GROUP BY surface"
     tools/venv/bin/python tools/logs.py serve                      # the same on a web page: http://localhost:8090
-    tools/venv/bin/python tools/logs.py --db tools/tests/fixtures/runs.sqlite runs   # another catalog (tests)
+    tools/venv/bin/python tools/logs.py --db /tmp/other/runs.sqlite runs              # another catalog (the tests use one)
 
 A run is its run_id, its file name, or any part of the file name that matches
 only one log ("sn3-agent"). run_ids can change after 'runs_db.py build --rebuild';
