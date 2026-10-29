@@ -285,6 +285,7 @@ void printHelp() {
   Serial.println("  irelax N  after a drive, the angle I term decays to 0 with this time constant, s; 0 = off (now " + String(gainIRelax, 2) + ")");
   Serial.println("  aff N     lean per turn/s^2 while the drive speed ramps, deg (about 1.0 by physics); 0 = off (now " + String(gainAccelFF, 2) + ")");
   Serial.println("  dacc N    drive speed ramp, turns/s per s (now " + String(driveAccelRate, 2) + ");  lmax N  lean limit while driving, deg, 6..15 (now " + String(driveLeanMax, 1) + ")");
+  Serial.println("  tl N      trim learn: deg of lean per wheel turn rolled standing still, 0..5; 0 = off (now " + String(gainTrimLearn, 2) + ", learned " + String(trimLearnedNow, 2) + " deg)");
   Serial.println("  auto 1 / auto 0   start balancing by itself when stood upright and still (now " + String((int)autoArm) + ")");
   Serial.println("  trim N    balance point in deg (now " + String(balanceTrim, 2) + ");  trim here = use the current pitch");
   Serial.println("  cap N     PWM limit while armed (now " + String(pwmCap, 0) + ");  deadband N  (now " + String(motorDeadband, 0) + ")");

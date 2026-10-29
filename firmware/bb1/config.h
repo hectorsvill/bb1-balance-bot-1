@@ -158,6 +158,19 @@ const float DEFAULT_LEAN_MAX  = 6.0;
 const float LEAN_MAX_MAX      = 15.0;
 const float LEAN_LIMIT_EASE_DPS = 10.0; // deg/s: after a drive the clamp eases back down to SPEED_SHIFT_MAX this fast (drive.h says why)
 
+// Trim learn (setting "tl", live, saved; firmware 3.5, 2026-10-29). BB1's real
+// balance point sits about +1.3 deg forward of trim (wood, 3.4 logs). The
+// speed loop's position term (si) should cancel that, but drive.h moves its
+// hold point to the wheels at every stop, so the correction is thrown away
+// and BB1 creeps backward again after each command. Trim learn is a second
+// position I term that is never reset (only at boot): while standing still,
+// every wheel turn rolled backward moves the lean target tl deg forward.
+// Unit: deg of lean per wheel turn rolled. 0 = off (and the learned value is
+// cleared): the 3.4 behavior.
+const float DEFAULT_TRIM_LEARN  = 1.0;
+const float TRIM_LEARN_RATE_MAX = 5.0;
+const float TRIM_LEARN_MAX      = 3.0;   // deg: the learned correction never goes past this either way
+
 // Speed loop mode (setting "smode", 2026-10-26).
 //   0 = the speed loop moves the angle setpoint (sp, si, sdi), as since step 8.
 //   1 = wheel speed loop: speed and position errors go straight to the PWM

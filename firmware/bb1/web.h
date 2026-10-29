@@ -19,7 +19,7 @@
 //   POST /arm         start balancing (refused unless upright; see control.h). seconds=N: disarm after N s (0 = no limit);
 //                     heartbeat=0: don't stop when the page goes away (main page)
 //   POST /disarm      stop balancing
-//   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband, sp, si, th, auto, dff, sdi, smode, wsp, wsi, irelax, aff, dacc, lmax
+//   POST /gains       any of kp, ki, kd, trim (a number or "here"), cap, deadband, sp, si, th, auto, dff, sdi, smode, wsp, wsi, irelax, aff, dacc, lmax, tl
 //   POST /gains/save  store them in flash (disarmed only);  POST /gains/defaults  back to config.h
 //   POST /step        step test while armed: setpoint +2 deg for 1 s
 //   POST /drive       args speed, turn (wheel turns/s), ms: drive while balancing (drive.h). Lasts 500 ms unless re-sent
@@ -74,8 +74,9 @@ void handleState() {
   bool have = total > 0 && logGet(total - 1, r);
 
   // On core 0's small stack (4 KB), so sized to fit, not generous: with every
-  // number and text at its widest the answer is about 1440 bytes (estimated
-  // 2026-10-28 with aff/dacc/lmax; was 1390 before them, with 1400 here).
+  // number and text at its widest the answer is about 1470 bytes (estimated
+  // 2026-10-29: 1440 with aff/dacc/lmax, + 31 for trim_learned and tl;
+  // was 1390 before aff, with 1400 here).
   // snprintf cuts it off rather than overflow, but cut JSON won't parse.
   char json[1536];
   snprintf(json, sizeof(json),
@@ -86,10 +87,10 @@ void handleState() {
            "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
            "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"step\":%s,\"auto_state\":\"%s\",\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
-           "\"enc_fault\":%u,"
+           "\"enc_fault\":%u,\"trim_learned\":%.2f,"
            "\"drive\":{\"speed\":%.2f,\"turn\":%.2f,\"speed_now\":%.2f,\"turn_now\":%.2f,\"left_ms\":%ld,\"commands\":%lu,\"max_speed\":%.2f,\"max_turn\":%.2f},"
            "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,\"batt_cells\":%d,"
-           "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f,\"sdi\":%.2f,\"smode\":%d,\"wsp\":%.1f,\"wsi\":%.1f,\"irelax\":%.2f,\"aff\":%.2f,\"dacc\":%.2f,\"lmax\":%.1f}}",
+           "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f,\"sdi\":%.2f,\"smode\":%d,\"wsp\":%.1f,\"wsi\":%.1f,\"irelax\":%.2f,\"aff\":%.2f,\"dacc\":%.2f,\"lmax\":%.1f,\"tl\":%.2f}}",
            have ? "true" : "false",
            have ? (unsigned long)r.tick : 0UL, have ? (unsigned long)r.t_us : 0UL,
            have ? r.mode : 0, have ? r.flags : 0,
@@ -106,11 +107,11 @@ void handleState() {
            (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
            robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs, armLeftMs, stepActive ? "true" : "false", autoStateText(autoArmState),
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
-           encoderFault,
+           encoderFault, trimLearnedNow,
            driveLeftMs > 0 ? driveSpeedCmd : 0.0, driveLeftMs > 0 ? driveTurnCmd : 0.0, driveSpeedNow, driveTurnNow, driveLeftMs,
            (unsigned long)driveCommands, DRIVE_MAX_SPEED, DRIVE_MAX_TURN,
            batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V, BATTERY_CELLS,
-           (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, (int)autoArm, gainDriveFF, gainDriveSpeedI, (int)speedMode, gainWheelSpeedP, gainWheelSpeedI, gainIRelax, gainAccelFF, driveAccelRate, driveLeanMax);
+           (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, (int)autoArm, gainDriveFF, gainDriveSpeedI, (int)speedMode, gainWheelSpeedP, gainWheelSpeedI, gainIRelax, gainAccelFF, driveAccelRate, driveLeanMax, gainTrimLearn);
   server.send(200, "application/json", json);
 }
 

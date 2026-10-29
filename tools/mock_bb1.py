@@ -49,7 +49,7 @@ START = time.time()
 alpha = 0.98
 bias = [-0.50, 2.07, -2.20]      # deg/s, like a real calibration
 tests = []                        # motor tests: [first_tick, end_tick, left_pwm, right_pwm]
-gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": -4.39, "cap": 80.0, "deadband": 0.0, "sp": 0.0, "si": 0.0, "th": 0.0, "auto": 1, "dff": 25.0, "sdi": 2.0, "smode": 0, "wsp": 20.0, "wsi": 10.0, "irelax": 0.5, "aff": 0.0, "dacc": 1.0, "lmax": 6.0}
+gains = {"ver": 1, "kp": 15.0, "ki": 0.0, "kd": 0.5, "trim": -4.39, "cap": 80.0, "deadband": 0.0, "sp": 0.0, "si": 0.0, "th": 0.0, "auto": 1, "dff": 25.0, "sdi": 2.0, "smode": 0, "wsp": 20.0, "wsi": 10.0, "irelax": 0.5, "aff": 0.0, "dacc": 1.0, "lmax": 6.0, "tl": 1.0}
 armed_from = None                 # tick it was armed at, or None
 reason = ""                       # why it last disarmed / refused, like disarmReason in control.h
 arm_attempts = 0
@@ -158,7 +158,7 @@ def meta_lines():
 
 
 # GET /api: the same list as firmware/bb1/api.h (keep the two in step).
-GAIN_LIMITS = {"kp": (0, 100), "ki": (0, 100), "kd": (0, 20), "trim": (-20, 20), "cap": (0, 255), "deadband": (0, 100), "sp": (0, 20), "si": (0, 20), "th": (0, 200), "auto": (0, 1), "dff": (0, 150), "sdi": (0, 20), "smode": (0, 1), "wsp": (0, 200), "wsi": (0, 200), "irelax": (0, 5), "aff": (0, 5), "dacc": (0.1, 6), "lmax": (6, 15)}
+GAIN_LIMITS = {"kp": (0, 100), "ki": (0, 100), "kd": (0, 20), "trim": (-20, 20), "cap": (0, 255), "deadband": (0, 100), "sp": (0, 20), "si": (0, 20), "th": (0, 200), "auto": (0, 1), "dff": (0, 150), "sdi": (0, 20), "smode": (0, 1), "wsp": (0, 200), "wsi": (0, 200), "irelax": (0, 5), "aff": (0, 5), "dacc": (0.1, 6), "lmax": (6, 15), "tl": (0, 5)}
 API_ENDPOINTS = [   # method, path, args, answer, moves, does
     ("GET", "/api", "", "json", False, "this list"),
     ("GET", "/state", "", "json", False, "everything now; also the heartbeat for heartbeat arms"),
@@ -189,7 +189,7 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
 
 def api_list():
     return {
-        "api": 4, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 11,
+        "api": 5, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 11,
         "units": {"angle": "deg (forward +)", "speed": "wheel turns/s (forward +)",
                   "turn": "wheel turns/s left minus right (right +)", "pwm": "-255..255 (forward +)", "counts_per_rev": 520},
         "limits": {"drive_max_speed": DRIVE_MAX_SPEED, "drive_max_turn": DRIVE_MAX_TURN, "drive_hold_ms": DRIVE_HOLD_MS,
@@ -247,6 +247,7 @@ class Handler(BaseHTTPRequestHandler):
                           "left_ms": max(0, int((drive["until"] - time.time()) * 1000)) if drive_now() != (0.0, 0.0) else 0,
                           "commands": drive["commands"], "max_speed": DRIVE_MAX_SPEED, "max_turn": DRIVE_MAX_TURN},
                 "enc_fault": 0,
+                "trim_learned": 0.0 if gains["tl"] <= 0 else 0.42,   # mock: a fixed learned trim (firmware 3.5)
                 "batt_v": mock_battery(r["tick"]), "batt_ok": True, "batt_warn_v": 7.0, "batt_low_v": 6.6, "batt_cells": 2,
             }
             self.reply(json.dumps(state), "application/json")
@@ -331,7 +332,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif v:
                     gains[k] = max(lo, min(hi, float(v)))
             gains["ver"] += 1
-            self.reply("gains v{ver}: kp {kp}  ki {ki}  kd {kd}  trim {trim} deg  cap {cap}  deadband {deadband}  sp {sp}  si {si}  th {th}  auto {auto}  dff {dff:g}  sdi {sdi:g}  smode {smode:g}  wsp {wsp:g}  wsi {wsi:g}  irelax {irelax:g}  aff {aff:g}  dacc {dacc:g}  lmax {lmax:g}".format(**gains))
+            self.reply("gains v{ver}: kp {kp}  ki {ki}  kd {kd}  trim {trim} deg  cap {cap}  deadband {deadband}  sp {sp}  si {si}  th {th}  auto {auto}  dff {dff:g}  sdi {sdi:g}  smode {smode:g}  wsp {wsp:g}  wsi {wsi:g}  irelax {irelax:g}  aff {aff:g}  dacc {dacc:g}  lmax {lmax:g}  tl {tl:g}".format(**gains))
         elif self.path == "/gains/save":
             if armed_from is not None:
                 return self.reply("disarm first: saving pauses the control loop for a moment", status=409)

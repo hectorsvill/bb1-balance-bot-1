@@ -81,6 +81,11 @@ struct Balance {
   bool    newArm = false;       // first tick after arming: remember the encoders
   int     fastTicks = 0;        // ticks in a row with the wheels spinning fast (lift detector)
   int     encOddTicks = 0;      // ticks in a row with one encoder near 0 while the other spins (encoder fault detector)
+  // Trim learn (tl, firmware 3.5): deg of lean added to the setpoint, learned
+  // while standing still. Never reset by arming, disarming or driving, only at
+  // boot (and set to 0 while tl is 0): what it learned about the balance
+  // point stays true until the battery or the floor changes.
+  float   trimLearned = 0;
 };
 
 Balance balance;                // only core 1 touches this
@@ -142,13 +147,15 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   //   speed P (sp): degrees back per wheel turn per second
   //   speed I (si): degrees back per wheel turn rolled since arming (the
   //                 integral of speed = position): pulls it back home and
-  //                 cancels a trim error for good
+  //                 cancels a trim error, until the next drive moves home
+  //                 (drive.h); trim learn (tl, below) keeps that correction
   // Both 0 = off. The log's setpoint column shows the result (trim + shift).
   // Driving (drive.h) gives both a target: speed error = speed - asked speed,
   // position error = position - where the target has rolled to.
   r.drive_speed = r.drive_turn = 0;              // 0 unless armed and driving
   r.drive_speed_now = r.drive_turn_now = r.speed_pwm = 0;
   if (!balance.armed) balance.speedPwm = 0;
+  if (gainTrimLearn <= 0) balance.trimLearned = 0;  // tl 0 = off: forget it, exactly the 3.4 behavior
   if (balance.armed) {
     float speed = (r.speed_l + r.speed_r) / 2.0f;                       // counts/s, forward +
     balance.speedFiltered += SPEED_FILTER * (speed - balance.speedFiltered);
@@ -182,11 +189,27 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     // back to SPEED_SHIFT_MAX after a stop.
     drive.lean = constrain(drive.lean, -drive.leanLimit, drive.leanLimit);
     if (speedMode < 0.5f) {
+      // Trim learn (tl, config.h): if BB1 rolls while it should stand still,
+      // its real balance point isn't the trim. Rolling backward (speed -)
+      // means the lean target is too far back: move it forward a little, by
+      // tl deg per wheel turn rolled. This is the speed loop's I term (si),
+      // except drive.pos is reset at every stop and this never is, so it
+      // ends up equal to the trim error and stays fixed across commands.
+      // Quad picture: Betaflight's accelerometer trim, or a position hold
+      // that remembers the wind instead of fighting it again after every
+      // stick input. Only standing still: while driving, ramping down, or
+      // in the coast and I-relax after a stop, rolling is expected, not a
+      // trim error. Not during a step test either (it leans on purpose).
+      bool standingStill = drive.speed == 0 && drive.turn == 0 && !drive.stopping &&
+                           drive.relaxLeft <= 0 && !balance.stepUntilMs;
+      if (standingStill && gainTrimLearn > 0) balance.trimLearned -= gainTrimLearn * turnsPerSec * dt;
+      balance.trimLearned = constrain(balance.trimLearned, -TRIM_LEARN_MAX, TRIM_LEARN_MAX);
       // Acceleration feedforward (aff, drive.h): while the speed target ramps,
       // lean into it right away (forward + while speeding up forward, back
       // while slowing), about 1.04 deg per turn/s^2 by physics. sp and sdi
       // only lean once BB1 is already behind; this leans before it falls behind.
-      float shift = -(gainSpeedP * (turnsPerSec - drive.speed) + gainSpeedI * (turns - drive.pos)) + drive.lean + drive.accelLean;
+      float shift = -(gainSpeedP * (turnsPerSec - drive.speed) + gainSpeedI * (turns - drive.pos)) + drive.lean + drive.accelLean +
+                    balance.trimLearned;
       setpoint += constrain(shift, -drive.leanLimit, drive.leanLimit);
       balance.speedPwm = 0;
     } else {
@@ -200,6 +223,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     r.drive_turn_now  = (int8_t)lroundf(drive.turn * 100);
     r.speed_pwm       = (int8_t)lroundf(balance.speedPwm);
   }
+  trimLearnedNow = balance.trimLearned;         // for /state (kept while disarmed: it is still what BB1 learned)
   r.setpoint_cdeg = (int16_t)(setpoint * 100);
   r.gains_ver = (uint16_t)gainsVersion;
   r.reason = disarmReason;                      // the value before this tick's checks; next tick shows any new one

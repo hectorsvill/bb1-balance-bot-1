@@ -116,6 +116,8 @@ All gains change live from the tuning page (above) or serial. Change one thing a
 
 6. **Fast driving (firmware 3.4):** once it drives well at the defaults, try `aff` (acceleration lean, about 1.0 by physics: 1 turn/s per s needs 1.04 deg of lean), then a faster ramp `dacc`, then a bigger lean limit `lmax`. One at a time, same drive test each time. Quad picture: `aff` is Betaflight feedforward for the speed loop (lean when the stick moves, not after the error builds), `lmax` is the angle-mode max tilt. In the log, the setpoint should move before the pitch does, and `pwm_l`/`pwm_r` should stay well under the cap.
 
+7. **Trim learn `tl` (firmware 3.5, default 1.0):** if BB1 creeps after a stop, its real balance point isn't the trim (on wood it is about +1.3 deg). The speed loop's `si` would fix that, but its hold point moves to the wheels at every stop, so the fix was lost after each command and BB1 got the lean it needed only from `sp` by rolling (about 0.4 turns/s at sp 3). Trim learn is the same position I term, but never reset: standing still, every wheel turn rolled backward moves the target `tl` deg forward, and it keeps it. Quad picture: Betaflight's accelerometer trim that sets itself, or a position hold that remembers the wind. Watch **Learned trim** on /tune (or `/state` `trim_learned`): it should settle within a few seconds of standing and then hardly move. Too high = a slow fore-and-aft rocking while standing (two I terms on position, `si` and `tl`, stacking up); `tl 0` = off and forgets it.
+
 Use the **step test** (setpoint +2 deg for 1 s) to compare gains: a good response settles in well under a second with one small overshoot.
 
 | You see | Likely cause | Try |

@@ -40,7 +40,7 @@ curl -X POST $B/drive -d speed=-0.3 -d turn=-0.2  # back and left, 500 ms (the d
 curl -X POST $B/drive/stop                        # ramp to a stop, keep balancing
 
 # Settings
-curl -X POST $B/gains -d sdi=2 -d dff=25          # change any of kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax aff dacc lmax (RAM only)
+curl -X POST $B/gains -d sdi=2 -d dff=25          # change any of kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax aff dacc lmax tl (RAM only)
 curl -X POST $B/gains -d trim=here                # trim = the current pitch
 curl -X POST $B/disarm && curl -X POST $B/gains/save   # store the gains in flash (disarmed only: hold BB1)
 curl -X POST $B/gains/defaults                    # back to the config.h defaults (save to keep)
@@ -88,6 +88,8 @@ Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are b
 
 **Fast drive settings (firmware 3.4, 2026-10-28; defaults = the old behavior).** `dacc` (turns/s per second, 0.1-6, default 1): how fast the speed target ramps. `aff` (deg per turn/s², 0-5, default 0 = off): acceleration lean feedforward; while the speed target ramps, BB1 leans `aff x dacc` deg into it at once (forward when speeding up forward, back when slowing), instead of waiting for a speed error. Physics: 1 turn/s² = 0.178 m/s² needs atan(0.178 / 9.81) = about 1.04 deg of lean, so about 1 is the textbook value. `lmax` (deg, 6-15, default 6): the most the speed loop may shift the balance setpoint while a speed target is set or ramping down; standing still the limit stays 6 (`SPEED_SHIFT_MAX`), and after a stop it eases back down at 10 deg/s, never in one jump. `drive_max_speed` stays 1.0 turns/s for now.
 
+**Trim learn (firmware 3.5, 2026-10-29).** `tl` (deg of lean per wheel turn rolled, 0-5, default 1, 0 = off): while BB1 stands still (no drive command, ramps at 0, the coast and I relax after a stop over), every wheel turn it rolls moves its lean target `tl` deg the other way, and it keeps that correction across drives, stops and re-arms until a restart (or `tl=0`, which also clears it). `/state` `trim_learned` shows it (deg, ±3 at most; + = BB1 really balances forward of `trim`). Why: the position hold point (`si`) moves to the wheels at every stop, so a trim error used to come back as a slow backward creep after each command (CHANGELOG 2026-10-29).
+
 ### `POST /drive/stop`
 
 Ramp to a stop now and keep balancing. Always allowed. Answers `{"ok":true,"speed":0,"turn":0,"ms":0}`.
@@ -117,6 +119,7 @@ The newest values, as one JSON object. The page asks about 20 times a second. As
 | `tick`, `t_us`, `uptime_s` | record number (200 a second), its time in µs, seconds since boot |
 | `mode` | 0 boot, 1 calibrating, 2 running (motors off), 3 motor test, 4 armed (balancing), 5 fallen |
 | `flag_bits` | 1 IMU error, 2 loop overran, 4 no gyro calibration yet, 8 PID at the PWM cap, 16 drive command ran out (stopping), 32 encoder fault, 64 I term draining after a drive (`irelax`) |
+| `trim_learned` | deg trim learn (`tl`) adds to the setpoint now (+ = forward), ±3 at most; kept across drives, stops and arms, 0 after a restart or `tl=0` (firmware 3.5) |
 | `enc_fault` | 0 ok; 1 the left encoder, 2 the right one, is not counting while armed (one wheel reads near 0 while the other spins for 0.3 s). Heading hold is off and `/drive` answers 409 until the next arm. Check that encoder's wires |
 | `pitch`, `accel_pitch`, `pitch_rate` | deg (forward +), deg from the accelerometer only, deg/s |
 | `armed`, `reason`, `auto_state` | balancing or not; why it last stopped or refused (text, empty if none); what auto-arm is doing (text) |
@@ -125,7 +128,7 @@ The newest values, as one JSON object. The page asks about 20 times a second. As
 | `enc_l`, `enc_r`, `speed_l`, `speed_r` | encoder counts since boot, wheel speed in counts/s (forward +) |
 | `pwm_l`, `pwm_r` | PWM sent to each motor this tick |
 | `drive` | `speed`, `turn`: the command in force (0 when none); `speed_now`, `turn_now`: the ramped targets BB1 aims for; `left_ms`: time left on the command; `commands`: accepted since boot; `max_speed`, `max_turn`: the limits |
-| `gains` | `ver` (counts every change), `kp`, `ki`, `kd`, `trim`, `cap`, `deadband`, `sp`, `si`, `th`, `auto`, `dff` (drive feedforward), `sdi` (drive speed I), `smode` (speed loop mode), `wsp`, `wsi` (wheel speed loop), `irelax` (I-term relax after a drive, s), `aff` (acceleration lean, deg per turn/s²), `dacc` (speed ramp, turns/s²), `lmax` (lean limit while driving, deg) |
+| `gains` | `ver` (counts every change), `kp`, `ki`, `kd`, `trim`, `cap`, `deadband`, `sp`, `si`, `th`, `auto`, `dff` (drive feedforward), `sdi` (drive speed I), `smode` (speed loop mode), `wsp`, `wsi` (wheel speed loop), `irelax` (I-term relax after a drive, s), `aff` (acceleration lean, deg per turn/s²), `dacc` (speed ramp, turns/s²), `lmax` (lean limit while driving, deg), `tl` (trim learn, deg per wheel turn) |
 | `batt_v`, `batt_ok`, `batt_warn_v`, `batt_low_v`, `batt_cells` | whole-pack volts; false = no sense wire; orange and red limits; 2 cells |
 | `test_running`, `tests_done`, `test_moved`, `test_ms` | motor test status and the last result |
 | `alpha`, `bias`, `calibrations`, `cal_ok`, `ever_cal`, `imu` | angle filter weight; gyro bias x/y/z (deg/s); calibration status; IMU found |
@@ -151,7 +154,7 @@ The list of every endpoint and its limits, as JSON, so a program or an AI agent 
 
 | Field | Meaning |
 |---|---|
-| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first, 2 = `POST /update`, 3 = `version`, `build_id`, 4 = gains `aff`, `dacc`, `lmax`) |
+| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first, 2 = `POST /update`, 3 = `version`, `build_id`, 4 = gains `aff`, `dacc`, `lmax`, 5 = gain `tl` and `/state` `trim_learned`) |
 | `firmware`, `version`, `build_id`, `log_format` | firmware name (the mock says `bb1 MOCK`), version and build id (see `GET /sys`), log column version |
 | `units` | what `angle`, `speed`, `turn`, `pwm` mean, and `counts_per_rev` |
 | `limits` | `drive_max_speed`, `drive_max_turn` (turns/s), `drive_hold_ms` (default command length), `drive_hold_max_ms`, `arm_seconds_max`, `arm_angle` (must be this close to trim to arm, deg), `fall_angle` (deg), `heartbeat_ms`, `motor_test_max_pwm`, `motor_test_max_ms`, `alpha` [min, max], `log_max_per_request` |
@@ -184,7 +187,7 @@ RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_bu
 
 | Request | Does |
 |---|---|
-| `POST /gains` | any of `kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax aff dacc lmax`; `trim=here` uses the current pitch. Answers the full set as text |
+| `POST /gains` | any of `kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax aff dacc lmax tl`; `trim=here` uses the current pitch. Answers the full set as text |
 | `POST /gains/save` | store them in flash (disarmed only) |
 | `POST /gains/defaults` | back to the `config.h` defaults (save to keep) |
 | `POST /alpha` | `value=0.90..0.999`: angle filter weight |

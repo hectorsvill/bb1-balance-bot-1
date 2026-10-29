@@ -51,7 +51,8 @@ LOGS = REPO / "logs"
 DB = LOGS / "runs.sqlite"
 LOOP_HZ = 200
 COUNTS_PER_REV = 520        # config.h
-SCHEMA_VERSION = 3          # bump when the tables change: build then starts over by itself
+SCHEMA_VERSION = 4          # bump when the tables change: build (and catalog) then start over by itself
+                            # 4 = runs and gains get tl (trim learn, firmware 3.5)
 
 # Reason codes in the log's reason column (control.h enum Reason; docs/CALIBRATION_AND_LOGS.md)
 REASON_TEXT = {1: "disarmed by you", 2: "fell", 3: "IMU error", 4: "lost the page", 5: "loop late",
@@ -63,7 +64,7 @@ REASON_TEXT = {1: "disarmed by you", 2: "fell", 3: "IMU error", 4: "lost the pag
 GAIN_NAMES = {"kp": "kp", "ki": "ki", "kd": "kd", "trim": "trim", "pwm_cap": "cap", "deadband": "deadband",
               "speed_p": "sp", "speed_i": "si", "turn_hold": "th", "auto_arm": "auto", "drive_ff": "dff",
               "drive_speed_i": "sdi", "speed_mode": "smode", "wheel_speed_p": "wsp", "wheel_speed_i": "wsi",
-              "i_relax": "irelax", "accel_ff": "aff", "drive_accel": "dacc", "lean_max": "lmax"}
+              "i_relax": "irelax", "accel_ff": "aff", "drive_accel": "dacc", "lean_max": "lmax", "trim_learn": "tl"}
 SURFACES = ("wood", "carpet", "tile", "air")    # looked for in the file name when there's no "# surface" line
 
 # Every column any log format has written (telemetry.h csvHeader(), docs/CALIBRATION_AND_LOGS.md).
@@ -337,6 +338,17 @@ def add(db, path):
     return run | {"run_id": rid}
 
 
+def schema_is_current():
+    """True if runs.sqlite exists and its tables are this version's (no rebuild needed)."""
+    if not DB.exists():
+        return False
+    db = sqlite3.connect(DB)
+    try:
+        return db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+    finally:
+        db.close()
+
+
 def catalog(path):
     """Called by the recorders (logger.save_log) right after a log is saved, so the
     catalog is always current. Only logs in logs/ go in (a scratch or mock folder
@@ -347,6 +359,13 @@ def catalog(path):
         if path.resolve().parent != LOGS.resolve():
             return
         DB = LOGS / "runs.sqlite"
+        # No catalog yet, or the tables changed (SCHEMA_VERSION): connect() would
+        # start over with empty tables, and adding just this one log would leave
+        # a catalog of 1 run. Build it from every log in logs/ instead (this one too).
+        if not schema_is_current():
+            print(f"{DB.name}: tables changed (or no catalog yet), rebuilding it from every log in {LOGS.name}/")
+            build(argparse.Namespace(logs=str(LOGS), rebuild=False))
+            return
         db = connect()
         run = add(db, path)
         load_side_files(db)
