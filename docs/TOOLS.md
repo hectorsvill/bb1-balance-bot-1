@@ -53,7 +53,7 @@ tools/venv/bin/python -m pip install -r tools/requirements.txt
 
 `tools/venv/` is not in git; `tools/requirements.txt` is the list it's rebuilt from. Add a library: install it with pip, then add its name to `requirements.txt`.
 
-**Python version:** macOS's `python3` (from Xcode) is 3.9. Every tool works on it except the MCP server (`bb1_mcp.py`): the `mcp` package needs Python 3.10 or newer, so on 3.9 pip skips it (the line in `requirements.txt` says `python_version >= "3.10"`). To use the MCP server, build the venv from a newer Python, e.g. Homebrew's (`brew install python`, then `rm -rf tools/venv` and `/opt/homebrew/bin/python3 -m venv tools/venv`, then the pip line above). CI tests on both 3.9 and 3.12.
+**Python version:** since 2026-10-28 our `tools/venv` is built from Homebrew's Python (3.14.8), and every tool and test runs on it, the MCP server too. macOS's `python3` (from Xcode) is 3.9. Every tool works on it except the MCP server (`bb1_mcp.py`): the `mcp` package needs Python 3.10 or newer, so on 3.9 pip skips it (the line in `requirements.txt` says `python_version >= "3.10"`). To use the MCP server, build the venv from a newer Python, e.g. Homebrew's (`brew install python`, then `rm -rf tools/venv` and `/opt/homebrew/bin/python3 -m venv tools/venv`, then the pip line above). CI tests on both 3.9 and 3.12.
 
 ## Tool list
 
@@ -62,7 +62,7 @@ tools/venv/bin/python -m pip install -r tools/requirements.txt
 | **arduino-cli** | compile and upload firmware from the terminal | Homebrew, 1.5.1 |
 | **arduino-pico core** | teaches arduino-cli / the IDE about the Pico W | 6.3.0 |
 | **Arduino IDE 2** | same thing with buttons, plus Serial Monitor | app |
-| **Python 3 + venv** | our helper scripts in `tools/` | macOS Python 3.9.6 |
+| **Python 3 + venv** | our helper scripts in `tools/` | Homebrew Python 3.14.8 (since 2026-10-28; was macOS 3.9.6) |
 | **pyserial** | Python talks to the Pico over USB | in the venv |
 | **pandas, numpy, matplotlib** | load logs as tables, do math, draw charts | in the venv |
 | **screen** | bare-bones serial monitor | built into macOS |

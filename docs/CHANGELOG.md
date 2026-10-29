@@ -2,6 +2,11 @@
 
 Newest first.
 
+## 2026-10-28 - `tools/venv` rebuilt on Python 3.14
+
+- **Why:** the MCP server (`tools/bb1_mcp.py`) needs Python 3.10+; the old venv was Xcode's 3.9.6
+- Rebuilt from Homebrew's `/opt/homebrew/bin/python3` (3.14.8) with `tools/requirements.txt`: `tools/tests` ran 29 tests, OK, none skipped. `docs/TOOLS.md` updated
+
 ## Open items
 
 - Measure counts per wheel turn cleanly (520 assumed)
