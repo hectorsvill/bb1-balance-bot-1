@@ -127,6 +127,20 @@ def make_server(host, max_speed=0.3, max_turn=0.4, max_for=3.0, db=None):
         and bb1_stop isn't enough. Auto-arm stays off until the next arm."""
         return robot("disarm")
 
+    @server.tool(structured_output=True)
+    def bb1_log(action: str = "status", note: str = "", surface: str = "") -> dict[str, Any]:
+        """BB1's telemetry recording, which runs by itself once BB1 balances after bb1_arm or
+        bb1_drive and is saved to logs/runs.sqlite when the session ends. action: "status"
+        (recording? how much; last_saved has the run_id to read with logs_show), "start" (label
+        the log with note and surface, e.g. "wood" or "carpet", and start it if needed), "stop"
+        (save now). Moves nothing."""
+        argv = ["log", action]
+        if note:
+            argv += ["--note", note]
+        if surface:
+            argv += ["--surface", surface]
+        return robot(*argv)
+
     # --- the logs (logs.py, read only) ----------------------------------------------------
 
     @server.tool(annotations=READ_ONLY, structured_output=True)

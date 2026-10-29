@@ -14,8 +14,9 @@
 
 // API_VERSION counts changes to this list (new endpoint, new argument, new
 // limit), so an agent can tell when to re-read it. 1 = first version,
-// 2 = POST /update (ota.h), 3 = version and build_id (version.h).
-const int API_VERSION = 3;
+// 2 = POST /update (ota.h), 3 = version and build_id (version.h),
+// 4 = gains aff, dacc, lmax (fast drive step 1).
+const int API_VERSION = 4;
 
 struct ApiEndpoint {
   const char *method;   // "GET" or "POST"
@@ -39,7 +40,7 @@ const ApiEndpoint API_ENDPOINTS[] = {
   {"POST", "/drive/stop",     "",                  "json", false, "ramp to a stop now, keep balancing"},
   {"POST", "/motor/stop",     "",                  "text", false, "STOP: end a motor test and disarm"},
   {"POST", "/step",           "",                  "text", true,  "step test while armed: setpoint +2 deg for 1 s"},
-  {"POST", "/gains",          "kp,ki,kd,trim,cap,deadband,sp,si,th,auto,dff,sdi,smode,wsp,wsi,irelax", "text", false, "change settings (see gains for limits)"},
+  {"POST", "/gains",          "kp,ki,kd,trim,cap,deadband,sp,si,th,auto,dff,sdi,smode,wsp,wsi,irelax,aff,dacc,lmax", "text", false, "change settings (see gains for limits)"},
   {"POST", "/gains/save",     "",                  "text", false, "store settings in flash (disarmed only)"},
   {"POST", "/gains/defaults", "",                  "text", false, "back to the config.h defaults"},
   {"POST", "/alpha",          "value",             "text", false, "angle filter weight"},
@@ -91,7 +92,8 @@ String apiJson(uint32_t logMax) {
        apiRange("sp", 0, SPEED_GAIN_MAX) + "," + apiRange("si", 0, SPEED_GAIN_MAX) + "," + apiRange("th", 0, TURN_HOLD_GAIN_MAX) + "," +
        apiRange("auto", 0, 1) + "," + apiRange("dff", 0, DRIVE_FF_MAX) + "," + apiRange("sdi", 0, DRIVE_SPEED_I_MAX) + "," +
        apiRange("smode", 0, 1) + "," + apiRange("wsp", 0, WHEEL_SPEED_GAIN_MAX) + "," + apiRange("wsi", 0, WHEEL_SPEED_GAIN_MAX) + "," +
-       apiRange("irelax", 0, I_RELAX_MAX_S) + "},";
+       apiRange("irelax", 0, I_RELAX_MAX_S) + "," + apiRange("aff", 0, ACCEL_FF_MAX) + "," + apiRange("dacc", 0.1, DRIVE_ACCEL_MAX) + "," +
+       apiRange("lmax", SPEED_SHIFT_MAX, LEAN_MAX_MAX) + "},";
   j += "\"endpoints\":[";
   const int n = sizeof(API_ENDPOINTS) / sizeof(API_ENDPOINTS[0]);
   for (int k = 0; k < n; k++) {

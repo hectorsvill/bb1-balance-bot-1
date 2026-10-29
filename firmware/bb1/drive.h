@@ -22,7 +22,10 @@
 // DRIVE_HOLD_MAX_MS). The page sends one every 100 ms while you hold the
 // pad; if Wi-Fi drops or the page closes, the command runs out and BB1 ramps
 // to a stop and keeps balancing where it is. It never disarms for that.
-// Targets ramp (DRIVE_ACCEL) so a full-stick jab can't kick it over.
+// Targets ramp (dacc for speed, DRIVE_TURN_ACCEL for turn) so a full-stick
+// jab can't kick it over. While the speed target ramps, the acceleration
+// feedforward (aff, control.h) leans BB1 into it, and the lean limit is
+// lmax instead of the standing SPEED_SHIFT_MAX (leanLimit below).
 //
 // Runs on core 1 inside balanceTick(). Core 0 only writes the command in shared.h.
 
@@ -40,6 +43,9 @@ struct Drive {
   bool  stopping = false; // the command ran out (or was stopped) and it is ramping down
   float lean  = 0;      // deg the speed I (sdi) has built up while driving (control.h)
   float relaxLeft = 0;  // s left of the I-term relax after a drive (irelax, control.h)
+  float accel = 0;      // turns/s per s the speed target moved this tick: +dacc, -dacc or 0
+  float accelLean = 0;  // deg: aff x accel, smoothed (ACCEL_FF_SMOOTH_S); control.h adds it to the shift
+  float leanLimit = SPEED_SHIFT_MAX;  // deg: the clamp on the speed loop's setpoint shift this tick
 };
 
 Drive drive;            // only core 1 touches this
@@ -83,7 +89,9 @@ void driveUpdate(float dt, float posNow, float diffNow) {
   drive.wantTurn  = live ? driveTurnCmd  : 0;
 
   bool wasDriving = drive.speed != 0, wasTurning = drive.turn != 0;
-  drive.speed = rampToward(drive.speed, drive.wantSpeed, DRIVE_ACCEL * dt);
+  float speedBefore = drive.speed;
+  drive.speed = rampToward(drive.speed, drive.wantSpeed, driveAccelRate * dt);
+  drive.accel = dt > 0 ? (drive.speed - speedBefore) / dt : 0;   // + = the target speeds up forward (or slows a reverse)
   drive.turn  = rampToward(drive.turn,  drive.wantTurn,  DRIVE_TURN_ACCEL * dt);
   bool moving = drive.speed != 0 || drive.turn != 0;
   drive.stopping = !live && moving;
@@ -120,6 +128,22 @@ void driveUpdate(float dt, float posNow, float diffNow) {
   // Driving again cancels it: the I term is needed to hold the new speed.
   if ((wasDriving || wasTurning) && !moving) drive.relaxLeft = 2 * gainIRelax;
   else if (moving)                           drive.relaxLeft = 0;
+
+  // Acceleration feedforward (aff): the lean this acceleration needs, smoothed
+  // over ACCEL_FF_SMOOTH_S so it rises in a few ticks instead of one.
+  float accelLeanWant = gainAccelFF * drive.accel;
+  drive.accelLean += (accelLeanWant - drive.accelLean) * min(1.0f, dt / ACCEL_FF_SMOOTH_S);
+
+  // Lean limit: lmax while a speed target is set or ramping down (drive.speed
+  // != 0), SPEED_SHIFT_MAX standing. Going up is instant: a bigger limit
+  // only allows more, it never moves the setpoint. Coming back down eases at
+  // LEAN_LIMIT_EASE_DPS. Why not snap: right after a stop the shift can sit
+  // at the limit (braking hard, leaning back 10 deg). Snapping the clamp from
+  // 10 to 6 would move the setpoint 4 deg in one tick: a 72 PWM kick at kp 18,
+  // twice the 2 deg step test, right while it is braking. Easing turns that
+  // into a 0.4 s slope the angle loop can follow (like the drive ramp itself).
+  float limitWant = drive.speed != 0 ? max((float)driveLeanMax, SPEED_SHIFT_MAX) : SPEED_SHIFT_MAX;
+  drive.leanLimit = limitWant >= drive.leanLimit ? limitWant : max(limitWant, drive.leanLimit - LEAN_LIMIT_EASE_DPS * dt);
 
   driveSpeedNow = drive.speed;
   driveTurnNow  = drive.turn;

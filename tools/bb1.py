@@ -12,6 +12,9 @@ Usage (BB1 on Wi-Fi; set BB1_HOST once to skip --host):
     tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 5 --max 0.3 --max-turn 0.4 --max-for 3   # an owner's caps
     tools/venv/bin/python tools/bb1.py stop                        # stop driving, keep balancing
     tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1 falls over!
+    tools/venv/bin/python tools/bb1.py log status                  # is BB1's telemetry being recorded?
+    tools/venv/bin/python tools/bb1.py log start --surface wood -n "square"   # label the log (starts it if needed)
+    tools/venv/bin/python tools/bb1.py log stop                    # save the log now
 
 An agent's instructions for using this tool are in docs/AGENT.md. The MCP
 server (tools/bb1_mcp.py) calls run() below, so it gets every check here too.
@@ -38,6 +41,12 @@ Every call against the real robot adds one row to logs/agent_commands.csv
 (time, host, cmd, args, exit_code, answer), so an agent's session leaves a
 trace that tools/runs_db.py can import next to the logs. Calls to the mock
 (localhost, 127.*) are not recorded: mock data never mixes with real data.
+
+BB1's own telemetry is recorded automatically too: once BB1 is balancing
+after an `arm` or a `drive`, a background recorder (tools/session_log.py)
+reads every 5 ms record and, when the session ends, saves the log to logs/
+and logs/runs.sqlite, where the commands above are linked to it. `log`
+shows, labels or stops it.
 """
 
 import argparse
@@ -52,6 +61,7 @@ import urllib.error
 
 from pathlib import Path
 
+import session_log
 from logger import get, post
 
 COUNTS_PER_REV = 520     # config.h, assumed
@@ -292,7 +302,30 @@ def parser():
     p.add_argument("--max", type=float, default=0.5, help="cap on speed (and turn, unless --max-turn) (default 0.5)")
     p.add_argument("--max-turn", type=float, help="cap on turn (default: --max)")
     p.add_argument("--max-for", type=float, default=MAX_FOR_S, help=f"cap on --for; can only lower {MAX_FOR_S:g} s")
+    p = sub.add_parser("log", help="BB1's telemetry recording (automatic): status, start (label it), stop (save now)")
+    p.add_argument("action", choices=("status", "start", "stop"))
+    p.add_argument("-n", "--note", help="start: a note saved in the log and its file name")
+    p.add_argument("--surface", help="start: what BB1 stands on: wood, carpet... (default $BB1_SURFACE or unknown)")
     return ap
+
+
+def cmd_log(host, args):
+    """The telemetry recorder (session_log.py). Takes the host name, not an
+    address: status and stop work even when BB1 is off."""
+    if is_mock(host):
+        out(ok=False, error="the mock is never recorded (mock data never mixes with real data)")
+        return 1
+    if args.action == "status":
+        out(ok=True, **session_log.status())
+    elif args.action == "start":
+        label = session_log.set_label(args.note, args.surface)
+        pid, new = session_log.ensure(resolve(host), host)
+        out(ok=True, recording=True, started_now=new, label=label,
+            note="saved when you run 'log stop' or the session ends (see 'log status')")
+    else:
+        saved = session_log.stop()
+        out(ok=True, was_recording=saved is not None, saved=saved)
+    return 0
 
 
 COMMANDS = {"api": cmd_api, "state": cmd_state, "arm": cmd_arm, "disarm": cmd_disarm, "stop": cmd_stop, "drive": cmd_drive}
@@ -307,8 +340,13 @@ def run(argv, print_answer=True, via=None):
     echo = print_answer
     args = parser().parse_args(argv)
     args.via = via
+    base = None
     try:
-        code = COMMANDS[args.cmd](resolve(args.host), args)
+        if args.cmd == "log":
+            code = cmd_log(args.host, args)
+        else:
+            base = resolve(args.host)
+            code = COMMANDS[args.cmd](base, args)
     except NoAnswer as e:
         out(ok=False, error=f"BB1 didn't answer: {e}")
         code = 2
@@ -319,7 +357,22 @@ def run(argv, print_answer=True, via=None):
         out(ok=False, error=f"BB1 didn't answer: {e}")
         code = 2
     record(args, code)                          # every call leaves a trace (real robot only)
+    if base and not is_mock(args.host):
+        auto_record(base, args)
     return code, answer
+
+
+def auto_record(base, args):
+    """Keep BB1's telemetry recording while an agent works (session_log.py).
+    Started once BB1 is balancing after an arm or a drive; every command tells
+    the recorder the agent is still busy. Never breaks the command."""
+    try:
+        session_log.touch_command()
+        balancing = answer.get("armed") or (answer.get("state") or {}).get("armed")
+        if args.cmd in ("arm", "drive") and balancing:
+            session_log.ensure(base, args.host)
+    except Exception as e:
+        print(f"bb1.py: telemetry recorder: {e}", file=sys.stderr)
 
 
 def main():

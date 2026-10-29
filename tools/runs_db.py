@@ -51,7 +51,7 @@ LOGS = REPO / "logs"
 DB = LOGS / "runs.sqlite"
 LOOP_HZ = 200
 COUNTS_PER_REV = 520        # config.h
-SCHEMA_VERSION = 2          # bump when the tables change: build then starts over by itself
+SCHEMA_VERSION = 3          # bump when the tables change: build then starts over by itself
 
 # Reason codes in the log's reason column (control.h enum Reason; docs/CALIBRATION_AND_LOGS.md)
 REASON_TEXT = {1: "disarmed by you", 2: "fell", 3: "IMU error", 4: "lost the page", 5: "loop late",
@@ -63,7 +63,7 @@ REASON_TEXT = {1: "disarmed by you", 2: "fell", 3: "IMU error", 4: "lost the pag
 GAIN_NAMES = {"kp": "kp", "ki": "ki", "kd": "kd", "trim": "trim", "pwm_cap": "cap", "deadband": "deadband",
               "speed_p": "sp", "speed_i": "si", "turn_hold": "th", "auto_arm": "auto", "drive_ff": "dff",
               "drive_speed_i": "sdi", "speed_mode": "smode", "wheel_speed_p": "wsp", "wheel_speed_i": "wsi",
-              "i_relax": "irelax"}
+              "i_relax": "irelax", "accel_ff": "aff", "drive_accel": "dacc", "lean_max": "lmax"}
 SURFACES = ("wood", "carpet", "tile", "air")    # looked for in the file name when there's no "# surface" line
 
 # Every column any log format has written (telemetry.h csvHeader(), docs/CALIBRATION_AND_LOGS.md).
