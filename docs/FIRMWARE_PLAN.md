@@ -186,7 +186,7 @@ What a model needs, and where it is in our logs:
 2. Hands off while armed. To save it, **STOP first**, then catch.
 3. Keep every log, falls included: falls teach a model what not to do.
 4. Never mix mock logs (`firmware,bb1 MOCK`) into real data.
-5. When firmware adds a column: new field at the end of `LogRecord`, bump `LOG_FORMAT`, add it to `docs/CALIBRATION_AND_LOGS.md`.
+5. When firmware adds a column: new field at the end of `LogData` (`telemetry.h`), bump `LOG_FORMAT`, add it to `docs/CALIBRATION_AND_LOGS.md`.
 
 **Backup:** done 2026-10-26: `logs/` lives in the private GitHub repo `bb1-private` (290 MB, 159 files) and the public repo's `logs/` is a link to it. **Still to do:**  maybe a "hand touched" event key in handheld.py.
 

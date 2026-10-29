@@ -256,7 +256,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(self.log(int(args.get("since", 0))), "text/csv")
         elif url.path == "/sys":
             self.reply('{"ram_total":262144,"ram_static":181200,"heap_total":80944,"heap_used":%d,'
-                       '"log_buffer":112000,"flash_total":2097152,"flash_used":433000,"page":%d,"cpu_mhz":133,'
+                       '"log_buffer":144000,"flash_total":2097152,"flash_used":433000,"page":%d,"cpu_mhz":133,'
                        '"fs_total":1048576,"build":"MOCK","version":"MOCK","build_id":"MOCK"}'
                        % (21000 + random.randint(0, 3000), len(read_page()) + 1), "application/json")
         elif url.path == "/wifi":

@@ -170,7 +170,7 @@ void handleLogMeta() {
 // "lost" counts records that were already overwritten in the ring buffer
 // because the asker waited too long (more than LOG_SECONDS). since=0 means
 // "from the oldest record I still have" and never counts as lost.
-const uint32_t LOG_MAX_PER_REQUEST = 1000;    // 5 s of records, about 90 KB of text
+const uint32_t LOG_MAX_PER_REQUEST = 1000;    // 5 s of records, about 165 KB of text (about 166 bytes a line)
 
 void handleLog() {
   uint32_t total = totalWritten;
@@ -320,8 +320,8 @@ void handleDriveStop() {
 // GET /sys -> how much of the Pico's memory the firmware uses.
 //
 // RAM (264 KB on the RP2040, 256 KB of it for the program) is split in two:
-//   static: global variables, fixed at compile time. The 80 KB log buffer is
-//           the biggest one; Wi-Fi's buffers are next.
+//   static: global variables, fixed at compile time. The 144 KB log buffer is
+//           the biggest one; Wi-Fi's buffers (about 57 KB, in the core) are next.
 //   heap:   the rest, handed out while running (Strings, Wi-Fi packets, web
 //           requests). "heap free" is what's left for those.
 // Flash (2 MB) holds the program, including this page, and the saved settings.
