@@ -41,6 +41,7 @@ volatile float    gainIRelax      = DEFAULT_I_RELAX_S;      // I-term relax afte
 volatile float    gainAccelFF     = DEFAULT_ACCEL_FF;       // aff: deg of lean per turn/s^2 of speed target acceleration (control.h)
 volatile float    driveAccelRate  = DEFAULT_DRIVE_ACCEL;    // dacc: turns/s per s the speed target ramps at (drive.h)
 volatile float    driveLeanMax    = DEFAULT_LEAN_MAX;       // lmax: deg, the speed loop's setpoint shift limit while driving (drive.h)
+volatile float    gainTrimLearn   = DEFAULT_TRIM_LEARN;     // tl: deg of lean per wheel turn rolled while standing still, 0 = off (control.h)
 volatile float    speedMode       = DEFAULT_SPEED_MODE;     // 0 = speed loop moves the setpoint, 1 = wheel speed loop on the PWM (config.h)
 volatile float    gainWheelSpeedP = DEFAULT_WHEEL_SPEED_P;  // smode 1: PWM per turn/s too fast
 volatile float    gainWheelSpeedI = DEFAULT_WHEEL_SPEED_I;  // smode 1: PWM per wheel turn ahead
@@ -71,6 +72,8 @@ volatile uint32_t driveCommands = 0;         // counts every accepted command (s
 // What core 1 is actually doing (after the ramp), for /state
 volatile float    driveSpeedNow = 0;
 volatile float    driveTurnNow  = 0;
+// The trim correction core 1 has learned so far (deg, control.h), for /state
+volatile float    trimLearnedNow = 0;
 
 // Status from core 1 to core 0
 volatile bool     imuFound       = false;

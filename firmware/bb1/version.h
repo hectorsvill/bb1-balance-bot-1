@@ -4,7 +4,8 @@
 //   FIRMWARE_VERSION  bumped by hand when a firmware change goes on BB1:
 //                     "<milestone>.<change>", e.g. 3.2 = milestone 3, second
 //                     firmware change in it (3.1 GET /api, 3.2 OTA updates,
-//                     3.3 log buffer 8 KB smaller, 3.4 fast drive step 1: aff, dacc, lmax).
+//                     3.3 log buffer 8 KB smaller, 3.4 fast drive step 1: aff, dacc, lmax,
+//                     3.5 trim learn: tl).
 //                     The CHANGELOG entry for that change names the version.
 //   BB1_BUILD_ID      written by tools/flash.py into build_id.h (gitignored)
 //                     just before each compile: git commit, "+" if there were
@@ -18,7 +19,7 @@
 
 #pragma once
 
-const char *FIRMWARE_VERSION = "3.4";
+const char *FIRMWARE_VERSION = "3.5";
 
 #if __has_include("build_id.h")
 #include "build_id.h"

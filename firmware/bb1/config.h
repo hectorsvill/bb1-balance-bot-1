@@ -112,7 +112,7 @@ constexpr float DRIVE_MAX_TURN  = 1.0;   // turns/s of left-minus-right wheel di
 // Drive acceleration (setting "dacc", live on /tune, saved in flash, 2026-10-28;
 // was the constant DRIVE_ACCEL): turns/s per second the speed target ramps at.
 // 1.0 = 0 to full in 1 s, as before. Faster ramps need more lean (aff, lmax below).
-const float DEFAULT_DRIVE_ACCEL = 1.0;
+const float DEFAULT_DRIVE_ACCEL = 3.0;   // 2026-10-29 floor test (wood, aff 1): 90% of 0.5 turns/s in 0.27 s (was 0.93), stops 0.06-0.11 turns; 1.0 before
 const float DRIVE_ACCEL_MAX     = 6.0;
 const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
 // Drive feedforward (setting "dff", live on /tune, saved in flash): PWM per
@@ -146,7 +146,7 @@ const float DRIVE_LEAN_FADE_S     = 0.5;   // after stopping, the built-up lean 
 // up forward, lean forward by aff x dacc straight away; ramping down, lean
 // back. Physics says about 1.0. Like Betaflight feedforward: act on the stick
 // moving, before the speed loop sees any error. 0 = off (as before).
-const float DEFAULT_ACCEL_FF  = 0;
+const float DEFAULT_ACCEL_FF  = 1.0;   // the physics value; 2026-10-29: stops 0.14-0.16 turns (were 0.23-0.44) at dacc 1. 0 before
 const float ACCEL_FF_MAX      = 5;
 const float ACCEL_FF_SMOOTH_S = 0.05;  // s: smooths the feedforward's on/off edges at each end of a ramp (like Betaflight's ff smoothing)
 // Lean limit while driving (setting "lmax", live, saved): the speed loop's
@@ -154,9 +154,22 @@ const float ACCEL_FF_SMOOTH_S = 0.05;  // s: smooths the feedforward's on/off ed
 // target is set or ramping down. Standing still the clamp is SPEED_SHIFT_MAX
 // (6). 6 = as before. Can't go under 6: then starting to drive could cut the
 // shift short in one tick (a setpoint step).
-const float DEFAULT_LEAN_MAX  = 6.0;
+const float DEFAULT_LEAN_MAX  = 8.0;   // 2026-10-29: at 1.0 turns/s with dacc 3 the lean sat on 6; with 8 it peaked at 7.5. 6 before
 const float LEAN_MAX_MAX      = 15.0;
 const float LEAN_LIMIT_EASE_DPS = 10.0; // deg/s: after a drive the clamp eases back down to SPEED_SHIFT_MAX this fast (drive.h says why)
+
+// Trim learn (setting "tl", live, saved; firmware 3.5, 2026-10-29). BB1's real
+// balance point sits about +1.3 deg forward of trim (wood, 3.4 logs). The
+// speed loop's position term (si) should cancel that, but drive.h moves its
+// hold point to the wheels at every stop, so the correction is thrown away
+// and BB1 creeps backward again after each command. Trim learn is a second
+// position I term that is never reset (only at boot): while standing still,
+// every wheel turn rolled backward moves the lean target tl deg forward.
+// Unit: deg of lean per wheel turn rolled. 0 = off (and the learned value is
+// cleared): the 3.4 behavior.
+const float DEFAULT_TRIM_LEARN  = 1.0;
+const float TRIM_LEARN_RATE_MAX = 5.0;
+const float TRIM_LEARN_MAX      = 3.0;   // deg: the learned correction never goes past this either way
 
 // Speed loop mode (setting "smode", 2026-10-26).
 //   0 = the speed loop moves the angle setpoint (sp, si, sdi), as since step 8.

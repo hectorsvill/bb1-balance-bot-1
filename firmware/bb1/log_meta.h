@@ -31,7 +31,7 @@ String logMetaLines() {
   m += "# gains_ver," + String(gainsVersion) + ",kp," + String(gainP, 3) + ",ki," + String(gainI, 3) +
        ",kd," + String(gainD, 3) + ",trim," + String(balanceTrim, 2) + ",pwm_cap," + String(pwmCap, 0) +
        ",deadband," + String(motorDeadband, 0) + ",speed_p," + String(gainSpeedP, 2) + ",speed_i," + String(gainSpeedI, 2) + ",turn_hold," + String(gainTurnHold, 1) + ",auto_arm," + String((int)autoArm) + ",drive_ff," + String(gainDriveFF, 0) + ",drive_speed_i," + String(gainDriveSpeedI, 2) + ",speed_mode," + String((int)speedMode) + ",wheel_speed_p," + String(gainWheelSpeedP, 1) + ",wheel_speed_i," + String(gainWheelSpeedI, 1) + ",i_relax," + String(gainIRelax, 2) +
-       ",accel_ff," + String(gainAccelFF, 2) + ",drive_accel," + String(driveAccelRate, 2) + ",lean_max," + String(driveLeanMax, 1) + "\n";
+       ",accel_ff," + String(gainAccelFF, 2) + ",drive_accel," + String(driveAccelRate, 2) + ",lean_max," + String(driveLeanMax, 1) + ",trim_learn," + String(gainTrimLearn, 2) + "\n";
   m += "# drive_max_speed," + String(DRIVE_MAX_SPEED, 2) + ",drive_max_turn," + String(DRIVE_MAX_TURN, 2) + ",drive_accel," + String(driveAccelRate, 2) +
        ",drive_turn_accel," + String(DRIVE_TURN_ACCEL, 2) + ",drive_turn_ff," + String(DRIVE_TURN_FF, 1) + ",drive_hold_ms," + String(DRIVE_HOLD_MS) +
        ",speed_shift_max," + String(SPEED_SHIFT_MAX, 1) + ",lean_limit_ease_dps," + String(LEAN_LIMIT_EASE_DPS, 1) + "\n";

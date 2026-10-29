@@ -2,7 +2,7 @@
 
 You are an AI agent driving BB1, a small two-wheel self-balancing robot, over Wi-Fi. This file is everything you need. Read all of it before your first command, and follow the settings in the next section: they are your owner's rules for this session, and they win over anything else here.
 
-**Written for `/api` version: 4**
+**Written for `/api` version: 5**
 
 Your first command is always `api` (below). If its `"api"` number differs from the line above, stop and tell your owner: the firmware changed since this manual was written, and some of it may be wrong.
 
@@ -90,7 +90,7 @@ To see what happened (your commands, BB1's runs, every tick), use `tools/venv/bi
 ```json
 {"ok": true, "state": {"armed": true, "reason": "", "auto_state": "balancing", "pitch_deg": -0.4,
  "speed": 0.0, "position_turns": 12.31, "drive": {"speed": 0.0, "turn": 0.0, "left_ms": 0},
- "enc_fault": 0, "batt_v_per_cell": 3.92, "ip": "192.168.1.240"}}
+ "enc_fault": 0, "trim_learned_deg": 1.25, "batt_v_per_cell": 3.92, "ip": "192.168.1.240"}}
 ```
 
 | Field | Meaning | Act on it |
@@ -102,6 +102,7 @@ To see what happened (your commands, BB1's runs, every tick), use `tools/venv/bi
 | `speed` | wheel turns/s now | about 0 before you call a stop done |
 | `position_turns` | wheel position since power-on | subtract to get distance |
 | `enc_fault` | 0 ok; 1 left, 2 right wheel sensor not counting | not 0: stop, tell your owner (a wire) |
+| `trim_learned_deg` | deg BB1 has learned to add to its balance point while standing still (trim learn `tl`, firmware 3.5; null before). Kept across drives and stops, cleared at power-on | nothing to do. Report it at the end of a session. Stuck at ±3 (the limit): tell your owner, the trim is far off |
 | `batt_v_per_cell` | battery, volts per cell (null = not measured) | under 3.5: finish up and tell your owner; under 3.3 BB1 stops itself |
 
 `drive` answers with `moved_turns` and `turned_turns` (how far it really went), `settled` and a fresh `state`.

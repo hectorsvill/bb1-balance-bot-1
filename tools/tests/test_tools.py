@@ -222,6 +222,30 @@ class RunsDbTest(unittest.TestCase):
             self.assertEqual(code, 0, err)
             self.assertIn("1 mock skipped", out)
 
+    def test_catalog_rebuilds_on_schema_change(self):
+        # A recorder saving one log into a catalog with old tables (SCHEMA_VERSION
+        # changed) must rebuild from every log, not leave a catalog of just that one.
+        import runs_db
+        old_logs, old_db = runs_db.LOGS, runs_db.DB
+        with tempfile.TemporaryDirectory() as tmp:
+            for f in FIXTURES.iterdir():
+                shutil.copy(f, Path(tmp) / f.name)
+            stale = sqlite3.connect(Path(tmp) / "runs.sqlite")
+            stale.execute("CREATE TABLE runs (run_id INTEGER PRIMARY KEY, file TEXT)")   # an older layout, empty
+            stale.execute(f"PRAGMA user_version = {runs_db.SCHEMA_VERSION - 1}")
+            stale.commit()
+            stale.close()
+            try:
+                runs_db.LOGS = Path(tmp)
+                runs_db.catalog(Path(tmp) / FIXTURE_LOGS[0])
+            finally:
+                runs_db.LOGS, runs_db.DB = old_logs, old_db
+            with sqlite3.connect(Path(tmp) / "runs.sqlite") as db:
+                files = [r[0] for r in db.execute("SELECT file FROM runs ORDER BY file")]
+                version = db.execute("PRAGMA user_version").fetchone()[0]
+            self.assertEqual(files, FIXTURE_LOGS)
+            self.assertEqual(version, runs_db.SCHEMA_VERSION)
+
 
 # --- 3. logs.py: JSON answers from the fixture catalog --------------------------------------------
 

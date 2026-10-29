@@ -162,6 +162,7 @@ def summary(s):
         "position_turns": round(turns(s), 2),     # since boot; differences matter, not the value
         "drive": {k: s["drive"][k] for k in ("speed", "turn", "left_ms")},
         "enc_fault": s["enc_fault"],
+        "trim_learned_deg": s.get("trim_learned"),   # firmware 3.5 on; None before
         "batt_v_per_cell": round(s["batt_v"] / cells, 2) if s.get("batt_ok") else None,
         "ip": s.get("ip"),
     }

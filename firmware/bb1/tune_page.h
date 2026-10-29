@@ -99,6 +99,7 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
     <label class="box"><span class="name tip" data-tip="I (integral): adds up a lean that lasts and pushes harder the longer it lasts. I term = Ki x error summed over time. Fixes a steady drift one way; too much = slow, big rocking. Start at 0.">I (Ki)</span><input id="ki" inputmode="decimal"></label>
     <label class="box"><span class="name tip" data-tip="D (derivative): pushes against how fast it is leaning, like a brake. D term = Kd x lean speed (deg/s). Calms shaking; too much = buzzing, jittery motors.">D (Kd)</span><input id="kd" inputmode="decimal"></label>
     <label class="box"><span class="name">Trim (deg)</span><input id="trim" inputmode="decimal"></label>
+    <label class="box"><span class="name tip" data-tip="Trim learn (firmware 3.5): while BB1 stands still, every wheel turn it rolls moves its lean target this many degrees the other way, and it keeps what it learned across drives and stops (until a restart). Fixes the slow creep after a stop when the real balance point is off the trim. Like Betaflight's accelerometer trim, learned by itself. Too much = slow back-and-forth while standing. 0 = off (and forgets it).">Trim learn (tl)</span><input id="tl" inputmode="decimal"></label>
     <label class="box"><span class="name">Cap (PWM of 255)</span><input id="cap" inputmode="numeric"></label>
     <label class="box"><span class="name tip" data-tip="Deadband: PWM added to every correction so small ones still turn the wheels (they don't move below about 15 on the floor). Too much = chatter around upright.">Deadband</span><input id="deadband" inputmode="numeric"></label>
     <label class="box"><span class="name tip" data-tip="Speed P (step 8): when BB1 rolls, lean the target back this many degrees per wheel turn per second, so it brakes instead of running away. Like position hold on a quad. 0 = off.">Speed P (sp)</span><input id="sp" inputmode="decimal"></label>
@@ -131,6 +132,7 @@ const char TUNE_HTML[] = R"PAGE(<!doctype html>
   <div class="grid">
     <div class="box"><div class="name">Pitch (deg)</div><div class="val" id="pitch">--</div></div>
     <div class="box"><div class="name">From trim (arm within 10)</div><div class="val" id="err">--</div></div>
+    <div class="box"><div class="name tip" data-tip="Learned trim (tl): degrees trim learn adds to the trim right now. + = BB1 really balances further forward than the trim. Kept across drives and stops; a restart (or tl 0) clears it.">Learned trim (deg)</div><div class="val" id="tlearn">--</div></div>
     <div class="box"><div class="name">P term</div><div class="val" id="p">--</div></div>
     <div class="box"><div class="name">I term</div><div class="val" id="i">--</div></div>
     <div class="box"><div class="name">D term</div><div class="val" id="d">--</div></div>
@@ -224,7 +226,7 @@ function showBattery(s) {
 }
 
 const el = id => document.getElementById(id);
-const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si', 'th', 'auto', 'dff', 'sdi', 'smode', 'wsp', 'wsi', 'irelax', 'aff', 'dacc', 'lmax'];
+const FIELDS = ['kp', 'ki', 'kd', 'trim', 'cap', 'deadband', 'sp', 'si', 'th', 'auto', 'dff', 'sdi', 'smode', 'wsp', 'wsi', 'irelax', 'aff', 'dacc', 'lmax', 'tl'];
 let gains = null, filledVer = -1;   // the gains BB1 last reported, and the version shown in the boxes
 
 // Put BB1's current gains in the boxes. Only when asked or when BB1's version
@@ -331,6 +333,8 @@ async function poll() {
     const err = s.pitch - gains.trim, out = s.armed ? s.pwm_l : 0;
     el('pitch').textContent = s.pitch.toFixed(1);
     el('err').textContent = (err >= 0 ? '+' : '') + err.toFixed(1);
+    const tlearn = s.trim_learned || 0;   // firmware 3.5 on
+    el('tlearn').textContent = (tlearn >= 0 ? '+' : '') + tlearn.toFixed(2);
     el('p').textContent = s.p.toFixed(0);
     el('i').textContent = s.i.toFixed(0);
     el('d').textContent = s.d.toFixed(0);
