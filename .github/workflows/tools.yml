@@ -1,0 +1,41 @@
+# Test the Python tools on every push and pull request to main (the firmware compile is compile.yml).
+# tools/tests/test_tools.py does it all: compiles every tools/*.py, builds runs.sqlite from the tiny
+# committed logs in tools/tests/fixtures/, checks logs.py's JSON, and drives tools/mock_bb1.py with
+# bb1.py and the MCP server (bb1_mcp.py). It never talks to the real robot.
+# Two Pythons: 3.9 is what macOS's Xcode python3 gives tools/venv (the MCP tests skip there: the mcp
+# package needs 3.10+); 3.12 runs everything.
+
+name: Test tools
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  tools:
+    name: Python tools (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.12"]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+
+      - name: Install tools/requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r tools/requirements.txt
+
+      - name: Run tools/tests/test_tools.py
+        run: python -m unittest discover -s tools/tests -v

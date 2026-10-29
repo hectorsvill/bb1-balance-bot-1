@@ -8,6 +8,7 @@ Usage:
     tools/venv/bin/python tools/logs.py download 158 --out run.csv # the original CSV (or --cols ... for a slice)
     tools/venv/bin/python tools/logs.py sql "SELECT surface, count(*) FROM runs GROUP BY surface"
     tools/venv/bin/python tools/logs.py serve                      # the same on a web page: http://localhost:8090
+    tools/venv/bin/python tools/logs.py --db tools/tests/fixtures/runs.sqlite runs   # another catalog (tests)
 
 A run is its run_id, its file name, or any part of the file name that matches
 only one log ("sn3-agent"). run_ids can change after 'runs_db.py build --rebuild';
@@ -56,6 +57,14 @@ RUN_LIST = ("run_id, file, started, label, surface, note, round(duration_s, 1) A
 
 class Refused(Exception):
     """A request we can't answer (bad run, bad column, bad SQL)."""
+
+
+def use_db(path):
+    """Read another catalog (the tests' fixture one, say) instead of logs/runs.sqlite.
+    Its logs are the CSVs next to it, like 'runs_db.py build --logs <folder>' makes it."""
+    global DB, LOGS
+    DB = Path(path).resolve()
+    LOGS = DB.parent
 
 
 def open_db():
@@ -236,6 +245,7 @@ def serve(port):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--db", help=f"catalog to read (default {DB.relative_to(REPO)}); its logs are the CSVs next to it")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("schema", help="every table, what it's for, its columns and row count")
     p = sub.add_parser("runs", help="list runs, newest first")
@@ -260,6 +270,8 @@ def main():
     p = sub.add_parser("serve", help="the web page")
     p.add_argument("--port", type=int, default=8090)
     args = ap.parse_args()
+    if args.db:
+        use_db(args.db)
 
     try:
         if args.cmd == "serve":
