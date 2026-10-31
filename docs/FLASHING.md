@@ -61,6 +61,7 @@ BB1 can take a new firmware over Wi-Fi (`firmware/bb1/ota.h`). The new file land
    - `== Sending the firmware over Wi-Fi (3xx KB gzipped)` and `{'ok': True, 'bytes': ...}`
    - `== BB1 after the restart`: the same build id, `auto-arm: waiting...` and the `gains v...` line
    - `Done: flashed over Wi-Fi.` and `Recorded in logs/flash_history.csv: ...`
+   - If the line after the restart says `auto-arm: off: IMU not found`, the MPU-6050 locked up during the restart (seen once, 2026-10-31): switch BB1 fully off (battery and USB), wait 5 s, switch it on again. It came back that time; if it doesn't, check its 4 wires.
 
 **Safety:** BB1 checks it too: it refuses an update while armed, during a motor test, or unless lying down, and blocks arming until the update is done (flash writes pause the control core). Wrong password = refused. The password travels in plain HTTP (Basic auth, not encrypted), so anyone watching the same network could read it: keep it different from your other passwords, and only update on a network you trust (home or BB1's own).
 

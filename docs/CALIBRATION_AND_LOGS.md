@@ -199,7 +199,7 @@ Since step 4 the top lines come from `log_meta.h`:
 | `temp_raw` | counts | chip temperature. deg C = raw / 340 + 36.53 |
 | `gx_raw` `gy_raw` `gz_raw` | counts | gyro exactly as sent, **bias not removed**. deg/s = raw / 65.5 - bias |
 | `pitch` | deg | filtered pitch, forward + |
-| `pitch_rate` | deg/s | gyro X, bias removed, forward + |
+| `pitch_rate` | deg/s | gyro X, bias removed, forward +. Since log format 13 (firmware 3.7) also corrected for turning: + 0.043 x yaw rate (`GYRO_YAW_TO_PITCH`; the chip is about 2.5 deg off level) |
 | `accel_pitch` | deg | accelerometer-only pitch |
 | `enc_l` `enc_r` | counts | encoder counts since boot, forward +. 520 per wheel turn (assumed) |
 | `speed_l` `speed_r` | counts/s | wheel speed over the last 10 ticks (50 ms), forward +. **Logs before format 10 (before 2026-10-26) read 3.3x low**: the `constrain()` macro called the speed update 3 times a tick, so they are counts over the last 3 ticks x 20. Multiply by 10/3 for counts/s (`dataset.py` does), or use the `enc_l`/`enc_r` differences |

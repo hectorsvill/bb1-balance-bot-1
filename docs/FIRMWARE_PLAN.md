@@ -222,9 +222,10 @@ What is still missing, smallest fix first:
 
 | 10 | (milestone 4) Fast drive step 1: live `aff` (acceleration lean feedforward), `dacc` (speed ramp), `lmax` (lean limit while driving), defaults = old behavior (firmware 3.4, 2026-10-28) | drive tests: time to speed, lean, PWM headroom, after-stop creep | yes |
 | 10b | Trim learn `tl`: a position I term that is never reset, so a trim error stops coming back as a backward creep after each stop (firmware 3.5, 2026-10-29) | stand after drives: creep speed, `trim_learned` settling | yes |
-| 11 | (milestone 4) Fast drive step 2: `DRIVE_MAX_SPEED` 1.0 -> 3.0, log format 12, lift detector against the target, speed guards, minimum stop deceleration (firmware 3.6, 2026-10-29, built, not flashed) | the floor test plan below | yes |
+| 11 | (milestone 4) Fast drive step 2: `DRIVE_MAX_SPEED` 1.0 -> 3.0, log format 12, lift detector against the target, speed guards, minimum stop deceleration (firmware 3.6, 2026-10-29, flashed; wood 1.0 and 1.5 pass, 2.0-3.0 need a longer floor) | the floor test plan below | yes |
+| 12 | (milestone 4) Fast spins: `DRIVE_MAX_TURN` 1.0 -> 5.0, steering ±100 PWM, turn ramp 6, deadband per wheel (the turn jitter), gyro yaw-to-pitch correction, log format 13 (firmware 3.7, 2026-10-31, flashed) | `drive_test.py spin-100`, `-200`, `-300`, `-450`, then long spins both ways from the page | yes |
 
-**Fast drive step 2 (built 2026-10-29, firmware 3.6, not flashed yet).** The plan from step 1, and what we did:
+**Fast drive step 2 (built 2026-10-29, firmware 3.6, flashed the same day).** The plan from step 1, and what we did:
 
 1. Log fields: the four `drive_` fields stay int8 but count 1/40 turns/s (`DRIVE_LOG_STEPS`, max 3.17, steps 0.025) instead of hundredths. int16 would have cost 8 KB of RAM at 83% static; 0.025 is finer than anything we command. `LOG_FORMAT` 12; the CSV still says turns/s, so `runs_db.py` and `dataset.py` read both formats the same (test added). The `static_assert` in `control.h` now checks against `DRIVE_LOG_STEPS`.
 2. Lift detector: each wheel against its own drive target (speed plus or minus half the turn), over `LIFT_TURNS_PER_SEC` (4) for 0.5 s. Standing still = the old check.
@@ -233,6 +234,8 @@ What is still missing, smallest fix first:
 5. Limits: `/api` 6, AGENT.md (agent caps unchanged: 0.3), API.md, the mock, `bb1.py` (its `MAX_TRAVEL` stays a 3-turn distance), the page's Max speed slider (turns/s, default 1.0, up to 3.0), new `drive_test.py` tests.
 
 **Floor test plan (wood, full pack, BB1 balancing at the defaults, a clear straight line of about 1.5 m ahead of the start and 0.5 m behind, someone ready to catch it):** `drive_test.py fwd-back-100`, then `-150`, `-200`, `-250`, `-300`, each only after the one before looked clean, two or three runs each. Per step read: **pwm** peak against the cap (200; under about 160 leaves room to balance), **sat%** (0 is the goal; any saturation means that speed is the limit for this cap), lean peaks against `lmax` (8), **stop** (expect about speed²/6 turns: 1.5 at 3.0), got speed against asked, `drive_speed_now` below `drive_speed` in the log (a guard held it back), and no "picked up" disarm (the lift detector must never trip on the floor). If a speed saturates, stay below it and decide on `cap`, `dff` or `lmax` before going on.
+
+**Fast spins (firmware 3.7, 2026-10-31).** One spin on the spot = 4.49 turns of left-minus-right difference, so turn 5.0 is about 0.9 s per 360 (each wheel 2.5 turns/s, about 75 PWM of steering, yaw 400 deg/s, under the gyro's 500 deg/s range). Results (wood): every spin step held its turn rate within 0.9 wheel turns of the start, PWM peak 97 of 200. What we learned: the deadband belongs on each wheel (on the shared output it made turns judder), and the gyro needs a yaw-to-pitch correction (0.043) because the chip isn't perfectly level; the accelerometer needs none. Next: exact-angle spins (the firmware counts the heading and starts the stop ramp in time), and an "acceleration" drive mode (the stick sets the lean while held).
 
 Each step is its own commit. Before any step that can move the motors I'll ask first, and you confirm the wheels are off the table.
 
