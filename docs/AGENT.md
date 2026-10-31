@@ -39,7 +39,7 @@ If a setting is missing, use the most careful choice: smaller numbers, ask first
 | distance | wheel turns | 1 turn = 0.178 m, so 1 m = 5.6 turns |
 | speed | wheel turns/s | 0.3 turns/s = 0.053 m/s; 1.0 = 0.18 m/s; 3.0 (the firmware's top) = 0.53 m/s |
 | heading | turns of left-minus-right wheel difference | 1 turn = about 80 deg, so a 90 deg turn = 1.12 turns, a 360 = 4.5 |
-| turn rate | turns/s of difference | 0.4 = about 32 deg/s |
+| turn rate | turns/s of difference | 0.4 = about 32 deg/s; the firmware allows 5.0 (a 360 in about 1 s), your cap is `max_turn` |
 
 Positions count from power-on, so only differences mean anything. The numbers are measured, not exact: turns come out within about 10-20%, and BB1 rolls on up to about 0.5 turn after a stop.
 

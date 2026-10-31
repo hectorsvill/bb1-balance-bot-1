@@ -113,7 +113,7 @@ read top to bottom:
 ```text
 OFF_SETTING      auto 0
 OFF_STOPPED      STOP (or another non-fall disarm); waits for ARM
-NO_IMU           the IMU never answered at startup
+NO_IMU           the IMU never answered at startup (once right after an OTA restart, 2026-10-31: a full power cycle fixed it)
 WAIT_UPRIGHT     lying down, leaning, moving, or battery low
 HOLDING          upright and still, counting to the hold time
 BALANCING        armed
