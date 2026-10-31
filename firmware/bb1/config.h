@@ -286,24 +286,20 @@ const unsigned long STEP_TEST_MS = 1000;
 // constant of about 0.25 s (dt * alpha / (1 - alpha) = 0.005 * 0.98 / 0.02).
 // Higher = smoother but slower to correct drift. Change it live with "alpha N".
 const float FILTER_ALPHA = 0.98;
-// Spinning fast (firmware 3.7, angle.h): the IMU sits a few cm off the spin
-// axis, so the spin's centripetal pull reads as tilt. At 1 spin/s and 3 cm
-// that is 1.2 m/s^2 = about 7 deg of fake pitch, which would walk the balance
-// point away mid-spin. Above this yaw rate the filter trusts the gyro alone
-// (alpha SPIN_ALPHA, a 2.5 s time constant: the gyro drifts far less than
-// that in a 1 s spin). At turn 1.0 the yaw rate is 80 deg/s, so slow turns
-// are unchanged.
-const float SPIN_GYRO_ONLY_DPS = 120;
-const float SPIN_ALPHA         = 0.998;
-// Measured on the first fast spins (runs 178, 180, 181, wood, 2026-10-31):
-// - The chip sits about 2.5 deg off level, so part of every turn shows up as
-//   pitch: pitch_rate = -0.043 x gz (deg/s). At turn 2 (134 deg/s) that is
-//   5.8 deg/s of fake forward tilt; with the gyro alone it walked the pitch
-//   5 deg off in 1 s and BB1 raced backward 1.2 m (run 181). angle.h adds it back.
-// - The centripetal pull: accel_pitch = -0.000119 x gz^2 (deg): 2 deg at
-//   134 deg/s, 19 deg at 400. angle.h adds that back too.
+// Turning and the pitch reading (firmware 3.7, measured 2026-10-31 on wood):
+// the chip sits about 2.5 deg off level, so part of every turn shows up as
+// pitch: pitch_rate = -0.043 x gz (deg/s; fit over the clean spins of runs
+// 180-186, 21 segments, slope 0.0427). At turn 3 (200 deg/s) that is 8.6 deg/s
+// of fake tilt. angle.h adds it back.
+// Two things tried first and taken out (3.7 a3790be, run 186):
+// - Trusting the gyro alone above 120 deg/s of yaw: with the fake tilt above
+//   uncorrected it walked the pitch 5 deg off in 1 s (spin-200, run 181).
+// - A centripetal correction for the accelerometer, fitted on run 181 while
+//   BB1 was really tilting: on clean spins the accel pitch moves only 0-1 deg
+//   at 200 deg/s, but the correction added 4.8 deg, so long left spins rolled
+//   BB1 backward until the lift detector stopped it. The accelerometer is
+//   fine as it is, so the filter keeps alpha.
 const float GYRO_YAW_TO_PITCH  = 0.043;      // deg/s of pitch rate per deg/s of yaw rate
-const float ACCEL_PITCH_PER_YAW2 = 0.000119; // deg of accel pitch per (deg/s of yaw)^2
 
 // ---------- gyro bias calibration ----------
 const int   CAL_SAMPLES     = 400;   // 2 s at 200 Hz; keep the robot still
