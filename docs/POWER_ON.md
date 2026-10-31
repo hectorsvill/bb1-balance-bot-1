@@ -56,11 +56,24 @@ On the floor a balancing BB1 rolls slowly: the 2026-10-24 logs never went past
 2 wheel turns/s, even in runs that ran away. In the air the wheels have nothing
 to push against, so they spin up fast (about 3.4 turns/s at PWM 100) while the
 body stays upright and the 45 deg check never fires. Rule (`control.h`, any
-arm, not just auto-arm): both wheels averaging over `LIFT_TURNS_PER_SEC` (4)
-for `LIFT_MS` (0.5 s) = lifted, motors off, reason "picked up". It counts like a
-fall: auto-arm waits to be stood up again. So when you pick it up while it's
-balancing, expect about half a second of spinning wheels before it stops.
-Laying it down (past 45 deg) still stops it at once.
+arm, not just auto-arm): both wheels averaging more than `LIFT_TURNS_PER_SEC`
+(4) **away from the speed BB1 is aiming for** for `LIFT_MS` (0.5 s) = lifted,
+motors off, reason "picked up". It counts like a fall: auto-arm waits to be
+stood up again. So when you pick it up while it's balancing, expect about half
+a second of spinning wheels before it stops. Laying it down (past 45 deg)
+still stops it at once.
+
+Since firmware 3.6 (fast drive, up to 3 turns/s) each wheel is compared with
+its own target: the ramped drive speed, plus or minus half the turn rate.
+Standing still both targets are 0, so it is exactly the old check (wheels
+over 4 turns/s). Driving at 3 turns/s it needs the wheels at about 7 turns/s
+before it counts, so fast driving on the floor (wheels
+within about 1 turn/s of the target) never trips it. One gap: lifted **while
+a drive command is live**, the wheels in the air at the drive PWM may spin
+about as fast as the target, so it may not trip until the command runs out
+or is let go (then the target ramps to 0 and the plain check applies), or
+until the angle loop winds the wheels past target + 4. Let go of the pad
+before picking BB1 up.
 
 ### Low battery while armed (case 15)
 
@@ -124,5 +137,5 @@ format 7), so you can always see why it is or isn't arming.
 | `AUTO_ARM_HOLD_MS` | 1000 | how long upright and still before it arms |
 | `GYRO_BIAS_TYPICAL` | -0.60, 2.04, -2.24 deg/s | gyro bias used until a calibration succeeds |
 | `AUTO_MAX_FALLS` / `AUTO_FALL_WINDOW_MS` | 3 / 30 s | too many falls: off until ARM |
-| `LIFT_TURNS_PER_SEC` / `LIFT_MS` | 4 / 0.5 s | lift detector (could never trip before 2026-10-26: the wheel speed read 3.3x low, CHANGELOG) |
+| `LIFT_TURNS_PER_SEC` / `LIFT_MS` | 4 / 0.5 s | lift detector: wheels this far off the drive target (since firmware 3.6; before, plain wheel speed). Could never trip before 2026-10-26: the wheel speed read 3.3x low, CHANGELOG |
 

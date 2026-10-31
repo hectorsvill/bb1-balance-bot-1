@@ -12,6 +12,11 @@ just enough to exercise runs_db.py and logs.py:
 plus a two-line flash history and a one-line command log.
 
     write_fixtures(folder) -> the log file names, oldest first
+
+and, kept apart so the catalog counts above stay the same:
+
+  - a "fast drive" in log format 12 (firmware 3.6): drive_speed 2.5 turns/s,
+    past the old int8-hundredths limit of 1.27. write_fast_fixture(folder)
 """
 
 import json
@@ -92,6 +97,44 @@ def drive_log():
               f"# surface,carpet\n# note,{DRIVE_NOTE}\n# recorded_at,2026-01-02T10:00:00-05:00\n"
               f"# records,{TICKS},lost,0\n")
     return header + COLUMNS_11 + "\n" + "\n".join(lines) + "\n"
+
+
+FAST_NAME = "bb1_2026-01-03_10-00-00_ci-wood-fast-drive.csv"
+FAST_SPEED = 2.5           # turns/s: only fits the format-12 log (1/40 turns/s steps, CSV in turns/s)
+
+
+def fast_drive_log():
+    """Format 12: the same drive as drive_log(), at 2.5 turns/s. The CSV says turns/s
+    with 3 decimals (the firmware stores 1/40ths and divides on the way out)."""
+    lines = []
+    for i in range(TICKS):
+        tick = 300000 + i
+        driving = tick >= 300020
+        drive = FAST_SPEED if driving else 0.0
+        speed = int(FAST_SPEED * 520) if driving else 0           # counts/s
+        values = row(tick, 1_200_000_000 + i * 5000, MODE_ARMED, 2.0 if driving else 0.0,
+                     5000 + (i - 20) * 7 if driving else 5000, speed, 90 if driving else 5,
+                     3.0 if driving else 0.0, 0, 6, drive, extra=(f"{drive:.3f}", "0.000", 0)).split(",")
+        values[30] = f"{drive:.3f}"                               # drive_speed: 3 decimals since format 12
+        values[31] = "0.000"
+        lines.append(",".join(values))
+    header = ("# firmware,bb1 milestone 2\n# firmware_version,3.6,build_id,ci synthetic\n# log_format,12\n"
+              "# gyro_bias_dps,-0.600,2.040,-2.240\n" + HEADER_COMMON +
+              "# gains_ver,2,kp,18.000,ki,100.000,kd,0.500,trim,0.00,pwm_cap,200,deadband,10,speed_p,3.00,"
+              "speed_i,0.50,turn_hold,60.0,auto_arm,1,drive_ff,25,drive_speed_i,4.00\n"
+              "# drive_max_speed,3.00,drive_max_turn,1.00,drive_accel,3.00,drive_turn_accel,2.00,drive_turn_ff,15.0,"
+              "drive_hold_ms,500,drive_pwm_reserve,80,drive_sat_backoff_s,0.20,drive_stop_accel_min,3.00,lift_tps,4.0,lift_ms,500\n"
+              "# step,pause,0.00,0.00,300000,300019\n# step,fwd 2.5,2.50,0.00,300020,300059\n"
+              "# drive_test,fwd-back-250,done\n"
+              f"# surface,wood\n# note,CI fixture: synthetic, a fast drive\n# recorded_at,2026-01-03T10:00:00-05:00\n"
+              f"# records,{TICKS},lost,0\n")
+    return header + COLUMNS_11 + "\n" + "\n".join(lines) + "\n"
+
+
+def write_fast_fixture(folder):
+    path = Path(folder) / FAST_NAME
+    path.write_text(fast_drive_log())
+    return path
 
 
 def write_fixtures(folder):

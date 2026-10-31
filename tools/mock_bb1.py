@@ -41,7 +41,7 @@ CSV_HEADER = ("tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx
               "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm")
 MOTOR_TEST_MAX_PWM = 150
 MOTOR_TEST_MAX_MS = 3000
-DRIVE_MAX_SPEED, DRIVE_MAX_TURN = 1.0, 1.0   # config.h: wheel turns/s
+DRIVE_MAX_SPEED, DRIVE_MAX_TURN = 3.0, 5.0   # config.h: wheel turns/s (speed 3.0 since firmware 3.6, turn 5.0 since 3.7)
 DRIVE_HOLD_MS, DRIVE_HOLD_MAX_MS = 500, 3000
 COUNTS_PER_S_PER_PWM = 17.5      # measured: about 1750 counts/s at PWM 100, wheels in the air
 
@@ -141,13 +141,13 @@ def csv_line(r):
     return (f'{r["tick"]},{r["t_us"]},{r["work_us"]},{r["mode"]},{r["flag_bits"]},{raw},'
             f'{r["pitch"]:.3f},{r["pitch_rate"]:.3f},{r["accel_pitch"]:.3f},'
             f'{r["enc"][0]},{r["enc"][1]},{r["speed"][0]},{r["speed"][1]},{r["pwm"][0]},{r["pwm"][1]},'
-            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10},{mock_battery(r["tick"]):.2f},{6 if r["mode"] == 4 else 1},0.00,0.00,0.00,0.00,0\n')
+            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10},{mock_battery(r["tick"]):.2f},{6 if r["mode"] == 4 else 1},0.000,0.000,0.000,0.000,0\n')
 
 
 def meta_lines():
     return ("# firmware,bb1 MOCK (tools/mock_bb1.py)\n"
             "# firmware_version,MOCK,build_id,MOCK\n"
-            "# log_format,11\n"
+            "# log_format,13\n"
             f"# gyro_bias_dps,{bias[0]:.3f},{bias[1]:.3f},{bias[2]:.3f}\n"
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
             "# accel_pitch_sign,1,gyro_pitch_sign,1\n"
@@ -189,7 +189,7 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
 
 def api_list():
     return {
-        "api": 5, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 11,
+        "api": 7, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 13,
         "units": {"angle": "deg (forward +)", "speed": "wheel turns/s (forward +)",
                   "turn": "wheel turns/s left minus right (right +)", "pwm": "-255..255 (forward +)", "counts_per_rev": 520},
         "limits": {"drive_max_speed": DRIVE_MAX_SPEED, "drive_max_turn": DRIVE_MAX_TURN, "drive_hold_ms": DRIVE_HOLD_MS,

@@ -29,7 +29,7 @@ enum Mode : uint8_t {
 const uint8_t FLAG_IMU_ERROR = 1 << 0;   // the IMU read failed this tick (sensor fields repeat the last good values)
 const uint8_t FLAG_OVERRUN   = 1 << 1;   // the previous tick's work took longer than 5 ms
 const uint8_t FLAG_NO_BIAS   = 1 << 2;   // no successful gyro calibration yet: using GYRO_BIAS_TYPICAL (config.h)
-const uint8_t FLAG_SATURATED = 1 << 3;   // armed and the PID output hit the PWM cap
+const uint8_t FLAG_SATURATED = 1 << 3;   // armed and the motor PWM hit the cap (since log format 12 also PID + drive feedforward + deadband; before, the PID alone)
 const uint8_t FLAG_DRIVE_STOPPING = 1 << 4;   // a drive command ran out or was stopped: ramping to a stop (drive.h)
 const uint8_t FLAG_ENC_FAULT = 1 << 5;   // an encoder isn't counting (control.h): heading hold off, driving refused
 const uint8_t FLAG_I_RELAX   = 1 << 6;   // the angle I term is being drained after a drive (irelax, control.h)
@@ -71,13 +71,39 @@ struct LogData {
   // 2026-10-24: auto-arm (log format 7). Uses 1 of the 2 padding bytes: still 72 bytes.
   uint8_t  auto_state;    // AutoState in auto_arm.h: why it is or isn't starting by itself
   // 2026-10-25: driving (log format 9). Makes the record 76 bytes (+8 KB for the 10 s buffer).
-  int8_t   drive_speed;   // operator command in force: speed, hundredths of a wheel turn/s, forward + (drive.h; 0 once it runs out)
-  int8_t   drive_turn;    // operator command: turn, hundredths of a turn/s, right + (the "action" a model would learn to copy)
+  // The four drive_ fields are in 1/DRIVE_LOG_STEPS turns/s (below) since log format 12.
+  int8_t   drive_speed;   // operator command in force: speed, wheel turns/s, forward + (drive.h; 0 once it runs out)
+  int8_t   drive_turn;    // operator command: turn, turns/s, right + (the "action" a model would learn to copy)
   // 2026-10-26 (log format 11): the controller's own state, in the last 3 padding bytes (still 76 bytes)
-  int8_t   drive_speed_now; // ramped speed target BB1 really aims for, hundredths of a turn/s
-  int8_t   drive_turn_now;  // ramped turn target, hundredths of a turn/s
+  int8_t   drive_speed_now; // ramped speed target BB1 really aims for
+  int8_t   drive_turn_now;  // ramped turn target
   int8_t   speed_pwm;       // PWM the wheel speed loop added this tick (smode 1; 0 in smode 0)
 };
+
+// The drive_ fields' unit (log format 12, firmware 3.6). They were hundredths of
+// a turn/s, and an int8 holds -128..127, so 1.27 turns/s was the most they
+// could say. Fast drive allows 3.0. Two ways to fit it:
+//   int16 hundredths: 4 more bytes per record (2 fields x 2 bytes, padded)
+//                     = 8 KB of RAM for the 10 s buffer, at 83% static RAM.
+//   int8 in 1/40ths:  max 127 / 40 = 3.17 turns/s, steps of 0.025 turns/s
+//                     (4.4 mm/s of wheel travel), no RAM at all.
+// 0.025 is finer than anything we command (the page and the tools send 0.05
+// steps, which are exact in 1/40ths), so int8 1/40ths it is. The CSV still
+// says turns/s, so tools reading the CSV need no change.
+constexpr float DRIVE_LOG_STEPS = 40;
+
+// Turn goes to 5.0 for spins (firmware 3.7, log format 13), past 3.17, so
+// drive_turn and drive_turn_now are stored in 1/20ths: max 6.35, steps of
+// 0.05 turns/s (still exact for the 0.05 steps the page and tools send).
+constexpr float DRIVE_TURN_LOG_STEPS = 20;
+
+// turns/s -> the int8 the log stores (control.h).
+int8_t driveLogValue(float turnsPerSec) {
+  return (int8_t)constrain(lroundf(turnsPerSec * DRIVE_LOG_STEPS), -127L, 127L);
+}
+int8_t driveTurnLogValue(float turnsPerSec) {
+  return (int8_t)constrain(lroundf(turnsPerSec * DRIVE_TURN_LOG_STEPS), -127L, 127L);
+}
 
 // One full record, as the rest of the firmware sees it: the stored fields plus
 // the tick number. tick counts up by 1 every tick since boot (a gap in a log
@@ -154,13 +180,13 @@ void csvHeader(Print &p) {
 
 // Write one record as a CSV line (with "\n") into buf. Returns the length.
 int formatCsv(char *buf, size_t size, const LogRecord &r) {
-  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u,%.2f,%u,%.2f,%.2f,%.2f,%.2f,%d\n",
+  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u,%.2f,%u,%.3f,%.3f,%.3f,%.3f,%d\n",
                   (unsigned long)r.tick, (unsigned long)r.t_us, r.work_us, r.mode, r.flags,
                   r.raw[0], r.raw[1], r.raw[2], r.raw[3], r.raw[4], r.raw[5], r.raw[6],
                   r.pitch, r.pitch_rate, r.accel_pitch,
                   (long)r.enc_l, (long)r.enc_r, r.speed_l, r.speed_r, r.pwm_l, r.pwm_r,
-                  r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10, r.batt_mv / 1000.0, r.auto_state, r.drive_speed / 100.0, r.drive_turn / 100.0,
-                  r.drive_speed_now / 100.0, r.drive_turn_now / 100.0, r.speed_pwm);
+                  r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10, r.batt_mv / 1000.0, r.auto_state, r.drive_speed / DRIVE_LOG_STEPS, r.drive_turn / DRIVE_TURN_LOG_STEPS,
+                  r.drive_speed_now / DRIVE_LOG_STEPS, r.drive_turn_now / DRIVE_TURN_LOG_STEPS, r.speed_pwm);
 }
 
 void printCsv(Print &p, const LogRecord &r) {

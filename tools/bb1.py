@@ -25,14 +25,17 @@ turn is 0.178 m (measured).
 
 Safety (an agent can make mistakes, so the tool checks for it):
   - drive refuses unless /state says armed with no encoder fault
-  - speed is capped at --max (default 0.5, the firmware allows 1.0), turn at
+  - speed is capped at --max (default 0.5, the firmware allows 3.0), turn at
     --max-turn (default: the same as --max)
   - --for is at most --max-for, which can only lower MAX_FOR_S (10 s); each
     /drive command lasts CMD_MS (1 s)
     and is re-sent every 100 ms, so if this tool dies BB1 stops by itself
     within 1 s (the firmware failsafe)
   - it watches /state while driving: a fall, a disarm, an encoder fault or
-    more than MAX_TRAVEL wheel turns from the start sends /drive/stop and ends it
+    more than MAX_TRAVEL wheel turns from the start sends /drive/stop and ends it.
+    MAX_TRAVEL is a distance (the room), not a time, so it stays 3 turns at
+    any speed: at 3 turns/s a drive ends after about 1 s, and BB1 rolls on
+    up to about 3 more turns (0.5 s between /state checks + a 1 s stop)
   - Ctrl-C sends /drive/stop
 
 Exit codes: 0 done, 1 BB1 refused or a safety check ended it, 2 BB1 didn't answer.
