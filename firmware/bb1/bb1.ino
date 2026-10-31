@@ -230,11 +230,13 @@ void loop1() {
     r.pwm_r = test.right;
   } else if (balance.armed) {
     // Same balance PWM to both wheels, plus heading hold (balanceSteer) to keep
-    // them rolling the same distance. pwm_l - pwm_r in the log = 2 x the steering.
+    // them rolling the same distance (or turning), then each wheel's deadband
+    // (wheelPwm). pwm_l - pwm_r in the log = 2 x the steering, plus the
+    // deadband when the wheels turn opposite ways.
     int steer = balanceSteer(r);
     int cap = (int)pwmCap;
-    r.pwm_l = constrain(pwm + steer, -cap, cap);
-    r.pwm_r = constrain(pwm - steer, -cap, cap);
+    r.pwm_l = wheelPwm(pwm + steer, cap);
+    r.pwm_r = wheelPwm(pwm - steer, cap);
     motorsDrive(r.pwm_l, r.pwm_r);
   } else {
     r.pwm_l = r.pwm_r = 0;

@@ -92,9 +92,17 @@ struct LogData {
 // says turns/s, so tools reading the CSV need no change.
 constexpr float DRIVE_LOG_STEPS = 40;
 
+// Turn goes to 5.0 for spins (firmware 3.7, log format 13), past 3.17, so
+// drive_turn and drive_turn_now are stored in 1/20ths: max 6.35, steps of
+// 0.05 turns/s (still exact for the 0.05 steps the page and tools send).
+constexpr float DRIVE_TURN_LOG_STEPS = 20;
+
 // turns/s -> the int8 the log stores (control.h).
 int8_t driveLogValue(float turnsPerSec) {
   return (int8_t)constrain(lroundf(turnsPerSec * DRIVE_LOG_STEPS), -127L, 127L);
+}
+int8_t driveTurnLogValue(float turnsPerSec) {
+  return (int8_t)constrain(lroundf(turnsPerSec * DRIVE_TURN_LOG_STEPS), -127L, 127L);
 }
 
 // One full record, as the rest of the firmware sees it: the stored fields plus
@@ -177,8 +185,8 @@ int formatCsv(char *buf, size_t size, const LogRecord &r) {
                   r.raw[0], r.raw[1], r.raw[2], r.raw[3], r.raw[4], r.raw[5], r.raw[6],
                   r.pitch, r.pitch_rate, r.accel_pitch,
                   (long)r.enc_l, (long)r.enc_r, r.speed_l, r.speed_r, r.pwm_l, r.pwm_r,
-                  r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10, r.batt_mv / 1000.0, r.auto_state, r.drive_speed / DRIVE_LOG_STEPS, r.drive_turn / DRIVE_LOG_STEPS,
-                  r.drive_speed_now / DRIVE_LOG_STEPS, r.drive_turn_now / DRIVE_LOG_STEPS, r.speed_pwm);
+                  r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10, r.batt_mv / 1000.0, r.auto_state, r.drive_speed / DRIVE_LOG_STEPS, r.drive_turn / DRIVE_TURN_LOG_STEPS,
+                  r.drive_speed_now / DRIVE_LOG_STEPS, r.drive_turn_now / DRIVE_TURN_LOG_STEPS, r.speed_pwm);
 }
 
 void printCsv(Print &p, const LogRecord &r) {

@@ -42,5 +42,9 @@ void angleUpdate(Angle &a, const ImuSample &s, float dt) {
     a.started = true;
     return;
   }
-  a.pitch = a.alpha * (a.pitch + a.pitchRate * dt) + (1.0 - a.alpha) * a.accelPitch;
+  // Spinning fast: the accelerometer reads the spin's pull as tilt, so trust
+  // the gyro alone for now (config.h SPIN_GYRO_ONLY_DPS). The chip is flat,
+  // so gz is the yaw rate.
+  float alpha = fabsf(s.gz) > SPIN_GYRO_ONLY_DPS ? max(a.alpha, SPIN_ALPHA) : a.alpha;
+  a.pitch = alpha * (a.pitch + a.pitchRate * dt) + (1.0 - alpha) * a.accelPitch;
 }

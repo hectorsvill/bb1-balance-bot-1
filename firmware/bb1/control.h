@@ -177,10 +177,10 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     }
     if (encoderFault) r.flags |= FLAG_ENC_FAULT;
     if (drive.stopping) r.flags |= FLAG_DRIVE_STOPPING;
-    static_assert(DRIVE_MAX_SPEED * DRIVE_LOG_STEPS <= 127 && DRIVE_MAX_TURN * DRIVE_LOG_STEPS <= 127,
-                  "drive_speed/drive_turn are int8 in 1/DRIVE_LOG_STEPS turns/s: widen them before raising the limits");
+    static_assert(DRIVE_MAX_SPEED * DRIVE_LOG_STEPS <= 127 && DRIVE_MAX_TURN * DRIVE_TURN_LOG_STEPS <= 127,
+                  "drive_speed/drive_turn are int8 in 1/DRIVE_LOG_STEPS (turn: 1/DRIVE_TURN_LOG_STEPS) turns/s: widen them before raising the limits");
     r.drive_speed = driveLogValue(drive.wantSpeed);   // log the operator's command (the ramped target follows from it and the # drive_ settings)
-    r.drive_turn  = driveLogValue(drive.wantTurn);
+    r.drive_turn  = driveTurnLogValue(drive.wantTurn);
     // Faster than asked -> lean back (negative); slower -> lean forward.
     // Drive speed I (sdi, config.h): while driving, keep adding lean for as
     // long as BB1 is slower than asked (less when faster). After a stop it
@@ -222,7 +222,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
       balance.speedPwm = constrain(pwm, -WHEEL_SPEED_PWM_MAX, WHEEL_SPEED_PWM_MAX);
     }
     r.drive_speed_now = driveLogValue(drive.speed);   // the ramped targets BB1 really aims for (log format 11)
-    r.drive_turn_now  = driveLogValue(drive.turn);
+    r.drive_turn_now  = driveTurnLogValue(drive.turn);
     r.speed_pwm       = (int8_t)lroundf(balance.speedPwm);
   }
   trimLearnedNow = balance.trimLearned;         // for /state (kept while disarmed: it is still what BB1 learned)
@@ -294,15 +294,14 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   out += gainDriveFF * drive.speed;
   out += balance.speedPwm;                      // smode 1: the wheel speed loop (0 in smode 0). Not in p/i/d either
 
-  // Deadband: the motors don't turn at all below some PWM. Add it on top so a
-  // small correction still moves the wheels, then clamp to the cap again.
-  if (out > 0.5f)       out += motorDeadband;
-  else if (out < -0.5f) out -= motorDeadband;
+  // Deadband: added per wheel after the steering (wheelPwm() below), not here.
+  // For the saturation flag, count it the way the busier wheel will get it.
+  float withDb = fabsf(out) > 0.5f ? fabsf(out) + motorDeadband : fabsf(out);
   // Saturated = the PID alone hit the cap, or the PID plus the drive
   // feedforward and deadband did (log format 12; before, only the PID alone
   // counted, which missed the case that matters when driving fast: dff x
   // speed eats the cap and the clamp below cuts the balance correction).
-  balance.outSaturated = pid.saturated || fabsf(out) >= pwmCap;
+  balance.outSaturated = pid.saturated || withDb >= pwmCap;
   out = constrain(out, -pwmCap, pwmCap);
 
   if (balance.outSaturated) r.flags |= FLAG_SATURATED;
@@ -310,6 +309,20 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   r.i_x10 = (int16_t)constrain(pid.i * 10, -32000.0f, 32000.0f);
   r.d_x10 = (int16_t)constrain(pid.d * 10, -32000.0f, 32000.0f);
   return (int)lroundf(out);
+}
+
+// One wheel's PWM: balance + or - steering, then the deadband, then the cap.
+// Deadband: the motors don't turn at all below some PWM, so add it on top so a
+// small correction still moves the wheel. Per wheel since firmware 3.7: before,
+// it was added to the shared balance output, so while turning, every time the
+// balance output crossed 0 (about 11 times a second) both wheels jumped by
+// 2 x deadband, and the slow wheel stuck and slipped near 0: the turn jitter
+// (run 178, 2026-10-31). Now each wheel gets it in the direction it really
+// turns. Standing still with no steering it is the same as before.
+int wheelPwm(float pwm, int cap) {
+  if (pwm > 0.5f)       pwm += motorDeadband;
+  else if (pwm < -0.5f) pwm -= motorDeadband;
+  return (int)constrain(lroundf(pwm), (long)-cap, (long)cap);
 }
 
 // Heading hold: how much PWM to move from the right wheel to the left (or back)

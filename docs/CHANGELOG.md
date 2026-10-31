@@ -2,7 +2,18 @@
 
 Newest first.
 
-## 2026-10-29 - Fast drive step 2: top speed 3.0 turns/s (firmware 3.6, not flashed yet)
+## 2026-10-31 - Fast spins: turn 5.0, deadband per wheel (firmware 3.7, not flashed yet)
+
+- **Why:** a full spin on the spot is 4.49 turns of left-minus-right wheel difference (pi x 127 mm track / 177.8 mm per wheel turn x 2). At the old `DRIVE_MAX_TURN` 1.0 that took 4.5 s. Now **5.0** (about 0.9 s per spin, each wheel at 2.5 turns/s, yaw about 400 deg/s, under the gyro's 500 deg/s range)
+- **Steering limit** `TURN_HOLD_MAX_PWM` 40 -> 100: a turn-5 spin needs about 75 PWM of steering (`DRIVE_TURN_FF` 15 x 5), and the busier wheel still has cap 200 - 100 for balancing. **Turn ramp** `DRIVE_TURN_ACCEL` 2 -> 6 turns/s per s (0 to 5 in 0.8 s, not 2.5 s)
+- **Turn jitter fix: deadband per wheel** (`control.h` `wheelPwm()`). Run 178 (wood, turn 0.5, 2026-10-31): the turn split itself was steady (pwm_l - pwm_r std 2), but the shared balance output crosses 0 about 11 times a second, and the deadband was added to it there, so both wheels jumped by 2 x deadband each time. A slow turn moves each wheel only 0.25 turns/s, so the slower wheel's PWM swung about 0..34 and stuck and slipped through the deadband: the judder. Now the deadband goes on each wheel after the steering, in the direction that wheel really turns. Standing with no steering it is the same as before. Flag 8 still counts the deadband
+- **Spin pitch:** the IMU sits a few cm off the spin axis, so the centripetal pull reads as tilt (about 7 deg at 1 spin/s and 3 cm). Above 120 deg/s of yaw (`SPIN_GYRO_ONLY_DPS`; turn 1.0 is 80 deg/s) the complementary filter uses alpha 0.998 (`SPIN_ALPHA`, gyro alone for a 1 s spin)
+- **Log format 13:** `drive_turn` and `drive_turn_now` are int8 in 1/20 turns/s (`DRIVE_TURN_LOG_STEPS`, max 6.35, steps of 0.05) so 5.0 fits; `drive_speed` stays 1/40. CSV still turns/s, no tool change
+- `GET /api` version 7 (`drive_max_turn` 5.00); `docs/AGENT.md` version line 7 (agent cap stays 0.4); `docs/API.md`; `mock_bb1.py` (turn 5.0, format 13, api 7)
+- **Tools:** `drive_test.py` tests `spin-100`, `-200`, `-300`, `-450` (one spin right, then left, each `4.49 / v` s long; steps faster than turn 1 send 1 s commands like the fast drives). They stay on the spot: a 3 ft box is enough
+- Firmware 3.7: 553,444 B flash (+192 vs 3.6), 218,016 B static RAM (same). `tools/tests` 32 tests OK
+
+## 2026-10-29 - Fast drive step 2: top speed 3.0 turns/s (firmware 3.6, flashed 2026-10-29)
 
 - **Why:** at the old 1.0 turns/s top speed (wood, aff 1, dacc 3, lmax 8) the PWM peaked at 102-106 of cap 200 with no saturation, lean peak 7.5 deg; steady driving takes about dff 25 PWM per turn/s + deadband 10. So the motors have room: `DRIVE_MAX_SPEED` 1.0 -> **3.0** turns/s (0.53 m/s). `DRIVE_MAX_TURN` stays 1.0 (spins are a later step). To be tested in steps: 1.0, 1.5, 2, 2.5, 3 (FIRMWARE_PLAN.md section 7)
 - **Log format 12:** `drive_speed`, `drive_turn`, `drive_speed_now`, `drive_turn_now` were int8 hundredths (max 1.27). Now int8 in 1/40 turns/s (`DRIVE_LOG_STEPS` in telemetry.h: max 3.17, steps of 0.025 = 4.4 mm/s), no RAM cost; int16 would have cost 8 KB (4 bytes x 2000 records) at 83% static RAM. The CSV still says turns/s (now 3 decimals), so `runs_db.py` and `dataset.py` need no scaling (`SCHEMA_VERSION` unchanged); a test reads a format-12 drive at 2.5 turns/s next to the format-11 one. Flag 8 (saturated) now also counts the PID + drive feedforward + deadband reaching the cap (before: the PID alone, which missed the case that matters when driving fast)
@@ -14,6 +25,8 @@ Newest first.
 - **Page:** the Drive panel's Max speed slider is now in turns/s (0.1 to the firmware limit, default **1.0**; was 10-100% of 1.0, default 50%), so a full-stick jab is never 3.0 by surprise. New browser storage key, so an old "50" can't come back as 50 turns/s
 - **Tools:** `drive_test.py` tests `fwd-back-100`, `-150`, `-200`, `-250`, `-300` (1.5 s steps, ramp included: about speed x 1.5 wheel turns each way; `fwd-back-300` needs about 1.5 m of clear floor ahead and 0.5 m behind). Fast tests get a travel limit of their longest step + 1.5 turns (6 for `fwd-back-300`) and 1 s drive commands (3 s at 3 turns/s would roll 1.6 m if the script died). `bb1.py`: no code change (the firmware clamps); its `MAX_TRAVEL` stays 3 wheel turns, a distance (at 3 turns/s it ends a drive after about 1 s), documented. `mock_bb1.py`: limit 3.0, log format 12, api 6
 - Firmware 3.6: 553,252 B flash (+1,448 vs 3.5), 218,016 B static RAM (+8), 44,128 B heap free at link. `tools/tests` 32 tests OK
+
+- **Tests:** carpet (runs 175-176, 2026-10-29): forward only 0.06-0.13 of 1.0, back 0.74-1.16; the angle loop rocks at about 2 Hz there and eats the push, so carpet needs balance tuning first. Wood in a 3 ft box (2026-10-31): fwd-back-100 (run 177) forward 1.00, back 0.77, PWM peak 124, no saturation; fwd-back-150 (run 179) forward 1.71 (a 0.8 s Wi-Fi drop mid-step), back 1.42, PWM peak 135, stops 0.26-0.30 turns. 2.0-3.0 still need a longer floor
 
 ## 2026-10-29 - Trim learn `tl`: a fix for the backward creep after stops (firmware 3.5, not flashed yet)
 

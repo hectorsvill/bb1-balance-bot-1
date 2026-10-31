@@ -101,7 +101,10 @@ const float SPEED_FILTER    = 0.05;  // per tick: smooths the wheel speed (about
 // goes straight (the right wheel is about 7% faster at the same PWM). Unit: PWM
 // moved from one wheel to the other per wheel turn of difference. 0 = off.
 const float DEFAULT_TURN_HOLD = 60;   // 20 turned 0.1-0.4 of turn 0.5 asked; 60 turns 0.46-0.56 both ways, standing unchanged (turn tests, 2026-10-26)
-const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds this
+// The steering correction (hold + DRIVE_TURN_FF) never exceeds this. 40 until
+// 3.7: a turn-5 spin needs about 75 PWM, and the balance loop still has
+// cap 200 - 100 = 100 PWM on the busier wheel (it uses about +-60 standing).
+const float TURN_HOLD_MAX_PWM = 100;
 // Driving (milestone 2, drive.h): the page or the API asks for a wheel speed
 // and a turn rate; drive.h moves the speed loop's and the heading hold's
 // targets, and BB1 leans into it by itself. Like flying a quad in angle mode:
@@ -114,7 +117,13 @@ const float TURN_HOLD_MAX_PWM = 40;  // the steering correction never exceeds th
 // The log stores these in 1/40 turns/s steps (int8, telemetry.h): the
 // static_assert in control.h stops a limit past 3.17 from compiling.
 constexpr float DRIVE_MAX_SPEED = 3.0;   // turns/s, forward or back
-constexpr float DRIVE_MAX_TURN  = 1.0;   // turns/s of left-minus-right wheel difference (+ = turn right). Not raised: spins are a later step
+// Fast spins (firmware 3.7, 2026-10-31): turn 1.0 -> 5.0. One spin on the spot
+// is pi x track 127 mm / 177.8 mm per wheel turn x 2 wheels = 4.49 turns of
+// left-minus-right difference, so 1.0 took 4.5 s per 360 and 5.0 takes 0.9 s.
+// Each wheel then runs 2.5 turns/s, about 75 PWM (DRIVE_TURN_FF), and the
+// yaw rate is 400 deg/s, under the gyro's 500 deg/s range (imu.h).
+// Test it in steps (turn 1, 2, 3, 4.5: drive_test.py spin-100 ... spin-450).
+constexpr float DRIVE_MAX_TURN  = 5.0;   // turns/s of left-minus-right wheel difference (+ = turn right)
 // Balance reserve (fast drive step 2, drive.h speedCeiling()): the speed target
 // is limited so the drive feedforward dff x speed never takes more than
 // cap - this, leaving the rest for the angle loop. 80 = 40% of cap 200.
@@ -131,7 +140,7 @@ const float DRIVE_STOP_ACCEL_MIN = 3.0;
 // 1.0 = 0 to full in 1 s, as before. Faster ramps need more lean (aff, lmax below).
 const float DEFAULT_DRIVE_ACCEL = 3.0;   // 2026-10-29 floor test (wood, aff 1): 90% of 0.5 turns/s in 0.27 s (was 0.93), stops 0.06-0.11 turns; 1.0 before
 const float DRIVE_ACCEL_MAX     = 6.0;
-const float DRIVE_TURN_ACCEL  = 2.0;   // the same for the turn target
+const float DRIVE_TURN_ACCEL  = 6.0;   // the same for the turn target. 2.0 until 3.7: 0 to turn 5 would take 2.5 s; 6 = 0.8 s. Spinning needs no lean, only wheel torque
 // Drive feedforward (setting "dff", live on /tune, saved in flash): PWM per
 // turn/s of speed target, added straight to both wheels. These motors are
 // speed knobs: holding 1 turn/s takes about 105 PWM (first drive log,
@@ -277,6 +286,15 @@ const unsigned long STEP_TEST_MS = 1000;
 // constant of about 0.25 s (dt * alpha / (1 - alpha) = 0.005 * 0.98 / 0.02).
 // Higher = smoother but slower to correct drift. Change it live with "alpha N".
 const float FILTER_ALPHA = 0.98;
+// Spinning fast (firmware 3.7, angle.h): the IMU sits a few cm off the spin
+// axis, so the spin's centripetal pull reads as tilt. At 1 spin/s and 3 cm
+// that is 1.2 m/s^2 = about 7 deg of fake pitch, which would walk the balance
+// point away mid-spin. Above this yaw rate the filter trusts the gyro alone
+// (alpha SPIN_ALPHA, a 2.5 s time constant: the gyro drifts far less than
+// that in a 1 s spin). At turn 1.0 the yaw rate is 80 deg/s, so slow turns
+// are unchanged.
+const float SPIN_GYRO_ONLY_DPS = 120;
+const float SPIN_ALPHA         = 0.998;
 
 // ---------- gyro bias calibration ----------
 const int   CAL_SAMPLES     = 400;   // 2 s at 200 Hz; keep the robot still

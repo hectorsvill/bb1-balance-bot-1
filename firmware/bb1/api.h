@@ -17,8 +17,9 @@
 // 2 = POST /update (ota.h), 3 = version and build_id (version.h),
 // 4 = gains aff, dacc, lmax (fast drive step 1), 5 = gain tl and
 // /state trim_learned (trim learn, firmware 3.5), 6 = drive_max_speed 3.0
-// (fast drive step 2, firmware 3.6).
-const int API_VERSION = 6;
+// (fast drive step 2, firmware 3.6), 7 = drive_max_turn 5.0 (fast spins,
+// firmware 3.7).
+const int API_VERSION = 7;
 
 struct ApiEndpoint {
   const char *method;   // "GET" or "POST"

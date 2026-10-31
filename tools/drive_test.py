@@ -9,6 +9,8 @@ Usage (BB1 must already be balancing on the floor):
 Tests: stand, fwd-back-30, fwd-back-50, turn, arc, all (the five in a row),
 and the fast ones (firmware 3.6, run them one at a time in this order):
 fwd-back-100, fwd-back-150, fwd-back-200, fwd-back-250, fwd-back-300.
+Spins (firmware 3.7, on the spot, same order): spin-100, spin-200, spin-300,
+spin-450: one full spin right, then one left, at that turn rate.
 Each fast step is 1.5 s long, ramp included, so it rolls at most speed x 1.5
 wheel turns out and the same back: fwd-back-300 goes about 4.5 turns (0.8 m)
 forward, then back. Give it a clear straight line of about 1.5 m ahead of
@@ -78,6 +80,16 @@ TESTS["all"] = sum((TESTS[k] for k in ("stand", "fwd-back-30", "fwd-back-50", "t
 # ramps are the same shape, so a step rolls about speed x 1.5 wheel turns.
 for v in (1.0, 1.5, 2.0, 2.5, 3.0):
     TESTS[f"fwd-back-{v * 100:.0f}"] = [P, (f"fwd {v:g}", v, 0.0, 1.5), P, (f"back {v:g}", -v, 0.0, 1.5), P]
+# Fast spins (firmware 3.7): one spin right, then one left, on the spot. A
+# full spin is SPIN_TURNS of left-minus-right difference (pi x 127 mm track /
+# 177.8 mm per wheel turn x 2). The turn ramps at 6 turns/s^2 both ways, so
+# the ramp lost at the start comes back as roll-on after the command: a step
+# of SPIN_TURNS / v seconds is about one spin. The report's "got trn" and
+# "stop" say how close: x 80 = degrees.
+SPIN_TURNS = 4.49
+for v in (1.0, 2.0, 3.0, 4.5):
+    TESTS[f"spin-{v * 100:.0f}"] = [P, (f"spin right {v:g}", 0.0, v, round(SPIN_TURNS / v, 2)), P,
+                                    (f"spin left {v:g}", 0.0, -v, round(SPIN_TURNS / v, 2)), P]
 
 
 def travel_limit(steps):
@@ -161,7 +173,7 @@ class Run:
                 return
 
     def drive(self, speed, turn):
-        ms = min(CMD_MS if abs(speed) <= 1.0 else FAST_CMD_MS, MAX_CMD_MS)
+        ms = min(CMD_MS if abs(speed) <= 1.0 and abs(turn) <= 1.0 else FAST_CMD_MS, MAX_CMD_MS)
         try:
             self.ask(post, f"{self.base}/drive", timeout=0.5, speed=speed, turn=turn, ms=ms)
         except urllib.error.HTTPError as e:     # 409: not balancing, or encoder fault

@@ -2,7 +2,7 @@
 
 You are an AI agent driving BB1, a small two-wheel self-balancing robot, over Wi-Fi. This file is everything you need. Read all of it before your first command, and follow the settings in the next section: they are your owner's rules for this session, and they win over anything else here.
 
-**Written for `/api` version: 6**
+**Written for `/api` version: 7**
 
 Your first command is always `api` (below). If its `"api"` number differs from the line above, stop and tell your owner: the firmware changed since this manual was written, and some of it may be wrong.
 
@@ -11,7 +11,7 @@ Your first command is always `api` (below). If its `"api"` number differs from t
 ```text
 host            = bb1.local       # BB1's address (the tool's default). 192.168.42.1 on BB1's own network "BB1"
 max_speed       = 0.3             # wheel turns/s, forward or back (firmware allows 3.0)
-max_turn        = 0.4             # turns/s of left-minus-right wheel difference (firmware allows 1.0)
+max_turn        = 0.4             # turns/s of left-minus-right wheel difference (firmware allows 5.0; one full spin = 4.49)
 max_drive_s     = 3               # longest single drive command, seconds (tool allows 10)
 max_travel_m    = 0.5             # never end up farther than this from where you armed
 may_arm         = ask             # ask = ask your owner before every arm; yes = arm when needed
