@@ -32,8 +32,11 @@ float accelPitchDeg(const ImuSample &s) {
 
 // Call once per control tick with the newest reading and the time since the last tick.
 void angleUpdate(Angle &a, const ImuSample &s, float dt) {
-  a.accelPitch = accelPitchDeg(s);
-  a.pitchRate  = GYRO_PITCH_SIGN * s.gx;   // pitch is the rotation about the chip's X axis
+  // Turning corrections (config.h, measured 2026-10-31): the spin's pull on the
+  // accelerometer, and the slice of the yaw rate the slightly tilted chip
+  // sees as pitch. The chip is flat, so gz is the yaw rate.
+  a.accelPitch = accelPitchDeg(s) + ACCEL_PITCH_PER_YAW2 * s.gz * s.gz;
+  a.pitchRate  = GYRO_PITCH_SIGN * s.gx + GYRO_YAW_TO_PITCH * s.gz;   // pitch is the rotation about the chip's X axis
 
   if (!a.started) {
     // First tick: start from the accelerometer's answer instead of 0,

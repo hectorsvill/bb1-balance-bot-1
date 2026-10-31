@@ -295,6 +295,15 @@ const float FILTER_ALPHA = 0.98;
 // are unchanged.
 const float SPIN_GYRO_ONLY_DPS = 120;
 const float SPIN_ALPHA         = 0.998;
+// Measured on the first fast spins (runs 178, 180, 181, wood, 2026-10-31):
+// - The chip sits about 2.5 deg off level, so part of every turn shows up as
+//   pitch: pitch_rate = -0.043 x gz (deg/s). At turn 2 (134 deg/s) that is
+//   5.8 deg/s of fake forward tilt; with the gyro alone it walked the pitch
+//   5 deg off in 1 s and BB1 raced backward 1.2 m (run 181). angle.h adds it back.
+// - The centripetal pull: accel_pitch = -0.000119 x gz^2 (deg): 2 deg at
+//   134 deg/s, 19 deg at 400. angle.h adds that back too.
+const float GYRO_YAW_TO_PITCH  = 0.043;      // deg/s of pitch rate per deg/s of yaw rate
+const float ACCEL_PITCH_PER_YAW2 = 0.000119; // deg of accel pitch per (deg/s of yaw)^2
 
 // ---------- gyro bias calibration ----------
 const int   CAL_SAMPLES     = 400;   // 2 s at 200 Hz; keep the robot still
