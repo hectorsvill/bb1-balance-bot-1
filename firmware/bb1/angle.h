@@ -32,10 +32,9 @@ float accelPitchDeg(const ImuSample &s) {
 
 // Call once per control tick with the newest reading and the time since the last tick.
 void angleUpdate(Angle &a, const ImuSample &s, float dt) {
-  // Turning corrections (config.h, measured 2026-10-31): the spin's pull on the
-  // accelerometer, and the slice of the yaw rate the slightly tilted chip
-  // sees as pitch. The chip is flat, so gz is the yaw rate.
-  a.accelPitch = accelPitchDeg(s) + ACCEL_PITCH_PER_YAW2 * s.gz * s.gz;
+  // Turning: the slightly tilted chip sees a slice of the yaw rate as pitch
+  // rate (config.h GYRO_YAW_TO_PITCH). The chip is flat, so gz is the yaw rate.
+  a.accelPitch = accelPitchDeg(s);
   a.pitchRate  = GYRO_PITCH_SIGN * s.gx + GYRO_YAW_TO_PITCH * s.gz;   // pitch is the rotation about the chip's X axis
 
   if (!a.started) {
@@ -45,9 +44,5 @@ void angleUpdate(Angle &a, const ImuSample &s, float dt) {
     a.started = true;
     return;
   }
-  // Spinning fast: the accelerometer reads the spin's pull as tilt, so trust
-  // the gyro alone for now (config.h SPIN_GYRO_ONLY_DPS). The chip is flat,
-  // so gz is the yaw rate.
-  float alpha = fabsf(s.gz) > SPIN_GYRO_ONLY_DPS ? max(a.alpha, SPIN_ALPHA) : a.alpha;
-  a.pitch = alpha * (a.pitch + a.pitchRate * dt) + (1.0 - alpha) * a.accelPitch;
+  a.pitch = a.alpha * (a.pitch + a.pitchRate * dt) + (1.0 - a.alpha) * a.accelPitch;
 }
