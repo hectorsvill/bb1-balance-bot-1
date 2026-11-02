@@ -2,7 +2,7 @@
 
 Newest first.
 
-## 2026-11-01 - Wi-Fi settings refused while armed (firmware 3.8, not flashed yet; GitHub issue #16)
+## 2026-11-01 - Wi-Fi settings refused while armed (firmware 3.8, flashed 2026-11-02; GitHub issue #16)
 
 - **Bug:** `POST /wifi`, `POST /wifi/forget` and serial `wifi reset` wrote flash (`EEPROM.commit()`) and restarted BB1 with no armed check. The flash write pauses core 1's 200 Hz loop with the last PWM still on the wheels, then the restart drops the robot mid-balance
 - **Fix:** all three now refuse while armed or in a motor test (`wifiChangeBlocked()` in `wifi_setup.h`; `409` over HTTP, a message on serial), the same rule as Save gains and OTA. The delayed restart after an accepted save (1 s later) also checks again: if auto-arm started balancing in that second, it disarms first and restarts 200 ms later
