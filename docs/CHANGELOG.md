@@ -2,6 +2,12 @@
 
 Newest first.
 
+## 2026-11-01 - Wi-Fi settings refused while armed (firmware 3.8, not flashed yet; GitHub issue #16)
+
+- **Bug:** `POST /wifi`, `POST /wifi/forget` and serial `wifi reset` wrote flash (`EEPROM.commit()`) and restarted BB1 with no armed check. The flash write pauses core 1's 200 Hz loop with the last PWM still on the wheels, then the restart drops the robot mid-balance
+- **Fix:** all three now refuse while armed or in a motor test (`wifiChangeBlocked()` in `wifi_setup.h`; `409` over HTTP, a message on serial), the same rule as Save gains and OTA. The delayed restart after an accepted save (1 s later) also checks again: if auto-arm started balancing in that second, it disarms first and restarts 200 ms later
+- `GET /api` version 8 (the two rows say "disarmed only"); `docs/AGENT.md` version line 8; `docs/API.md`; `mock_bb1.py` (api 8, refuses `/wifi` while armed)
+
 ## 2026-10-31 - Fast spins: turn 5.0, deadband per wheel (firmware 3.7, flashed 2026-10-31)
 
 - **Why:** a full spin on the spot is 4.49 turns of left-minus-right wheel difference (pi x 127 mm track / 177.8 mm per wheel turn x 2). At the old `DRIVE_MAX_TURN` 1.0 that took 4.5 s. Now **5.0** (about 0.9 s per spin, each wheel at 2.5 turns/s, yaw about 400 deg/s, under the gyro's 500 deg/s range)

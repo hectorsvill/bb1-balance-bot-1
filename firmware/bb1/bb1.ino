@@ -386,6 +386,8 @@ void handleCommand(String cmd) {
   } else if (cmd == "wifi") {
     wifiPrintStatus();
   } else if (cmd == "wifi reset") {
+    String blocked = wifiChangeBlocked();
+    if (blocked.length()) { Serial.println(blocked); return; }
     wifiForgetHomeNetwork();
     Serial.println("Home network forgotten. Restarting on the own network...");
     delay(200);

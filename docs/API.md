@@ -203,8 +203,8 @@ RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_bu
 |---|---|
 | `POST /motor` | `left`, `right` (PWM ±150), `ms` (max 3000): timed motor test, disarmed only. Wheels off the table |
 | `GET /wifi` | network mode and the saved home network name (never the password) |
-| `POST /wifi` | `ssid`, `password`: save a home network and restart |
-| `POST /wifi/forget` | forget it and restart on the own network |
+| `POST /wifi` | `ssid`, `password`: save a home network and restart. Disarmed only (`409` while armed or in a motor test) |
+| `POST /wifi/forget` | forget it and restart on the own network. Disarmed only (`409`) |
 | `GET /`, `GET /tune` | the main page and the tuning page |
 | `GET /api` | every endpoint and its limits, JSON (see above) |
 | `POST /update` | new firmware over Wi-Fi (`ota.h`): multipart form field `firmware` = `build/bb1/bb1.ino.bin` (or gzipped), Basic auth user `bb1`, password `BB1_OTA_PASSWORD` from `secrets.h`. Refused (`409`, JSON `error`) while armed, during a motor test, or unless lying down (more than 45 deg from the trim); `401` for a wrong password. On success answers `{"ok":true,"bytes":N,...}` and restarts; the bootloader copies the new firmware in (about 10-20 s until Wi-Fi is back). While it runs, every arm is refused with reason "a firmware update is running" (code 14). A broken-off upload changes nothing |
