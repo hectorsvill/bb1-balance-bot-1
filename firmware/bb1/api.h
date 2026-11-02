@@ -19,7 +19,7 @@
 // /state trim_learned (trim learn, firmware 3.5), 6 = drive_max_speed 3.0
 // (fast drive step 2, firmware 3.6), 7 = drive_max_turn 5.0 (fast spins,
 // firmware 3.7).
-const int API_VERSION = 7;
+const int API_VERSION = 8;
 
 struct ApiEndpoint {
   const char *method;   // "GET" or "POST"
@@ -49,8 +49,8 @@ const ApiEndpoint API_ENDPOINTS[] = {
   {"POST", "/alpha",          "value",             "text", false, "angle filter weight"},
   {"POST", "/cal",            "",                  "text", false, "recalibrate the gyro (2 s, keep still; disarms)"},
   {"POST", "/motor",          "left,right,ms",     "text", true,  "timed motor test, disarmed only, wheels in the air"},
-  {"POST", "/wifi",           "ssid,password",     "text", false, "save a home network and restart"},
-  {"POST", "/wifi/forget",    "",                  "text", false, "forget the home network and restart"},
+  {"POST", "/wifi",           "ssid,password",     "text", false, "save a home network and restart (disarmed only)"},
+  {"POST", "/wifi/forget",    "",                  "text", false, "forget the home network and restart (disarmed only)"},
   {"POST", "/update",         "firmware",          "json", false, "new firmware over Wi-Fi (multipart file, Basic auth bb1); lying down and disarmed only; restarts"},
   {"GET",  "/",               "",                  "html", false, "the main page"},
   {"GET",  "/tune",           "",                  "html", false, "the PID tuning page"},

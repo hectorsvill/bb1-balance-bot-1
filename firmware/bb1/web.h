@@ -138,6 +138,8 @@ void handleWifiGet() {
 }
 
 void handleWifiSave() {
+  String blocked = wifiChangeBlocked();
+  if (blocked.length()) { server.send(409, "text/plain", blocked); return; }
   String ssid = server.arg("ssid");
   String password = server.arg("password");
   ssid.trim();
@@ -153,6 +155,8 @@ void handleWifiSave() {
 }
 
 void handleWifiForget() {
+  String blocked = wifiChangeBlocked();
+  if (blocked.length()) { server.send(409, "text/plain", blocked); return; }
   wifiForgetHomeNetwork();
   server.send(200, "text/plain", "forgotten. Restarting on the own network \"" + String(BB1_AP_SSID) + "\"");
   Serial.println("Home network forgotten from the web page, restarting...");
@@ -408,5 +412,15 @@ void webBegin() {
 // Call from loop() on core 0.
 void webLoop() {
   server.handleClient();
-  if (restartAt && (long)(millis() - restartAt) >= 0) rp2040.reboot();
+  if (restartAt && (long)(millis() - restartAt) >= 0) {
+    // Auto-arm could have started balancing in the 1 s since the save was
+    // accepted: never restart under a balancing robot. Disarm, check again soon.
+    if (robotArmed || motorTestRunning) {
+      requestMotorStop = true;
+      requestDisarm = true;
+      restartAt = millis() + 200;
+    } else {
+      rp2040.reboot();
+    }
+  }
 }
