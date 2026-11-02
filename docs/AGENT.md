@@ -151,7 +151,7 @@ These change how BB1 works or can damage it, and are only for your owner (`allow
 
 - changing gains or settings (`/gains`, `/gains/save`, `/gains/defaults`, `/alpha`, `/cal`)
 - motor tests (`/motor`): wheels must be off the floor
-- firmware updates (`/update`, `tools/flash.py`)
+- firmware updates (`/update`, `tools/flash.py --execute` or `--yes`). `tools/flash.py` with no `--execute` only prints a JSON plan and does not flash. Do not pass `--execute`, `--yes`, or `--force`.
 - Wi-Fi settings (`/wifi`, `/wifi/forget`): BB1 would restart and could drop off the network
 - calling the HTTP API directly to get around the tool's limits
 - changing the MCP server's caps or how it is started (`claude mcp add` / `remove`, its `--max-*` options), or editing `tools/bb1.py` / `tools/bb1_mcp.py`: the caps are your owner's

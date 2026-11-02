@@ -29,8 +29,11 @@ Kept as gzipped CSV (pandas reads it with read_csv) so no new library is needed.
 """
 
 import argparse
+import json
+import sys
 from pathlib import Path
 
+import cli_util
 import pandas as pd
 
 from check_dump import load_dump
@@ -129,18 +132,22 @@ def main():
     ap.add_argument("--logs", default=str(REPO / "logs"), help="folder of logs (default logs/)")
     ap.add_argument("-o", "--out", default=str(REPO / "logs" / "dataset" / "bb1_dataset.csv.gz"))
     ap.add_argument("--all-rows", action="store_true", help="keep disarmed rows too (default: armed only)")
+    cli_util.standard_cli(ap)
     args = ap.parse_args()
+    log = sys.stderr if args.json else sys.stdout
 
     parts, skipped = [], {}
+    files = []
     for path in sorted(Path(args.logs).glob("bb1_*.csv")):
         df, why = load_one(path, args.all_rows)
         if df is None:
             skipped[why] = skipped.get(why, 0) + 1
             continue
         parts.append(df)
-        print(f"  {path.name}: {len(df)} rows, {why}")
+        files.append({"file": path.name, "rows": len(df), "note": why})
+        print(f"  {path.name}: {len(df)} rows, {why}", file=log)
     if not parts:
-        raise SystemExit("No usable logs (need log format 9 or newer, not mock).")
+        cli_util.fail("No usable logs (need log format 9 or newer, not mock).", cli_util.EXIT_FAIL, args.json)
     data = pd.concat(parts, ignore_index=True)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -148,6 +155,26 @@ def main():
 
     seg = data[data.segment >= 0].groupby(["file", "segment"]).outcome.first()
     driving = (data.drive_speed != 0) | (data.drive_turn != 0)
+    summary = {
+        "ok": True,
+        "rows": int(len(data)),
+        "minutes": round(len(data) / 200 / 60, 1),
+        "logs": len(parts),
+        "out": str(out),
+        "files": files,
+        "skipped": skipped,
+        "segments_by_outcome": seg.value_counts().to_dict(),
+        "rows_by_outcome": data.outcome.value_counts().to_dict(),
+        "rows_by_surface": data.surface.value_counts().to_dict(),
+        "rows_by_gains": {str(k): int(v) for k, v in data.groupby("gains_ver").size().to_dict().items()},
+        "drive_rows": int(driving.sum()),
+        "turning_rows": int((data.drive_turn != 0).sum()),
+        "rows_missing_gains_line": int((data.gains == "").sum()),
+        "rows_after_gap": int((data.tick_gap > 0).sum()),
+    }
+    if args.json:
+        print(json.dumps(summary))
+        return
     print(f"\nWrote {len(data)} rows ({len(data) / 200 / 60:.1f} min) from {len(parts)} logs to {out}")
     print("Skipped logs:", ", ".join(f"{n} {why}" for why, n in skipped.items()) or "none")
     print("\nArmed segments by outcome:", seg.value_counts().to_dict())

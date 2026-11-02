@@ -77,7 +77,7 @@ arduino-cli compile --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 --output
 arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 --input-dir build/bb1 firmware/bb1
 ```
 
-Or drag `firmware/uf2/bb1.ino.uf2` onto the Pico in BOOTSEL mode (its own-network password is the template's `change-me-please`). After the first USB flash, `tools/venv/bin/python tools/flash.py --ota` updates it over Wi-Fi (BB1 must be lying down). Full guide, Arduino IDE steps and troubleshooting: [docs/FLASHING.md](docs/FLASHING.md). Python tools: [docs/TOOLS.md](docs/TOOLS.md).
+Or drag `firmware/uf2/bb1.ino.uf2` onto the Pico in BOOTSEL mode (its own-network password is the template's `change-me-please`). After the first USB flash, `tools/venv/bin/python tools/flash.py --ota --execute` updates it over Wi-Fi (BB1 must be lying down). Without `--execute`, `flash.py` only prints a JSON plan. Full guide, Arduino IDE steps and troubleshooting: [docs/FLASHING.md](docs/FLASHING.md). Python tools: [docs/TOOLS.md](docs/TOOLS.md).
 
 > **Safety.** With auto-arm on, BB1 starts driving its wheels 1 s after it's held upright and still: lay it down to carry it (a lift detector stops the wheels if they spin up in the air; see [docs/POWER_ON.md](docs/POWER_ON.md)). Every motor run stops by itself (45 deg fall cut-out, arm timer, STOP). **Power:** a 1N5819 diode in the 5V to VSYS wire (2026-10-28) makes USB and the battery safe in any order.
 

@@ -2,6 +2,15 @@
 
 Newest first.
 
+## 2026-11-02 - Tooling hygiene (no firmware change)
+
+- **`tools/flash.py` plans by default.** No `--execute` (alias `--yes`): one JSON plan on stdout (target, transport `usb`/`ota`, host, firmware path, whether the lying-down check runs) and exit 0. Nothing is compiled or uploaded. `--execute` does the real flash. `--force` still skips the lying-down check, and it is refused (exit 2, warning in the plan) unless `--execute` is also passed
+- **`tools/deadband_test.py --yes`** skips the wheels-off prompt. If stdin is not a terminal and `--yes` is missing, exit 2 instead of waiting on `input()`
+- **`--json` and exit codes** on every script in `tools/` (`tools/cli_util.py`): 0 ok, 1 check/test failed, 2 usage/config, 130 Ctrl-C where a tool stops the motors. `bb1.py`, `logs.py` and `todo.py` still always print JSON. `drive_test.py --host` defaults to `$BB1_HOST` or `bb1.local`
+- **Ruff** (`ruff.toml`, scoped to `tools/`, `tools/requirements-dev.txt`) and a `ruff check tools` step in `.github/workflows/tools.yml`. Dependabot weekly for pip (`tools/`) and GitHub Actions (`.github/dependabot.yml`)
+- **Release workflow** `.github/workflows/release.yml`: tag `v*` builds the UF2 with the same arduino-cli setup as compile.yml and uploads `bb1.ino.uf2` to the GitHub Release. The copies in `firmware/uf2/` stay in git until a release exists
+- Docs: `docs/TOOLS.md`, `docs/FLASHING.md`, `docs/AGENT.md`, `tools/README.md`, `CLAUDE.md`
+
 ## 2026-10-31 - Fast spins: turn 5.0, deadband per wheel (firmware 3.7, flashed 2026-10-31)
 
 - **Why:** a full spin on the spot is 4.49 turns of left-minus-right wheel difference (pi x 127 mm track / 177.8 mm per wheel turn x 2). At the old `DRIVE_MAX_TURN` 1.0 that took 4.5 s. Now **5.0** (about 0.9 s per spin, each wheel at 2.5 turns/s, yaw about 400 deg/s, under the gyro's 500 deg/s range)

@@ -1,6 +1,6 @@
 """drive_test.py - drive BB1 through a named test over Wi-Fi, record it, report it.
 
-Usage (BB1 must already be balancing on the floor):
+Usage (BB1 must already be balancing on the floor; --host defaults to $BB1_HOST or bb1.local):
     tools/venv/bin/python tools/drive_test.py stand            # 30 s standing still
     tools/venv/bin/python tools/drive_test.py fwd-back-30 -n "dff 60"
     tools/venv/bin/python tools/drive_test.py --list           # what each test does
@@ -35,6 +35,7 @@ report (and a model trained later) knows what was asked when.
 
 import argparse
 import json
+import os
 import socket
 import sys
 import time
@@ -43,8 +44,18 @@ from datetime import datetime
 
 import numpy as np
 
+import cli_util
 from check_dump import find_file, load_dump
 from logger import MAX_PER_REQUEST, fetch_log, gains_versions, get, log_path, post, save_log
+
+_JSON = False
+
+
+def say(*args, **kwargs):
+    """Progress. With --json this goes to stderr so stdout stays one JSON document."""
+    kwargs["file"] = sys.stderr if _JSON else sys.stdout
+    print(*args, **kwargs)
+
 
 COUNTS_PER_REV = 520           # config.h, assumed
 CMD_MS = 3000                  # how long each /drive command lasts (re-sent every 100 ms). Was 1000: about
@@ -190,7 +201,7 @@ class Run:
 
     def step(self, name, speed, turn, secs):
         moving = speed or turn
-        print(f"  {name:20s} {secs:4.1f} s" + (f"  speed {speed:+.2f}  turn {turn:+.2f}" if moving else ""))
+        say(f"  {name:20s} {secs:4.1f} s" + (f"  speed {speed:+.2f}  turn {turn:+.2f}" if moving else ""))
         end = time.time() + secs
         while time.time() < end:
             if moving:
@@ -211,9 +222,9 @@ def run_test(base, test, note, surface, out):
     try:
         run.check(force=True)          # refuse to start unless armed and no encoder fault
     except Stop as e:
-        sys.exit(f"Not starting: {e}")
+        cli_util.fail(f"Not starting: {e}", cli_util.EXIT_FAIL, _JSON)
     steps, why = [], "done"
-    print(f"Test '{test}', recording into {path.name}. Ctrl-C stops driving.")
+    say(f"Test '{test}', recording into {path.name}. Ctrl-C stops driving.")
     current = None                     # the step running now, kept even if it's cut short (a fall)
     try:
         for name, speed, turn, secs in TESTS[test]:
@@ -231,7 +242,7 @@ def run_test(base, test, note, surface, out):
         why = f"stopped: error {e!r}"
     finally:
         run.stop()
-    print(f"  {why}. Ended {run.travel:+.1f} wheel turns from the start (forward +).")
+    say(f"  {why}. Ended {run.travel:+.1f} wheel turns from the start (forward +).")
     # Keep recording 2 s more so a fall or the stop is in the file. Falls are kept: they're data too.
     t_end = time.time() + 2
     while time.time() < t_end:
@@ -245,21 +256,35 @@ def run_test(base, test, note, surface, out):
         steps.append(current + (int(run.rows[-1].split(",", 1)[0]),))
     meta += "".join(f"# step,{n},{s:.2f},{t:.2f},{a},{b}\n" for n, s, t, a, b in steps)
     meta += f"# drive_test,{test},{why.replace(',', ';')}\n"
-    save_log(path, meta, note or f"drive {test}", started, run.header, run.rows, run.lost, run.versions, surface)
+    save_log(path, meta, note or f"drive {test}", started, run.header, run.rows, run.lost, run.versions, surface,
+             announce=not _JSON)
     return path
 
 
-def report(path):
+def _num(value, places=4):
+    """JSON can't carry NaN. None means 'this step had nothing to measure there'."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if np.isnan(number):
+        return None
+    return round(number, places)
+
+
+def report(path, as_json=False):
     """One line per step: what was asked, what the wheels did, how it stopped."""
     df, _ = load_dump(path)
     steps = [l.split(",") for l in path.read_text().splitlines() if l.startswith("# step,")]
     if not steps:
-        print("No '# step' lines: not a drive_test.py log. Use pid_report.py.")
-        return
+        cli_util.fail("No '# step' lines: not a drive_test.py log. Use pid_report.py.",
+                      cli_util.EXIT_FAIL, as_json)
     pos = (df.enc_l + df.enc_r) / 2 / COUNTS_PER_REV        # wheel turns, forward +
     head = (df.enc_l - df.enc_r) / COUNTS_PER_REV           # left-minus-right turns (the heading)
-    print(f"{'step':20s} {'asked':>11s} {'got spd':>7s} {'got trn':>7s} {'stop':>5s} {'head':>5s} "
-          f"{'lean+':>5s} {'lean-':>5s} {'pwm':>4s} {'sat%':>4s} {'drop':>4s} flags")
+    rows_out = []
+    if not as_json:
+        print(f"{'step':20s} {'asked':>11s} {'got spd':>7s} {'got trn':>7s} {'stop':>5s} {'head':>5s} "
+              f"{'lean+':>5s} {'lean-':>5s} {'pwm':>4s} {'sat%':>4s} {'drop':>4s} flags")
     for i, (_, name, speed, turn, a, b) in enumerate(steps):
         speed, turn, a, b = float(speed), float(turn), int(a), int(b)
         g = df[(df.tick >= a) & (df.tick <= b)]
@@ -288,10 +313,27 @@ def report(path):
         # Seconds of a drive step with no command in force (Wi-Fi stall: the command ran out).
         # The first 0.25 s is skipped: the first command takes a moment to arrive.
         drop = ((g.iloc[50:].drive_speed == 0) & (g.iloc[50:].drive_turn == 0)).sum() / 200 if (speed or turn) else 0
-        print(f"{name:20s} {speed:+5.2f} {turn:+5.2f} {got_s:+7.2f} {got_t:+7.2f} {stop:+5.2f} {turn_drift:+5.2f} "
-              f"{lean.max():5.1f} {lean.min():5.1f} {g[['pwm_l', 'pwm_r']].abs().max().max():4.0f} "
-              f"{100 * ((g.flag_bits & FLAG_SAT) > 0).mean():4.0f} {drop:4.1f} {flags}"
-              + ("  ENCODER FAULT" if flags & FLAG_ENC_FAULT else ""))
+        sat = 100 * ((g.flag_bits & FLAG_SAT) > 0).mean()
+        pwm = g[["pwm_l", "pwm_r"]].abs().max().max()
+        fault = bool(flags & FLAG_ENC_FAULT)
+        rows_out.append({
+            "step": name, "speed": speed, "turn": turn,
+            "got_speed": _num(got_s), "got_turn": _num(got_t),
+            "stop": _num(stop), "head": _num(turn_drift),
+            "lean_max": _num(lean.max(), 1), "lean_min": _num(lean.min(), 1),
+            "pwm": _num(pwm, 0), "sat_pct": _num(sat, 0), "drop_s": _num(drop, 1),
+            "flags": flags, "encoder_fault": fault,
+        })
+        if not as_json:
+            print(f"{name:20s} {speed:+5.2f} {turn:+5.2f} {got_s:+7.2f} {got_t:+7.2f} {stop:+5.2f} {turn_drift:+5.2f} "
+                  f"{lean.max():5.1f} {lean.min():5.1f} {pwm:4.0f} "
+                  f"{sat:4.0f} {drop:4.1f} {flags}"
+                  + ("  ENCODER FAULT" if fault else ""))
+    if as_json:
+        header = [line[2:] for line in path.read_text().splitlines()
+                  if line.startswith(("# drive_test,", "# gains_v"))]
+        print(json.dumps({"ok": True, "file": str(path), "steps": rows_out, "header": header}))
+        return
     print("\nasked: speed, turn (turns/s). got: wheel average over the step's last half. "
           "stop: furthest it rolled (or turned) on after the command ended, turns (goal under 0.5). head: turns of "
           "left-minus-right drift after stopping, or during a still step (goal near 0). "
@@ -302,22 +344,36 @@ def report(path):
             print(line[2:])
 
 
-def main():
+def parser():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("test", nargs="?", choices=list(TESTS), help="which test to run")
-    ap.add_argument("--host", default="bb1.local", help="robot address, optionally with :port")
+    ap.add_argument("--host", default=os.environ.get("BB1_HOST", "bb1.local"),
+                    help="robot address, optionally with :port (default $BB1_HOST or bb1.local)")
     ap.add_argument("-n", "--note", default="", help="note saved in the file and its name")
     ap.add_argument("--surface", default="wood", help="what BB1 stands on (default wood)")
     ap.add_argument("-o", "--out", help="output file (default logs/bb1_<date>_<time>_<note>.csv)")
     ap.add_argument("--list", action="store_true", help="print the steps of every test")
     ap.add_argument("--report", metavar="LOG", help="report a saved drive_test.py log instead of running")
-    args = ap.parse_args()
+    cli_util.standard_cli(ap)
+    return ap
+
+
+def main(argv=None):
+    global _JSON
+    ap = parser()
+    args = ap.parse_args(argv)
+    _JSON = bool(args.json)
     if args.list:
-        for k, steps in TESTS.items():
-            print(f"{k}: " + ", ".join(f"{n} {s:g}s" for n, _, _, s in steps))
+        if args.json:
+            tests = {k: [{"name": n, "speed": s, "turn": t, "secs": sec} for n, s, t, sec in steps]
+                     for k, steps in TESTS.items()}
+            print(json.dumps({"ok": True, "tests": tests}))
+        else:
+            for k, steps in TESTS.items():
+                print(f"{k}: " + ", ".join(f"{n} {s:g}s" for n, _, _, s in steps))
         return
     if args.report:
-        report(find_file(args.report))
+        report(find_file(args.report), as_json=args.json)
         return
     if not args.test:
         ap.error("name a test (or --list)")
@@ -325,10 +381,11 @@ def main():
     try:
         ip = socket.gethostbyname(name)       # look up bb1.local once: .local lookups can be slow
     except OSError:
-        sys.exit(f"Can't find {name}. Try --host <ip> (type 'wifi' on serial).")
+        cli_util.fail(f"Can't find {name}. Try --host <ip> (type 'wifi' on serial).",
+                      cli_util.EXIT_USAGE, args.json)
     path = run_test(f"http://{ip}{':' + port if port else ''}", args.test, args.note, args.surface, args.out)
-    print()
-    report(path)
+    say()
+    report(path, as_json=args.json)
 
 
 if __name__ == "__main__":

@@ -23,6 +23,9 @@ What the columns mean (all from the armed part of the try only):
 """
 
 import argparse
+import json
+
+import cli_util
 from pathlib import Path
 
 import numpy as np
@@ -134,24 +137,32 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("file", nargs="?", help="log file (default: newest in logs/)")
     ap.add_argument("--plot", action="store_true", help="draw error, P/I/D terms and PWM for each try")
+    cli_util.standard_cli(ap)
     args = ap.parse_args()
-    path = find_file(args.file) if args.file else max((REPO / "logs").glob("bb1_*.csv"), key=lambda p: p.stat().st_mtime)
+    try:
+        path = find_file(args.file) if args.file else max((REPO / "logs").glob("bb1_*.csv"), key=lambda p: p.stat().st_mtime)
+    except ValueError:
+        cli_util.fail("No log in logs/ and no file given.", cli_util.EXIT_USAGE, args.json)
     df, _ = load_dump(path)
-    print(path.name)
-    for line in path.read_text().splitlines():
-        if line.startswith("# gains_v"):
-            print(" ", line[2:])                 # what each gains version meant
     rows = [summary(g, end) for g, end in tries(df)]
     if not rows:
-        print("No armed tries in this log.")
-        return
+        cli_util.fail("No armed tries in this log.", cli_util.EXIT_FAIL, args.json)
     table = pd.DataFrame(rows)
     if table["V/cell"].isna().all():
         table = table.drop(columns="V/cell")    # older log: no battery column
-    print(table.to_string(index=False))
-    print()
-    for h in hints(table):
-        print("-", h)
+    found = hints(table)
+    if args.json:
+        clean = json.loads(table.to_json(orient="records"))
+        print(json.dumps({"ok": True, "file": path.name, "tries": clean, "hints": found}))
+    else:
+        print(path.name)
+        for line in path.read_text().splitlines():
+            if line.startswith("# gains_v"):
+                print(" ", line[2:])                 # what each gains version meant
+        print(table.to_string(index=False))
+        print()
+        for h in found:
+            print("-", h)
     if args.plot:
         plot(df, path.name)
 

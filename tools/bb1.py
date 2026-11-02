@@ -38,7 +38,10 @@ Safety (an agent can make mistakes, so the tool checks for it):
     up to about 3 more turns (0.5 s between /state checks + a 1 s stop)
   - Ctrl-C sends /drive/stop
 
-Exit codes: 0 done, 1 BB1 refused or a safety check ended it, 2 BB1 didn't answer.
+Exit codes: 0 done, 1 BB1 refused or a safety check ended it, 2 BB1 didn't answer
+or the arguments were wrong. Ctrl-C is 1 here (this tool's contract is only
+0, 1 and 2). Output is always one JSON line. --json is accepted so every
+tool takes the same flag; it does not change the output.
 
 Every call against the real robot adds one row to logs/agent_commands.csv
 (time, host, cmd, args, exit_code, answer), so an agent's session leaves a
@@ -64,6 +67,7 @@ import urllib.error
 
 from pathlib import Path
 
+import cli_util
 import session_log
 from logger import get, post
 
@@ -310,6 +314,7 @@ def parser():
     p.add_argument("action", choices=("status", "start", "stop"))
     p.add_argument("-n", "--note", help="start: a note saved in the log and its file name")
     p.add_argument("--surface", help="start: what BB1 stands on: wood, carpet... (default $BB1_SURFACE or unknown)")
+    cli_util.standard_cli(ap, always_json=True)
     return ap
 
 

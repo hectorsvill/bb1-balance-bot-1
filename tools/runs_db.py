@@ -31,6 +31,9 @@ log the same way.
 
 SQLite comes with Python (sqlite3), so nothing new to install. With ticks the
 file is a few hundred MB; build only reads logs that are new or changed.
+
+Exit codes: 0 ok, 1 the SQL failed, 2 no catalog yet or bad arguments.
+--json prints one JSON document (build counts, or columns and rows) instead of the table.
 """
 
 import argparse
@@ -41,6 +44,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+import cli_util
 import pandas as pd
 
 from check_dump import load_dump
@@ -398,27 +402,48 @@ def build(args):
             mock += 1
             continue
         added += 1
-        print(f"  {path.name}: {run['rows']} ticks, {run['armed_s']:.0f} s armed, {run['outcome']}")
+        if not getattr(args, "json", False):
+            print(f"  {path.name}: {run['rows']} ticks, {run['armed_s']:.0f} s armed, {run['outcome']}")
     gone = set(known) - {p.name for p in paths}                      # logs deleted or renamed since
     for f in gone:
         forget(db, f)
     n_commands = load_side_files(db)
     db.commit()
     total = db.execute("SELECT count(*), sum(armed_s) / 60, sum(rows) FROM runs").fetchone()
-    print(f"\n{added} added or updated, {skipped} unchanged, {mock} mock skipped, {len(gone)} removed. "
-          f"Catalog: {total[0]} runs, {total[2] or 0:,} ticks, {total[1] or 0:.0f} min armed, "
-          f"{n_commands} bb1.py commands, in {DB}")
+    summary = {
+        "ok": True,
+        "added": added,
+        "unchanged": skipped,
+        "mock_skipped": mock,
+        "removed": len(gone),
+        "runs": total[0],
+        "ticks": total[2] or 0,
+        "armed_min": round(total[1] or 0),
+        "commands": n_commands,
+        "db": str(DB),
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(summary))
+    else:
+        print(f"\n{added} added or updated, {skipped} unchanged, {mock} mock skipped, {len(gone)} removed. "
+              f"Catalog: {total[0]} runs, {total[2] or 0:,} ticks, {total[1] or 0:.0f} min armed, "
+              f"{n_commands} bb1.py commands, in {DB}")
 
 
-def show(sql):
-    """Run one query and print it as a table."""
+def show(sql, as_json=False):
+    """Run one query and print it as a table (or one JSON document with --json)."""
     if not DB.exists():
-        raise SystemExit(f"No catalog yet: run 'tools/venv/bin/python tools/runs_db.py build' first.")
+        cli_util.fail("No catalog yet: run 'tools/venv/bin/python tools/runs_db.py build' first.",
+                      cli_util.EXIT_USAGE, as_json)
     with sqlite3.connect(DB) as db:
         try:
             table = pd.read_sql_query(sql, db)
         except Exception as e:                           # bad SQL: say why instead of a traceback
-            raise SystemExit(f"Query failed: {e}")
+            cli_util.fail(f"Query failed: {e}", cli_util.EXIT_FAIL, as_json)
+    if as_json:
+        print(json.dumps({"ok": True, "columns": list(table.columns),
+                          "rows": json.loads(table.to_json(orient="values"))}))
+        return
     with pd.option_context("display.max_rows", 500, "display.width", 200, "display.max_columns", 40):
         print(table.to_string(index=False) if len(table) else "(no rows)")
 
@@ -434,17 +459,18 @@ def main():
     sub.add_parser("tables", help="list the tables and their columns")
     for name in QUERIES:
         sub.add_parser(name, help=f"named query: {QUERIES[name][:60]}...")
+    cli_util.standard_cli(ap)
     args = ap.parse_args()
 
     if args.cmd == "build":
         build(args)
     elif args.cmd == "query":
-        show(args.sql)
+        show(args.sql, as_json=args.json)
     elif args.cmd == "tables":
         show("SELECT m.name AS tbl, p.name AS col, p.type FROM sqlite_master m, pragma_table_info(m.name) p "
-             "WHERE m.type = 'table' ORDER BY m.name, p.cid")
+             "WHERE m.type = 'table' ORDER BY m.name, p.cid", as_json=args.json)
     else:
-        show(QUERIES[args.cmd])
+        show(QUERIES[args.cmd], as_json=args.json)
 
 
 if __name__ == "__main__":

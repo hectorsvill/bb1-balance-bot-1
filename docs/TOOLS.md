@@ -89,6 +89,23 @@ arduino-cli upload -p /dev/cu.usbmodem21401 --fqbn rp2040:rp2040:rpipicow:flash=
 
 ## Our Python scripts (`tools/`)
 
+### `--json` and exit codes (every script)
+
+Every script in `tools/` takes **`--json`**. With it, stdout is one JSON document and progress goes to stderr. Without it, the script prints the human text it always has.
+
+Three tools always print JSON, because that is what agents call: `bb1.py`, `logs.py`, `todo.py`. They accept `--json` and it does not change their output. `bb1_mcp.py` speaks MCP on stdout, so `--json` is accepted and ignored. `handheld.py` is a live keyboard UI: `--json` only changes its error messages. `session_log.py` is the recorder `bb1.py` starts: `--json` is accepted and ignored.
+
+On a tool with subcommands (`bb1.py`, `logs.py`, `todo.py`, `runs_db.py`), `--json` can sit before the subcommand (like `--host` and `--db`) or after it.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | ok. A `flash.py` plan with no `--execute` is 0: nothing was flashed |
+| 1 | a check or a test failed: the robot refused, a log is missing ticks, compile or upload failed, a safety check said no, `drive_explore.py` stopped early |
+| 2 | usage or configuration: bad arguments, a missing file you still have to create (`secrets.h`, no catalog yet), stdin is not a terminal and `deadband_test.py` has no `--yes`, `--force` without `--execute` |
+| 130 | Ctrl-C on `deadband_test.py` (motors already stopped) and on `drive_explore.py` |
+
+`bb1.py` keeps its own contract of only 0, 1 and 2 (Ctrl-C there is 1). `check_dump.py` exits 1 when the log has missing ticks. `check_agent_doc.py` exits 1 when `docs/AGENT.md` and `API_VERSION` disagree.
+
 **Where runs are saved:** `logs/` in this repo is a link to the private repo `bb1-private` (`~/Documents/GitHub/bb1-private/logs`), so every tool's `logs/...` file lands there. Back it up with `git add -A && git commit -m "Runs <date>" && git push` inside that repo (its README has the rules). On a new Mac, clone both and run `ln -s ~/Documents/GitHub/bb1-private/logs logs` in this repo.
 
 ### serial_log.py: capture what the Pico prints
@@ -158,8 +175,11 @@ Over Wi-Fi, **wheels in the air**. Runs the normal timed motor test (1 s each, t
 
 ```bash
 tools/venv/bin/python tools/deadband_test.py                # asks "wheels off the floor?" first
+tools/venv/bin/python tools/deadband_test.py --yes          # skip that question (a script, or no terminal)
 tools/venv/bin/python tools/deadband_test.py --step 2 --max 40
 ```
+
+`--yes` is required when stdin is not a terminal (a pipe, CI, an agent). Without it the script exits 2 instead of waiting on the prompt. Answering `n` exits 1. Ctrl-C stops the motors and exits 130. `--json` prints the table as one JSON document.
 
 ### pid_report.py: how did each try go?
 
@@ -258,7 +278,7 @@ Check it with `claude mcp list`; remove it with `claude mcp remove bb1`. Options
 tools/venv/bin/python -m unittest discover -s tools/tests -v
 ```
 
-Takes about 10 s, needs no robot and no private logs. It compiles every `tools/*.py`; builds a catalog with `runs_db.py` from two made-up 60-tick logs (a fall and a carpet drive, plus a tiny `flash_history.csv` and `agent_commands.csv`) that `tools/tests/make_fixtures.py` writes to a temp folder and checks every table; checks `logs.py`'s JSON (`schema`, `runs`, `show`, `ticks`, `download`, `sql`) and that `sql` refuses writes; starts `mock_bb1.py` on a free port and runs `bb1.py` against it (state, api, arm, drive, stop, disarm, the refusals, the caps and `cut`, exit code 2 when nothing answers, no command-log rows for the mock); and, on Python 3.10+, the same through the MCP server in memory and over stdio. On Python 3.9 the 4 MCP tests are skipped. **No real logs in this public repo:** they live in bb1-private; `.gitignore` keeps out every `*.csv`, and a test fails if one is tracked anyway. `.github/workflows/tools.yml` runs it on every pull request, on Python 3.9 and 3.12.
+Takes about 10 s, needs no robot and no private logs. It compiles every `tools/*.py`; builds a catalog with `runs_db.py` from two made-up 60-tick logs (a fall and a carpet drive, plus a tiny `flash_history.csv` and `agent_commands.csv`) that `tools/tests/make_fixtures.py` writes to a temp folder and checks every table; checks `logs.py`'s JSON (`schema`, `runs`, `show`, `ticks`, `download`, `sql`) and that `sql` refuses writes; starts `mock_bb1.py` on a free port and runs `bb1.py` against it (state, api, arm, drive, stop, disarm, the refusals, the caps and `cut`, exit code 2 when nothing answers, no command-log rows for the mock); and, on Python 3.10+, the same through the MCP server in memory and over stdio. On Python 3.9 the 4 MCP tests are skipped. **No real logs in this public repo:** they live in bb1-private; `.gitignore` keeps out every `*.csv`, and a test fails if one is tracked anyway. `tools/tests/test_cli.py` checks `flash.py`'s plan (no compile) and that `deadband_test.py` exits 2 when stdin is not a terminal. `.github/workflows/tools.yml` runs the tests and `ruff check tools` on every pull request, on Python 3.9 and 3.12.
 
 ### check_agent_doc.py: is AGENT.md current?
 
@@ -278,6 +298,8 @@ tools/venv/bin/python tools/drive_test.py fwd-back-30 -n "dff 90 sp 8"    # run 
 tools/venv/bin/python tools/drive_test.py --report logs/bb1_...csv        # re-read a saved run
 ```
 
+`--host` defaults to `$BB1_HOST` or `bb1.local`, the same as `bb1.py` and `flash.py`. `--json` prints `--list` or the report as one JSON document. Refusing to start (not armed, encoder fault) is exit 1. A host that doesn't resolve is exit 2. A log with no `# step` lines is exit 1.
+
 Tests: `stand` (30 s still), `fwd-back-30` and `fwd-back-50` (3 s forward, 3 s pause, 3 s back at 0.3 or 0.5 turns/s), `turn` (left then right on the spot, 0.5), `arc` (forward 0.3 while turning 0.3), `all`. Fast drive (firmware 3.6), one at a time in this order: `fwd-back-100`, `fwd-back-150`, `fwd-back-200`, `fwd-back-250`, `fwd-back-300` (1.5 s forward ramp included, 3 s pause, 1.5 s back, at 1.0-3.0 turns/s). A step rolls about speed x 1.5 wheel turns, so `fwd-back-300` goes about 4.5 turns (0.8 m) out and back: give it a clear straight line of about 1.5 m ahead of the start and 0.5 m behind. Fast spins (firmware 3.7), same order: `spin-100`, `spin-200`, `spin-300`, `spin-450` (one spin right, a pause, one spin left, each step 4.49 / turn seconds; they stay on the spot, so a 3 ft box is enough). The step is timed on the Mac, so the angle can come out 230-470 deg at 4.5 turns/s: read the turn rate (`got trn`), not the angle. It records exactly like `logger.py` and adds one `# step,name,speed,turn,from_tick,to_tick` line per step plus `# drive_test,<test>,<how it ended>`.
 
 Safety: refuses to start unless `/state` says armed and `enc_fault` 0. Each `/drive` lasts 3 s and is re-sent every 100 ms, so BB1 stops by itself within 3 s if the script dies; every step ends with `/drive/stop`. (Was 1 s: about every 10 s one `GET /log` answer takes 1-2.5 s and the Pico answers nothing else meanwhile, so a 1 s command ran out 41% of the moving time in the first training run, 2026-10-26.) `/drive/stop` between steps and on any error, fall or Ctrl-C. It ends the test if BB1 disarms, gets an encoder fault, gets more than 3 wheel turns (about 0.53 m) from where it started (added after BB1 crept into a wall, 2026-10-26; a fast test allows its longest step, speed x seconds, plus 1.5 turns: 6 for `fwd-back-300`), or gives no answer for 2 s. Steps faster than 1 turn/s (speed or turn) send 1 s commands instead of 3 s, so if the script dies at 3 turns/s BB1 rolls on about 1 s plus its 1 s stop, not 3 s. Shorter Wi-Fi stalls are ridden out.
@@ -292,7 +314,7 @@ The report has one line per step: asked speed and turn; what the wheels did (ave
 tools/venv/bin/python tools/drive_explore.py --box 1.5 --minutes 60 --surface wood -n "explore 1"
 ```
 
-Random moves (forward, back, spin, arc, stop; 1-4 s each, up to `--max-speed` 0.4 turns/s), each a `# step` line. Keeps inside the box with odometry from the encoders (0.178 m per wheel turn and 0.127 m track, measured 2026-10-26; uses 80% of the box because odometry drifts): near the edge it turns to the middle and drives back. Saves a complete log every `--chunk` minutes (default 5) as `..._explore-pN.csv`. Stops for good on a fall, an encoder fault, battery under `--min-cell` (3.5 V/cell) or past the box edge; a Wi-Fi stall only pauses it (gives up after 30 s). Same 3 s commands as drive_test.py. For the mock, add `--host localhost:8080 --out-dir <scratch folder>` so mock logs never land in `logs/`.
+Random moves (forward, back, spin, arc, stop; 1-4 s each, up to `--max-speed` 0.4 turns/s), each a `# step` line. Keeps inside the box with odometry from the encoders (0.178 m per wheel turn and 0.127 m track, measured 2026-10-26; uses 80% of the box because odometry drifts): near the edge it turns to the middle and drives back. Saves a complete log every `--chunk` minutes (default 5) as `..._explore-pN.csv`. Stops for good on a fall, an encoder fault, battery under `--min-cell` (3.5 V/cell) or past the box edge; a Wi-Fi stall only pauses it (gives up after 30 s). Same 3 s commands as drive_test.py. For the mock, add `--host localhost:8080 --out-dir <scratch folder>` so mock logs never land in `logs/`. Exit 0 if it finished the minutes, 1 if it stopped early (fall, battery, box edge), 2 if the host doesn't resolve, 130 on Ctrl-C. `--json` prints `{"ok", "why"}` and puts the progress on stderr.
 
 ### dataset.py: every real log as one training table
 
@@ -413,14 +435,20 @@ Open http://localhost:8080. Serves the real page from `firmware/bb1/page.h` with
 ### flash.py: compile and flash BB1 safely
 
 ```bash
-tools/venv/bin/python tools/flash.py
+tools/venv/bin/python tools/flash.py                  # plan only: one JSON document, nothing flashed
+tools/venv/bin/python tools/flash.py --execute        # USB: compile, lying-down check, upload
+tools/venv/bin/python tools/flash.py --ota --execute  # the same over Wi-Fi
 ```
 
-Compiles `firmware/bb1`, finds BB1's port, checks over serial that BB1 is **lying down** (auto-arm would start it balancing on the desk otherwise), uploads, then prints what BB1 says after the reboot (auto-arm state, gains). Stops before uploading if the compile fails or BB1 is upright. Step by step and errors: [FLASHING.md](FLASHING.md#flashing-with-toolsflashpy-the-easy-way). Uses pyserial and `arduino-cli`.
+Without `--execute` (alias `--yes`) it prints a JSON plan and exits 0: `target`, `transport` (`usb` or `ota`), `host`, `firmware_path`, `artifact`, and `lying_down_check`. It does not compile, open the serial port, or talk to BB1.
+
+With `--execute` it compiles `firmware/bb1`, finds BB1's port, checks over serial that BB1 is **lying down** (auto-arm would start it balancing on the desk otherwise), uploads, then prints what BB1 says after the reboot (auto-arm state, gains). Stops before uploading if the compile fails or BB1 is upright. Step by step and errors: [FLASHING.md](FLASHING.md#flashing-with-toolsflashpy-the-easy-way). Uses pyserial and `arduino-cli`.
+
+`--force` skips that lying-down check (wheels off the table). It requires `--execute`: without it the plan is exit 2, `lying_down_check` is false, and `warnings` says the safety check would be skipped. Nothing is flashed.
 
 Before compiling it writes `firmware/bb1/build_id.h` (branch, commit, `+` for uncommitted firmware changes, time; gitignored) so every build is fresh and BB1 can say which one it runs (`firmware/bb1/version.h`). After every flash it adds a line to `logs/flash_history.csv`: time, version, build id, `usb` or `wifi`, result.
 
-`--ota` does the same over Wi-Fi, no USB cable: checks `/state` (lying down, disarmed), sends the build gzipped to `POST /update` with the password from `secrets.h`, then waits until `/sys` shows this build's `build_id`. `--host <ip>` or `BB1_HOST` when `bb1.local` is slow. [FLASHING.md](FLASHING.md#flashing-over-wi-fi-toolsflashpy---ota-no-usb-cable).
+`--ota` does the same over Wi-Fi, no USB cable: checks `/state` (lying down, disarmed), sends the build gzipped to `POST /update` with the password from `secrets.h`, then waits until `/sys` shows this build's `build_id`. `--host <ip>` or `BB1_HOST` when `bb1.local` is slow. [FLASHING.md](FLASHING.md#flashing-over-wi-fi-toolsflashpy---ota-no-usb-cable). `--json` with `--execute` puts the final result on stdout and the step lines on stderr. Exit codes: 0 ok (a plan is 0), 1 compile / upload / safety check failed, 2 usage or configuration.
 
 ### wiki_sync.sh: copy the docs to the GitHub wiki
 

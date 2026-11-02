@@ -21,6 +21,7 @@ A todo's id is a short hash of its section and text, so it stays the same when
 the box is ticked or other lines move; it changes if the text is edited.
 
 Exit codes: 0 ok, 1 refused or failed ({"ok": false, "error": ...}), 2 bad usage.
+Output is always one JSON document. --json is accepted and does not change it.
 """
 
 import argparse
@@ -36,6 +37,8 @@ import tempfile
 import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import cli_util
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -359,6 +362,7 @@ def main():
     sub.add_parser("status", help="firmware, runs, branches, PRs, CI (never the robot)")
     p = sub.add_parser("serve", help="the web page")
     p.add_argument("--port", type=int, default=8091)
+    cli_util.standard_cli(ap, always_json=True)
     args = ap.parse_args()                          # bad usage exits 2 here
 
     try:

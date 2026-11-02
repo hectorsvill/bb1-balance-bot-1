@@ -1,0 +1,12 @@
+# Weekly update PRs for the Python tools and for the GitHub Actions we pin.
+# pip looks at tools/requirements.txt (and tools/requirements-dev.txt, the linter).
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /tools
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

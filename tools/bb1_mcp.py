@@ -185,6 +185,8 @@ def main():
     ap.add_argument("--max-turn", type=float, default=0.4, help="cap on drive turn, turns/s (default 0.4)")
     ap.add_argument("--max-for", type=float, default=3.0, help="longest single drive, s (default 3, bb1.py allows 10)")
     ap.add_argument("--db", help="run catalog for the logs_* tools (default logs/runs.sqlite)")
+    # MCP already frames stdout. --json is accepted so every tool has the flag, and ignored.
+    ap.add_argument("--json", action="store_true", help="ignored: this program speaks MCP on stdout, not a JSON document")
     args = ap.parse_args()
     make_server(args.host, args.max_speed, args.max_turn, args.max_for, args.db).run("stdio")
 

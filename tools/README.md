@@ -6,7 +6,7 @@ Python helpers that run on the Mac, with their own virtual environment in `tools
 
 | Script | What it does |
 |---|---|
-| `flash.py` | Compile `firmware/bb1`, check BB1 is lying down, upload, show the auto-arm state after the reboot |
+| `flash.py` | Plan a flash as JSON. `--execute` compiles `firmware/bb1`, checks BB1 is lying down, uploads, and shows the auto-arm state |
 | `serial_log.py` | Reads the Pico's USB serial for N seconds, prints it, optionally saves it (`-o logs/run.txt`) |
 | `summarize_serial.py` | Summarizes a captured `csv`-mode run, one line per second; `--plot` draws it |
 | `check_dump.py` | Loads any log (serial `dump`, page Download, `logger.py`), checks nothing is missing, `--plot` draws it; `load_dump()` for your own scripts |
@@ -23,6 +23,9 @@ Python helpers that run on the Mac, with their own virtual environment in `tools
 | `session_log.py` | The background recorder `bb1.py` starts: every 5 ms record into `logs/` and `logs/runs.sqlite`, saved when the session ends (not run by hand) |
 | `bb1_mcp.py` | **Can move BB1.** MCP server: the same `bb1.py` commands and `logs.py` lookups as tools for an agent app (`claude mcp add bb1 -- ...`, see docs/TOOLS.md). Python 3.10+ |
 | `tests/test_tools.py` | The tools' tests (CI runs them): `tools/venv/bin/python -m unittest discover -s tools/tests -v`. Uses made-up logs (`tests/make_fixtures.py`) and the mock, never the robot or a real log |
+| `cli_util.py` | Shared `--json` flag and exit codes (0 ok, 1 check failed, 2 usage/config, 130 Ctrl-C). Not run by hand |
+
+`--json` and the exit codes for every script: [docs/TOOLS.md](../docs/TOOLS.md) (`--json` and exit codes). `flash.py` prints a plan unless you pass `--execute`. `drive_test.py --host` defaults to `$BB1_HOST` or `bb1.local`. Lint with `ruff check tools` (`ruff.toml`, `tools/requirements-dev.txt`).
 
 Quick start, from the repo folder:
 

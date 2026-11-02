@@ -18,8 +18,10 @@ Everything comes from logs/runs.sqlite, which tools/runs_db.py builds from the
 CSVs and every recorder updates after it saves a log. This tool opens it read
 only: nothing here can change or delete data, so an agent can call it freely.
 Answers are one JSON document on stdout; errors are {"ok": false, "error": ...}
-with exit code 1. Big answers are thinned, not cut silently: 'ticks' returns at
-most --limit rows (default 2000) and says which every-Nth row it kept.
+with exit code 1 (refused) or 2 (bad arguments). --json is accepted so every
+tool takes the same flag; it does not change the output. Big answers are
+thinned, not cut silently: 'ticks' returns at most --limit rows (default 2000)
+and says which every-Nth row it kept.
 """
 
 import argparse
@@ -32,6 +34,8 @@ import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+import cli_util
 
 REPO = Path(__file__).resolve().parent.parent
 LOGS = REPO / "logs"
@@ -269,6 +273,7 @@ def main():
     p.add_argument("--limit", type=int, default=MAX_ROWS)
     p = sub.add_parser("serve", help="the web page")
     p.add_argument("--port", type=int, default=8090)
+    cli_util.standard_cli(ap, always_json=True)
     args = ap.parse_args()
     if args.db:
         use_db(args.db)
