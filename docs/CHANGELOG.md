@@ -2,7 +2,7 @@
 
 Newest first.
 
-## 2026-11-03 - Odometry, exact-distance moves, spins hold position (firmware 3.12, not flashed yet)
+## 2026-11-03 - Odometry, exact-distance moves, spins hold position (firmware 3.12, flashed 2026-11-03, on branch `odom-move`)
 
 - **Why (run 198, the agent's square):** a timed `drive` is not a distance (the same 2 s at 0.3 moved 2.5-11 cm), the agent had to do its own dead reckoning, nothing under about 3 cm could be moved, and each 90 deg spin rolled BB1 forward 1.4-5.5 cm
 - **Odometry (`odom.h`):** every armed tick, the wheels' travel (`MM_PER_TURN` 177.8) in the gyro heading's direction adds to x (forward from where it armed) and y (right). `/state` `odom` {`x_mm`, `y_mm`, `heading_deg`}; reset at every arm
@@ -12,6 +12,11 @@ Newest first.
 - `GET /api` version 11 (`/move` row, `move_*` and `mm_per_turn` limits); `docs/AGENT.md` version line 11, `move` allowed, `odom` replaces hand dead reckoning; API.md, CALIBRATION_AND_LOGS.md, TOOLS.md, WEB_INTERFACE.md, firmware README
 - **Tools:** `bb1.py move --mm N` (speed capped at `--max`, distance at `--max-mm` <= 500; the landing wait shared with `spin`), state summary `odom`; MCP `bb1_move(mm)`; `drive_test.py move-30`, `move-60` with an encoder distance report; mock `/move` and odometry (api 11, format 15); `runs_db.py` `move_left` (`SCHEMA_VERSION` 6)
 - Firmware 3.12: 564,292 B flash (+5.5 KB vs 3.11), 218,152 B static RAM (+88)
+- **Tested on BB1 (wood, runs 199 and 200):**
+  - **Moves land:** braking starts within 2 mm of the target, the overshoot is 8-12 mm, and the settle brings 3 of 4 back within 3.8-4.3 mm (+100 ran out of settle time 12 mm past).
+  - **Then it creeps backward while standing:** 8, 17, 32 and 44 mm in the 3 s pause after each move. That is the old after-stop creep, so the drive_test error (-5, -48, -29, -12 mm) is mostly creep, not the move.
+  - **Spin angles still good** (-0.1, -1.8, -0.0, -2.7 deg).
+  - **Spin position hold didn't work:** the wheel average moved 17-64 mm per spin, + on right spins and - on left. That may be wheel scrub fooling the encoder average rather than real travel: to check by eye
 
 ## 2026-11-03 - First agent run with spins (run 198); AGENT.md fixes
 
