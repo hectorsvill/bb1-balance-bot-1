@@ -2,6 +2,16 @@
 
 Newest first.
 
+## 2026-11-03 - Exact-angle spins: POST /spin (firmware 3.10, not flashed yet)
+
+- **Why (runs 188-192, 2026-11-03, Claude driving 3.9 on wood):** spins held their turn rate, but the angle came out 334-398 deg for a planned 360. Two causes: (1) the Mac timed each spin over Wi-Fi, and the stop arrived late (2.25 s steps ran 2.58-2.71 s, 1.00 s steps 1.22-1.45 s); (2) the wheels scrub sideways in a spin, so the gyro saw only **0.83** of the turn the encoders counted, the same in all four spins: a full spin on the spot is about 5.4 turns of wheel difference, not the 4.49 the 127 mm track says
+- **`POST /spin`** (`deg`, right +, 5-1080; `rate`, turns/s of wheel difference, 0.5-5, default 2), serial `spin DEG [RATE]`, page **Spin** buttons (90 / 360 either way, a rate box). `drive.h`: `spinCommand()` (core 0) clamps and hands it over; `spinUpdate()` (core 1) subtracts the gyro yaw from the angle still to go every tick and starts the turn ramp-down once that is no more than the stopping angle, yaw rate x (turn / `DRIVE_TURN_ACCEL`) / 2. Uses the real yaw rate, so neither wheel scrub nor Wi-Fi timing matters. A `/drive`, `/drive/stop`, disarm, encoder fault or the timeout (2 x planned time + 2 s) ends it; a spin asked for before an arm is ignored
+- `angle.h`: `yawRate` (deg/s, right +, `GYRO_YAW_SIGN` -1: a right spin reads gz negative)
+- **Log format 14:** `spin_left` (deg still to go, x10 in an int16). It fills 2 bytes of padding after `raw[7]` in `LogData`, so the record stays 72 bytes (`static_assert`); at the end it would have cost 8 KB of RAM. New header line `# spin_max_deg,...`. `CSV_LINE_MAX` 320 (a worst-case line is now about 260 bytes; it was 240)
+- `/state` `drive.spin_left`; `GET /api` version 9 (`/spin` row, `spin_*` limits); `docs/AGENT.md` version line 9, heading unit re-measured (about 67 deg per turn of difference on the spot, a 360 = 5.4), `/spin` not in `bb1.py` yet so agents don't call it; `docs/API.md`, WEB_INTERFACE.md, CALIBRATION_AND_LOGS.md, TOOLS.md, firmware README
+- **Tools:** `drive_test.py` tests `exact-200`, `exact-400` (90 / -90 / 360 / -360, one `/spin` each) and a report table of the real angle from the gyro; `mock_bb1.py` answers `/spin` (api 9, format 14); `runs_db.py` `spin_left` column (`SCHEMA_VERSION` 5: rebuilds itself)
+- Firmware 3.10: 558,260 B flash (+4,016 vs 3.9), 218,064 B static RAM (+40)
+
 ## 2026-11-02 - IMU found again after a software restart (firmware 3.9, flashed 2026-11-03)
 
 - **Bug:** twice (after an OTA flash 2026-10-31, after a Wi-Fi save restart 2026-11-02) BB1 came back with `auto-arm: off: IMU not found`, and only a power cycle fixed it. A software restart resets the Pico but not the MPU-6050 (still powered). If the restart lands mid-read, the chip keeps holding SDA low, waiting for clock pulses, so the bus looks busy and WHO_AM_I fails

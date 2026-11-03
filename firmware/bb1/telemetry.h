@@ -46,6 +46,11 @@ struct LogData {
   uint8_t  mode;          // Mode
   uint8_t  flags;         // FLAG_* bits
   int16_t  raw[7];        // IMU exactly as read: ax, ay, az, temp, gx, gy, gz (gyro NOT bias-corrected)
+  // 2026-11-03 (log format 14, firmware 3.10): exact-angle spins. Placed here, not at the
+  // end, on purpose: raw[] ends 2 bytes before the next float, and the compiler
+  // left those 2 bytes empty (padding). This field fills them, so the record
+  // stays 72 bytes; at the end it would have cost 8 KB of RAM (static_assert below).
+  int16_t  spin_left_x10; // deg still to turn in an exact-angle spin, x10, right + (0 = no spin; drive.h)
   float    pitch;         // deg, filtered, forward +
   float    pitch_rate;    // deg/s, bias-corrected, forward +
   float    accel_pitch;   // deg, accelerometer only
@@ -79,6 +84,8 @@ struct LogData {
   int8_t   drive_turn_now;  // ramped turn target
   int8_t   speed_pwm;       // PWM the wheel speed loop added this tick (smode 1; 0 in smode 0)
 };
+
+static_assert(sizeof(LogData) == 72, "LogData grew: 2000 records x the extra bytes of RAM. Look for padding first (see spin_left_x10)");
 
 // The drive_ fields' unit (log format 12, firmware 3.6). They were hundredths of
 // a turn/s, and an int8 holds -128..127, so 1.27 turns/s was the most they
@@ -172,25 +179,29 @@ uint32_t logOldest() {
 
 const char *CSV_HEADER =
   "tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm";
+  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm,spin_left";
 
 void csvHeader(Print &p) {
   p.println(CSV_HEADER);
 }
 
+// Longest CSV line, with every field at its widest: about 260 bytes since log
+// format 14 (typical lines are about 170). Was 240 before spin_left.
+const int CSV_LINE_MAX = 320;
+
 // Write one record as a CSV line (with "\n") into buf. Returns the length.
 int formatCsv(char *buf, size_t size, const LogRecord &r) {
-  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u,%.2f,%u,%.3f,%.3f,%.3f,%.3f,%d\n",
+  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u,%.2f,%u,%.3f,%.3f,%.3f,%.3f,%d,%.1f\n",
                   (unsigned long)r.tick, (unsigned long)r.t_us, r.work_us, r.mode, r.flags,
                   r.raw[0], r.raw[1], r.raw[2], r.raw[3], r.raw[4], r.raw[5], r.raw[6],
                   r.pitch, r.pitch_rate, r.accel_pitch,
                   (long)r.enc_l, (long)r.enc_r, r.speed_l, r.speed_r, r.pwm_l, r.pwm_r,
                   r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10, r.batt_mv / 1000.0, r.auto_state, r.drive_speed / DRIVE_LOG_STEPS, r.drive_turn / DRIVE_TURN_LOG_STEPS,
-                  r.drive_speed_now / DRIVE_LOG_STEPS, r.drive_turn_now / DRIVE_TURN_LOG_STEPS, r.speed_pwm);
+                  r.drive_speed_now / DRIVE_LOG_STEPS, r.drive_turn_now / DRIVE_TURN_LOG_STEPS, r.speed_pwm, r.spin_left_x10 / 10.0);
 }
 
 void printCsv(Print &p, const LogRecord &r) {
-  char buf[240];
+  char buf[CSV_LINE_MAX];
   formatCsv(buf, sizeof(buf), r);
   p.print(buf);
 }

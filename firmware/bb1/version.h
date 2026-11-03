@@ -8,7 +8,8 @@
 //                     3.5 trim learn: tl, 3.6 fast drive step 2: max speed 3.0,
 //                     3.7 fast spins: max turn 5.0, deadband per wheel,
 //                     3.8 Wi-Fi settings refused while armed,
-//                     3.9 I2C bus clear + IMU retries at startup).
+//                     3.9 I2C bus clear + IMU retries at startup,
+//                     3.10 exact-angle spins: POST /spin, gyro-counted).
 //                     The CHANGELOG entry for that change names the version.
 //   BB1_BUILD_ID      written by tools/flash.py into build_id.h (gitignored)
 //                     just before each compile: git commit, "+" if there were
@@ -22,7 +23,7 @@
 
 #pragma once
 
-const char *FIRMWARE_VERSION = "3.9";
+const char *FIRMWARE_VERSION = "3.10";
 
 #if __has_include("build_id.h")
 #include "build_id.h"

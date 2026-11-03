@@ -296,6 +296,7 @@ void printHelp() {
   Serial.println("  drive S T [ms]  drive while balancing: S wheel turns/s (forward +, max " + String(DRIVE_MAX_SPEED, 1) +
                  "), T turn (right +, max " + String(DRIVE_MAX_TURN, 1) + ") for ms (default " + String(DRIVE_HOLD_MS) + ", max " + String(DRIVE_HOLD_MAX_MS) + ")");
   Serial.println("            e.g. drive 0.5 0 2000 = forward half a wheel turn/s for 2 s;  drive stop (or ds) = stop driving");
+  Serial.println("  spin DEG [RATE]  turn on the spot by an angle, right + (gyro-counted), e.g. spin 90, spin -360 3; ds stops it");
   Serial.println("  step      step test: setpoint +" + String(STEP_TEST_DEG, 1) + " deg for " + String(STEP_TEST_MS) + " ms (armed only)");
   Serial.println("  help      this list");
 }
@@ -406,6 +407,24 @@ void handleCommand(String cmd) {
     requestDisarm = true;
   } else if (cmd == "drive stop" || cmd == "ds") {
     driveUntilMs = 0;
+    spinUntilMs = 0;
+  } else if (cmd.startsWith("spin ")) {
+    // spin DEG [RATE]: same as POST /spin (drive.h). e.g. "spin 90" or "spin -360 3"
+    String a = cmd.substring(5);
+    a.trim();
+    float deg = a.toFloat();
+    float rate = SPIN_DEFAULT_RATE;
+    int sp1 = a.indexOf(' ');
+    if (sp1 > 0) rate = a.substring(sp1 + 1).toFloat();
+    if (!robotArmed) {
+      Serial.println("arm first: a spin moves BB1 while it balances");
+    } else if (encoderFault) {
+      Serial.println("encoder fault: a wheel is not counting, check its wires");
+    } else {
+      unsigned long ms = spinCommand(deg, rate);   // same clamps as POST /spin
+      if (!ms) Serial.println("spin: deg must be a number, at least " + String(SPIN_MIN_DEG, 0) + " (right +, left -)");
+      else     Serial.println("spinning " + String(deg, 0) + " deg at turn " + String(rate, 2) + " (gives up after " + String(ms) + " ms)");
+    }
   } else if (cmd.startsWith("drive ")) {
     // drive SPEED TURN [ms]: same as POST /drive (drive.h). e.g. "drive 0.5 0 2000"
     String a = cmd.substring(6);

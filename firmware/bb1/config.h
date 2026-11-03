@@ -232,6 +232,19 @@ const float DRIVE_TURN_FF     = 15;    // PWM per turn/s of turn asked for, adde
 const float DRIVE_MAX_LAG     = 0.25;  // wheel turns (about 18 deg of heading): the heading target never runs further ahead of the wheels than this. Was 1.0: BB1 swung 35-90 deg after a turn catching up (floor test 1)
 const unsigned long DRIVE_HOLD_MS     = 500;    // a drive command lasts this long unless sent again (the page re-sends every 100 ms)
 const unsigned long DRIVE_HOLD_MAX_MS = 3000;   // longest a single command may ask for (ms=...)
+// Exact-angle spins (firmware 3.10, drive.h): POST /spin deg=90 rate=2.
+// The firmware counts the turn from the gyro (the body's real rotation), not
+// the wheels: in a spin the wheels scrub sideways, and the gyro saw only 0.83
+// of the turn the encoders counted, the same in all 4 spins of runs 189-190
+// (2026-11-03). So one full spin is about 5.4 wheel-difference turns, not the
+// 4.49 the 127 mm track says. Quad picture: a yaw by angle instead of by stick.
+const float GYRO_YAW_SIGN       = -1;     // right turn = gyro z negative (runs 189-190)
+const float SPIN_MAX_DEG        = 1080;   // three full spins at most per command
+const float SPIN_MIN_DEG        = 5;      // smaller than this the stop ramp alone overshoots it
+const float SPIN_MIN_RATE       = 0.5;    // turns/s of wheel difference (same unit as /drive turn)
+const float SPIN_DEFAULT_RATE   = 2.0;    // about 130 deg/s: a 360 in about 3 s
+const float SPIN_DEG_PER_TURN   = 66;     // deg/s of real yaw per turn/s of turn target (runs 189-190): only for the timeout
+const unsigned long SPIN_EXTRA_MS = 2000; // timeout = 2 x the planned time + this; then it ramps to a stop anyway
 // Auto-arm (auto_arm.h, docs/POWER_ON.md): after power-up or a fall, BB1 starts
 // balancing by itself once it's stood upright and held still. STOP turns it off
 // until the next ARM or power-up, so STOP always means stop.

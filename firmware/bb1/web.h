@@ -23,7 +23,8 @@
 //   POST /gains/save  store them in flash (disarmed only);  POST /gains/defaults  back to config.h
 //   POST /step        step test while armed: setpoint +2 deg for 1 s
 //   POST /drive       args speed, turn (wheel turns/s), ms: drive while balancing (drive.h). Lasts 500 ms unless re-sent
-//   POST /drive/stop  stop driving now (keeps balancing)
+//   POST /drive/stop  stop driving now (keeps balancing); also ends a spin
+//   POST /spin        args deg (right +), rate (turn units): turn on the spot by an angle (drive.h)
 //   POST /update      new firmware over Wi-Fi (ota.h): lying down and disarmed only, password from secrets.h
 //
 // docs/API.md is the full reference (arguments, answers, units, safety rules).
@@ -76,9 +77,9 @@ void handleState() {
   // On core 0's small stack (4 KB), so sized to fit, not generous: with every
   // number and text at its widest the answer is about 1470 bytes (estimated
   // 2026-10-29: 1440 with aff/dacc/lmax, + 31 for trim_learned and tl;
-  // was 1390 before aff, with 1400 here).
+  // was 1390 before aff, with 1400 here; + 20 for spin_left, 2026-11-03).
   // snprintf cuts it off rather than overflow, but cut JSON won't parse.
-  char json[1536];
+  char json[1600];
   snprintf(json, sizeof(json),
            "{\"have\":%s,\"tick\":%lu,\"t_us\":%lu,\"mode\":%u,\"flag_bits\":%u,"
            "\"pitch\":%.2f,\"accel_pitch\":%.2f,\"pitch_rate\":%.2f,\"work_us\":%u,"
@@ -88,7 +89,7 @@ void handleState() {
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
            "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"step\":%s,\"auto_state\":\"%s\",\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
            "\"enc_fault\":%u,\"trim_learned\":%.2f,"
-           "\"drive\":{\"speed\":%.2f,\"turn\":%.2f,\"speed_now\":%.2f,\"turn_now\":%.2f,\"left_ms\":%ld,\"commands\":%lu,\"max_speed\":%.2f,\"max_turn\":%.2f},"
+           "\"drive\":{\"speed\":%.2f,\"turn\":%.2f,\"speed_now\":%.2f,\"turn_now\":%.2f,\"left_ms\":%ld,\"commands\":%lu,\"max_speed\":%.2f,\"max_turn\":%.2f,\"spin_left\":%.1f},"
            "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,\"batt_cells\":%d,"
            "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f,\"sdi\":%.2f,\"smode\":%d,\"wsp\":%.1f,\"wsi\":%.1f,\"irelax\":%.2f,\"aff\":%.2f,\"dacc\":%.2f,\"lmax\":%.1f,\"tl\":%.2f}}",
            have ? "true" : "false",
@@ -109,7 +110,7 @@ void handleState() {
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
            encoderFault, trimLearnedNow,
            driveLeftMs > 0 ? driveSpeedCmd : 0.0, driveLeftMs > 0 ? driveTurnCmd : 0.0, driveSpeedNow, driveTurnNow, driveLeftMs,
-           (unsigned long)driveCommands, DRIVE_MAX_SPEED, DRIVE_MAX_TURN,
+           (unsigned long)driveCommands, DRIVE_MAX_SPEED, DRIVE_MAX_TURN, spinLeftNow,
            batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V, BATTERY_CELLS,
            (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, (int)autoArm, gainDriveFF, gainDriveSpeedI, (int)speedMode, gainWheelSpeedP, gainWheelSpeedI, gainIRelax, gainAccelFF, driveAccelRate, driveLeanMax, gainTrimLearn);
   server.send(200, "application/json", json);
@@ -202,7 +203,7 @@ void handleLog() {
   LogRecord r;
   for (uint32_t n = first; n < last; n++) {
     if (!logGet(n, r)) continue;                // overwritten while we were sending: skip
-    if (len > (int)sizeof(chunk) - 240) {       // nearly full: send what we have (a line is < 240)
+    if (len > (int)sizeof(chunk) - CSV_LINE_MAX) {   // nearly full: send what we have (telemetry.h)
       server.sendContent(chunk, len);
       len = 0;
     }
@@ -320,9 +321,40 @@ void handleDrive() {
   server.send(200, "application/json", json);
 }
 
+// POST /spin deg=90 rate=2 -> turn on the spot by that many degrees (right +),
+// counted by the gyro (drive.h spinUpdate). Same checks as /drive. The answer
+// comes at once; /state drive.spin_left counts down to 0 as it turns.
+void handleSpin() {
+  if (!robotArmed) {
+    server.send(409, "application/json", "{\"ok\":false,\"error\":\"not balancing: arm first (POST /arm)\"}");
+    return;
+  }
+  if (encoderFault) {
+    server.send(409, "application/json", "{\"ok\":false,\"error\":\"encoder fault: a wheel is not counting, check its wires (see /state enc_fault)\"}");
+    return;
+  }
+  if (!server.hasArg("deg")) {
+    server.send(400, "application/json", "{\"ok\":false,\"error\":\"need deg (right +, left -)\"}");
+    return;
+  }
+  float deg  = server.arg("deg").toFloat();
+  float rate = server.hasArg("rate") ? server.arg("rate").toFloat() : SPIN_DEFAULT_RATE;
+  unsigned long ms = spinCommand(deg, rate);    // clamps, then hands it to core 1 (drive.h)
+  if (!ms) {
+    char err[120];
+    snprintf(err, sizeof(err), "{\"ok\":false,\"error\":\"deg must be a number, at least %.0f either way\"}", SPIN_MIN_DEG);
+    server.send(400, "application/json", err);
+    return;
+  }
+  char json[120];
+  snprintf(json, sizeof(json), "{\"ok\":true,\"deg\":%.1f,\"rate\":%.2f,\"timeout_ms\":%lu}", deg, rate, ms);
+  server.send(200, "application/json", json);
+}
+
 // POST /drive/stop -> ramp to a stop now and keep balancing. Always allowed.
 void handleDriveStop() {
   driveUntilMs = 0;
+  spinUntilMs = 0;                             // stops a spin too
   server.send(200, "application/json", "{\"ok\":true,\"speed\":0,\"turn\":0,\"ms\":0}");
 }
 
@@ -402,6 +434,7 @@ void webBegin() {
   route("/step", HTTP_POST, handleStep);
   route("/drive", HTTP_POST, handleDrive);
   route("/drive/stop", HTTP_POST, handleDriveStop);
+  route("/spin", HTTP_POST, handleSpin);
   // Not through route(): an upload needs a second handler for the file's pieces,
   // and handleUpdateDone() closes the connection itself.
   server.on("/update", HTTP_POST, handleUpdateDone, handleUpdateUpload);

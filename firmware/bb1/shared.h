@@ -69,6 +69,14 @@ volatile float    driveSpeedCmd = 0;         // wheel turns/s asked for, forward
 volatile float    driveTurnCmd  = 0;         // turns/s of left-minus-right wheel difference, right turn +
 volatile uint32_t driveUntilMs  = 0;         // millis() when the command runs out
 volatile uint32_t driveCommands = 0;         // counts every accepted command (shown in /state)
+// Exact-angle spin (firmware 3.10, drive.h). Core 0 writes deg and rate,
+// then spinUntilMs, then counts spinStarts up; core 1 starts a spin when it
+// sees spinStarts change. spinUntilMs = 0 cancels it (stop, disarm, a /drive).
+volatile float    spinDegCmd   = 0;          // deg to turn, right +
+volatile float    spinRateCmd  = 0;          // turns/s of wheel difference, > 0
+volatile uint32_t spinUntilMs  = 0;          // millis() when the spin gives up (timeout); 0 = cancelled
+volatile uint32_t spinStarts   = 0;          // counts every accepted /spin
+volatile float    spinLeftNow  = 0;          // deg still to turn (core 1 writes; 0 = not spinning), for /state
 // What core 1 is actually doing (after the ramp), for /state
 volatile float    driveSpeedNow = 0;
 volatile float    driveTurnNow  = 0;

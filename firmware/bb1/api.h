@@ -19,7 +19,7 @@
 // /state trim_learned (trim learn, firmware 3.5), 6 = drive_max_speed 3.0
 // (fast drive step 2, firmware 3.6), 7 = drive_max_turn 5.0 (fast spins,
 // firmware 3.7).
-const int API_VERSION = 8;
+const int API_VERSION = 9;
 
 struct ApiEndpoint {
   const char *method;   // "GET" or "POST"
@@ -40,7 +40,8 @@ const ApiEndpoint API_ENDPOINTS[] = {
   {"POST", "/arm",            "seconds,heartbeat", "text", true,  "start balancing; refused unless within arm_angle of trim; result in /state armed, reason"},
   {"POST", "/disarm",         "why",               "text", false, "stop balancing; auto-arm off until the next arm"},
   {"POST", "/drive",          "speed,turn,ms",     "json", true,  "drive while balancing; runs out after ms, then ramps to a stop"},
-  {"POST", "/drive/stop",     "",                  "json", false, "ramp to a stop now, keep balancing"},
+  {"POST", "/drive/stop",     "",                  "json", false, "ramp to a stop now, keep balancing (also ends a spin)"},
+  {"POST", "/spin",           "deg,rate",          "json", true,  "turn on the spot by deg (right +), counted by the gyro; rate in turn units; progress in /state drive.spin_left"},
   {"POST", "/motor/stop",     "",                  "text", false, "STOP: end a motor test and disarm"},
   {"POST", "/step",           "",                  "text", true,  "step test while armed: setpoint +2 deg for 1 s"},
   {"POST", "/gains",          "kp,ki,kd,trim,cap,deadband,sp,si,th,auto,dff,sdi,smode,wsp,wsi,irelax,aff,dacc,lmax,tl", "text", false, "change settings (see gains for limits)"},
@@ -79,7 +80,7 @@ String apiArgs(const char *args) {
 // logMax is LOG_MAX_PER_REQUEST from web.h.
 String apiJson(uint32_t logMax) {
   String j;
-  j.reserve(4600);                              // one allocation instead of many small ones
+  j.reserve(4900);                              // one allocation instead of many small ones
   j += "{\"api\":" + String(API_VERSION) + ",\"firmware\":\"" + FIRMWARE_NAME + "\",\"version\":\"" + FIRMWARE_VERSION + "\",\"build_id\":\"" + BB1_BUILD_ID +
        "\",\"log_format\":" + String(LOG_FORMAT) + ",";
   j += "\"units\":{\"angle\":\"deg (forward +)\",\"speed\":\"wheel turns/s (forward +)\",\"turn\":\"wheel turns/s left minus right (right +)\","
@@ -88,7 +89,9 @@ String apiJson(uint32_t logMax) {
        ",\"drive_hold_ms\":" + String(DRIVE_HOLD_MS) + ",\"drive_hold_max_ms\":" + String(DRIVE_HOLD_MAX_MS) +
        ",\"arm_seconds_max\":" + String(ARM_SECONDS_MAX, 0) + ",\"arm_angle\":" + String(ARM_ANGLE, 1) + ",\"fall_angle\":" + String(FALL_ANGLE, 1) +
        ",\"heartbeat_ms\":" + String(HEARTBEAT_MS) + ",\"motor_test_max_pwm\":" + String(MOTOR_TEST_MAX_PWM) +
-       ",\"motor_test_max_ms\":" + String(MOTOR_TEST_MAX_MS) + ",\"alpha\":[0.900,0.999],\"log_max_per_request\":" + String(logMax) + "},";
+       ",\"motor_test_max_ms\":" + String(MOTOR_TEST_MAX_MS) + ",\"alpha\":[0.900,0.999],\"log_max_per_request\":" + String(logMax) +
+       ",\"spin_max_deg\":" + String(SPIN_MAX_DEG, 0) + ",\"spin_min_deg\":" + String(SPIN_MIN_DEG, 0) +
+       ",\"spin_min_rate\":" + String(SPIN_MIN_RATE, 2) + ",\"spin_default_rate\":" + String(SPIN_DEFAULT_RATE, 2) + "},";
   // Same limits setBalanceSetting() (settings.h) clamps to. auto and smode are 0 or 1; trim also takes "here".
   j += "\"gains\":{" + apiRange("kp", 0, GAIN_P_MAX) + "," + apiRange("ki", 0, GAIN_I_MAX) + "," + apiRange("kd", 0, GAIN_D_MAX) + "," +
        apiRange("trim", -TRIM_MAX, TRIM_MAX) + "," + apiRange("cap", 0, PWM_MAX) + "," + apiRange("deadband", 0, DEADBAND_MAX) + "," +

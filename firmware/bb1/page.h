@@ -231,6 +231,16 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
           <label class="field" style="margin-top:10px"><span class="name">Max speed <span id="driveMaxShow">1.0 turns/s</span></span>
             <input type="range" id="driveMax" min="0.1" max="3" step="0.1" value="1"></label>
           <div class="msg" id="driveMsg">Arm first: driving works only while BB1 balances.</div>
+          <!-- Exact-angle spins (firmware 3.10): POST /spin, counted by the gyro. -->
+          <div class="row" style="margin-top:10px">
+            <span class="name">Spin</span>
+            <button onclick="spin(-360)">&#8634; 360</button>
+            <button onclick="spin(-90)">&#8634; 90</button>
+            <button onclick="spin(90)">90 &#8635;</button>
+            <button onclick="spin(360)">360 &#8635;</button>
+            <label class="small">rate <input type="number" id="spinRate" min="0.5" max="5" step="0.5" value="2" style="width:4em"></label>
+          </div>
+          <div class="small muted" id="spinLeft"></div>
           <div class="keys" id="h-keys">Keys: <b>&#8593;</b><b>&#8595;</b><b>&#8592;</b><b>&#8594;</b> or <b>W</b><b>A</b><b>S</b><b>D</b> while held. <b>Space</b> = STOP.</div>
         </div>
       </div>
@@ -733,6 +743,19 @@ setInterval(async () => {
   driveBusy = false;
 }, 100);
 
+// Exact-angle spin: deg right +. The firmware counts the turn with the gyro and
+// lands on it by itself (drive.h), so one request is enough; STOP or the pad ends it.
+async function spin(deg) {
+  if (!driveArmed) { el('driveMsg').textContent = 'Arm first: a spin works only while BB1 balances.'; return; }
+  try {
+    const res = await fetch('/spin', { method: 'POST', body: new URLSearchParams({ deg, rate: el('spinRate').value }) });
+    const j = await res.json();
+    el('driveMsg').textContent = j.ok ? 'spinning ' + j.deg + ' deg' : j.error;
+  } catch (e) {
+    el('driveMsg').textContent = 'no answer from the robot';
+  }
+}
+
 // From poll(): what BB1 reports.
 function showDrive(s) {
   driveArmed = s.armed && !s.enc_fault;
@@ -746,6 +769,7 @@ function showDrive(s) {
   el('driveAsk').innerHTML = ask.speed.toFixed(2) + ' / ' + ask.turn.toFixed(2) + ' <small>turns/s</small>';
   el('driveNow').innerHTML = d.speed_now.toFixed(2) + ' / ' + d.turn_now.toFixed(2);
   el('driveWheels').innerHTML = ((s.speed_l + s.speed_r) / 2 / 520).toFixed(2) + ' <small>turns/s</small>';
+  el('spinLeft').textContent = d.spin_left ? 'spin: ' + d.spin_left.toFixed(0) + ' deg to go' : '';
 }
 
 // ---------- pulling log records ----------
