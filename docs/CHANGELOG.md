@@ -10,7 +10,7 @@ Newest first.
 - **Log format 14:** `spin_left` (deg still to go, x10 in an int16). It fills 2 bytes of padding after `raw[7]` in `LogData`, so the record stays 72 bytes (`static_assert`); at the end it would have cost 8 KB of RAM. New header line `# spin_max_deg,...`. `CSV_LINE_MAX` 320 (a worst-case line is now about 260 bytes; it was 240)
 - `/state` `drive.spin_left`; `GET /api` version 9 (`/spin` row, `spin_*` limits); `docs/AGENT.md` version line 9, heading unit re-measured (about 67 deg per turn of difference on the spot, a 360 = 5.4), `/spin` not in `bb1.py` yet so agents don't call it; `docs/API.md`, WEB_INTERFACE.md, CALIBRATION_AND_LOGS.md, TOOLS.md, firmware README
 - **Tools:** `drive_test.py` tests `exact-200`, `exact-400` (90 / -90 / 360 / -360, one `/spin` each) and a report table of the real angle from the gyro; `mock_bb1.py` answers `/spin` (api 9, format 14); `runs_db.py` `spin_left` column (`SCHEMA_VERSION` 5: rebuilds itself)
-- **Tested on BB1 (wood, runs 194-195, `drive_test.py exact-200` / `exact-400`), real angle from the gyro:**
+- **Tested on BB1 (wood, runs 193-194, `drive_test.py exact-200` / `exact-400`), real angle from the gyro:**
 
   | | +90 | -90 | +360 | -360 |
   |---|---|---|---|---|
