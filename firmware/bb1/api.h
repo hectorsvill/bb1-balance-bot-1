@@ -19,7 +19,7 @@
 // /state trim_learned (trim learn, firmware 3.5), 6 = drive_max_speed 3.0
 // (fast drive step 2, firmware 3.6), 7 = drive_max_turn 5.0 (fast spins,
 // firmware 3.7).
-const int API_VERSION = 10;
+const int API_VERSION = 11;
 
 struct ApiEndpoint {
   const char *method;   // "GET" or "POST"
@@ -41,6 +41,7 @@ const ApiEndpoint API_ENDPOINTS[] = {
   {"POST", "/disarm",         "why",               "text", false, "stop balancing; auto-arm off until the next arm"},
   {"POST", "/drive",          "speed,turn,ms",     "json", true,  "drive while balancing; runs out after ms, then ramps to a stop"},
   {"POST", "/drive/stop",     "",                  "json", false, "ramp to a stop now, keep balancing (also ends a spin)"},
+  {"POST", "/move",           "dist_mm,speed",     "json", true,  "drive straight by dist_mm (forward +) and land on it; speed in wheel turns/s; progress in /state drive.move_left_mm"},
   {"POST", "/spin",           "deg,rate",          "json", true,  "turn on the spot by deg (right +), counted by the gyro; rate in turn units; progress in /state drive.spin_left"},
   {"POST", "/motor/stop",     "",                  "text", false, "STOP: end a motor test and disarm"},
   {"POST", "/step",           "",                  "text", true,  "step test while armed: setpoint +2 deg for 1 s"},
@@ -80,7 +81,7 @@ String apiArgs(const char *args) {
 // logMax is LOG_MAX_PER_REQUEST from web.h.
 String apiJson(uint32_t logMax) {
   String j;
-  j.reserve(4900);                              // one allocation instead of many small ones
+  j.reserve(5300);                              // one allocation instead of many small ones
   j += "{\"api\":" + String(API_VERSION) + ",\"firmware\":\"" + FIRMWARE_NAME + "\",\"version\":\"" + FIRMWARE_VERSION + "\",\"build_id\":\"" + BB1_BUILD_ID +
        "\",\"log_format\":" + String(LOG_FORMAT) + ",";
   j += "\"units\":{\"angle\":\"deg (forward +)\",\"speed\":\"wheel turns/s (forward +)\",\"turn\":\"wheel turns/s left minus right (right +)\","
@@ -91,7 +92,10 @@ String apiJson(uint32_t logMax) {
        ",\"heartbeat_ms\":" + String(HEARTBEAT_MS) + ",\"motor_test_max_pwm\":" + String(MOTOR_TEST_MAX_PWM) +
        ",\"motor_test_max_ms\":" + String(MOTOR_TEST_MAX_MS) + ",\"alpha\":[0.900,0.999],\"log_max_per_request\":" + String(logMax) +
        ",\"spin_max_deg\":" + String(SPIN_MAX_DEG, 0) + ",\"spin_min_deg\":" + String(SPIN_MIN_DEG, 0) +
-       ",\"spin_min_rate\":" + String(SPIN_MIN_RATE, 2) + ",\"spin_default_rate\":" + String(SPIN_DEFAULT_RATE, 2) + "},";
+       ",\"spin_min_rate\":" + String(SPIN_MIN_RATE, 2) + ",\"spin_default_rate\":" + String(SPIN_DEFAULT_RATE, 2) +
+       ",\"move_max_mm\":" + String((int)MOVE_MAX_MM) + ",\"move_min_mm\":" + String((int)MOVE_MIN_MM) +
+       ",\"move_default_speed\":" + String(MOVE_DEFAULT_SPEED, 2) + ",\"move_max_speed\":" + String(MOVE_MAX_SPEED, 2) +
+       ",\"mm_per_turn\":" + String(MM_PER_TURN, 1) + "},";
   // Same limits setBalanceSetting() (settings.h) clamps to. auto and smode are 0 or 1; trim also takes "here".
   j += "\"gains\":{" + apiRange("kp", 0, GAIN_P_MAX) + "," + apiRange("ki", 0, GAIN_I_MAX) + "," + apiRange("kd", 0, GAIN_D_MAX) + "," +
        apiRange("trim", -TRIM_MAX, TRIM_MAX) + "," + apiRange("cap", 0, PWM_MAX) + "," + apiRange("deadband", 0, DEADBAND_MAX) + "," +

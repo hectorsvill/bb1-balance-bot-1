@@ -30,6 +30,8 @@
 //
 // Exact-angle spins (firmware 3.10): POST /spin deg=90 rate=2 turns on the spot
 // by an angle instead of for a time (spinUpdate() below).
+// Exact-distance moves (firmware 3.12): POST /move dist_mm=100 drives straight
+// by a distance and lands on it the same way (moveUpdate() below).
 //
 // Runs on core 1 inside balanceTick(). Core 0 only writes the command in shared.h.
 
@@ -60,6 +62,14 @@ struct Drive {
   float    spinLeft    = 0;      // deg still to turn, right + (counts down by the gyro yaw)
   float    spinTurn    = 0;      // the turn target while spinning, turns/s, right +
   uint32_t spinSeen    = 0;      // the last spinStarts this core acted on
+  float    spinPos     = 0;      // wheel turns where the spin started: the settle pulls BB1 back there (3.12)
+  // Exact-distance move (moveUpdate() below)
+  bool     moveOn      = false;
+  bool     moveBraking = false;
+  float    moveSettle  = -1;     // s left of the settle after landing (-1 = not settling yet)
+  float    moveTarget  = 0;      // wheel turns since arming where it should stop
+  float    moveSpeed   = 0;      // speed target while moving, turns/s, forward +
+  uint32_t moveSeen    = 0;
 };
 
 Drive drive;            // only core 1 touches this
@@ -75,6 +85,7 @@ bool driveCommand(float &speed, float &turn, long &ms) {
   turn  = constrain(turn,  -DRIVE_MAX_TURN,  DRIVE_MAX_TURN);
   ms    = constrain(ms, 0L, (long)DRIVE_HOLD_MAX_MS);
   spinUntilMs   = 0;            // a drive command takes over from a spin
+  moveUntilMs   = 0;            // and from a move
   driveSpeedCmd = speed;
   driveTurnCmd  = turn;
   driveUntilMs  = ms ? millis() + ms : 0;
@@ -94,6 +105,7 @@ unsigned long spinCommand(float &deg, float &rate) {
   // by then (stuck wheel, lifted) ramps to a stop anyway.
   unsigned long ms = (unsigned long)(2000.0f * fabsf(deg) / (rate * SPIN_DEG_PER_TURN)) + SPIN_EXTRA_MS;
   driveUntilMs = 0;             // a spin takes over from a drive command
+  moveUntilMs  = 0;             // and from a move
   spinDegCmd   = deg;
   spinRateCmd  = rate;
   spinUntilMs  = millis() + ms;
@@ -101,14 +113,44 @@ unsigned long spinCommand(float &deg, float &rate) {
   return ms;
 }
 
-// On every arm: stand still where it is. A spin asked for before this arm
-// is ignored (spinSeen catches up), so nothing old starts moving.
+// Core 0 (POST /move and serial "move") hands a move to core 1. mm: forward +.
+// speed: wheel turns/s, clamped. Returns the timeout in ms, or 0 if refused.
+unsigned long moveCommand(float &mm, float &speed) {
+  if (!isfinite(mm) || !isfinite(speed)) return 0;
+  if (fabsf(mm) < MOVE_MIN_MM) return 0;
+  mm    = constrain(mm, -MOVE_MAX_MM, MOVE_MAX_MM);
+  speed = constrain(fabsf(speed), 0.05f, MOVE_MAX_SPEED);
+  unsigned long ms = (unsigned long)(2000.0f * fabsf(mm) / (speed * MM_PER_TURN)) + MOVE_EXTRA_MS;
+  driveUntilMs = 0;             // a move takes over from a drive command
+  spinUntilMs  = 0;             // and from a spin
+  moveMmCmd    = mm;
+  moveSpeedCmd = speed;
+  moveUntilMs  = millis() + ms;
+  moveStarts   = moveStarts + 1;   // last: core 1 starts when it sees this change
+  return ms;
+}
+
+// On every arm: stand still where it is. A spin or move asked for before
+// this arm is ignored (the seen counters catch up), so nothing old starts moving.
 void driveReset() {
-  uint32_t seen = spinStarts;
+  uint32_t seenSpin = spinStarts, seenMove = moveStarts;
   drive = Drive();
-  drive.spinSeen = seen;
+  drive.spinSeen = seenSpin;
+  drive.moveSeen = seenMove;
   driveSpeedNow = driveTurnNow = 0;
-  spinLeftNow = 0;
+  spinLeftNow = moveLeftNow = 0;
+}
+
+// The settle's speed target to close a distance (wheel turns, + = it should
+// go forward): a P correction, capped, and 0 once it's within MOVE_SETTLE_MM.
+float settleSpeed(float offTurns) {
+  if (fabsf(offTurns) * MM_PER_TURN < MOVE_SETTLE_MM) return 0;
+  return constrain(MOVE_SETTLE_GAIN * offTurns, -MOVE_SETTLE_MAX_SPEED, MOVE_SETTLE_MAX_SPEED);
+}
+
+// Close enough and nearly still: the settle (of a move, or a spin's position) is done.
+bool settledAt(float offTurns, float speedNow) {
+  return fabsf(offTurns) * MM_PER_TURN < MOVE_SETTLE_MM && fabsf(speedNow) < MOVE_SETTLE_SPEED;
 }
 
 // One tick of an exact-angle spin. yawRate: deg/s from the gyro, right +.
@@ -123,9 +165,14 @@ void driveReset() {
 // Wi-Fi timing doesn't either (the Mac timing spins was 0.2-0.45 s late).
 // Quad picture: a GPS rescue that plans its braking from the speed it really
 // has, not the speed it asked for.
-float spinUpdate(float dt, float yawRate) {
+// posNow, speedNow: wheel turns since arming and wheel turns/s (for the settle,
+// which also pulls BB1 back to where the spin started: spins rolled it forward
+// 0.08-0.31 turns per 90 deg in run 198). speedOut: the settle's speed target.
+float spinUpdate(float dt, float yawRate, float posNow, float speedNow, float &speedOut) {
+  speedOut = 0;
   if (spinStarts != drive.spinSeen) {             // a new /spin
     drive.spinSeen    = spinStarts;
+    drive.spinPos     = posNow;
     drive.spinOn      = true;
     drive.spinBraking = false;
     drive.spinSettle  = -1;
@@ -148,13 +195,59 @@ float spinUpdate(float dt, float yawRate) {
   if (drive.spinBraking && drive.turn == 0 && drive.spinSettle < 0) drive.spinSettle = SPIN_SETTLE_S;   // just landed
   if (drive.spinSettle >= 0) {
     drive.spinSettle -= dt;
-    bool still = fabsf(drive.spinLeft) < SPIN_SETTLE_DEG && fabsf(yawRate) < SPIN_SETTLE_DPS;
+    float posOff = drive.spinPos - posNow;        // wheel turns back to where the spin started (3.12)
+    bool still = fabsf(drive.spinLeft) < SPIN_SETTLE_DEG && fabsf(yawRate) < SPIN_SETTLE_DPS &&
+                 (MOVE_SETTLE_S <= 0 || settledAt(posOff, speedNow));
     if (drive.spinSettle <= 0 || still) drive.spinOn = false;          // done (or out of time)
-    else if (fabsf(drive.spinLeft) >= SPIN_SETTLE_DEG)                // + = still short to the right
-      turn = constrain(SPIN_SETTLE_GAIN * drive.spinLeft, -SPIN_SETTLE_MAX_TURN, SPIN_SETTLE_MAX_TURN);
+    else {
+      if (fabsf(drive.spinLeft) >= SPIN_SETTLE_DEG)                    // + = still short to the right
+        turn = constrain(SPIN_SETTLE_GAIN * drive.spinLeft, -SPIN_SETTLE_MAX_TURN, SPIN_SETTLE_MAX_TURN);
+      if (MOVE_SETTLE_S > 0) speedOut = settleSpeed(posOff);
+    }
   }
   spinLeftNow = drive.spinOn ? drive.spinLeft : 0;
+  if (!drive.spinOn) speedOut = 0;
   return drive.spinOn ? turn : 0;
+}
+
+// One tick of an exact-distance move. posNow: wheel turns since arming;
+// speedNow: wheel turns/s (filtered). Returns the speed target the move wants
+// this tick (0 when not moving).
+//
+// Same idea as the spin: the speed target ramps down at the stop rate, so from
+// wheel speed v it takes t = target / rate to stop and rolls about v x t / 2
+// more. The first tick that is all that's left, it brakes. Then the settle
+// closes what's left with a small P on the distance (config.h MOVE_SETTLE_*).
+// Quad picture: a waypoint with a planned stop, not "fly 2 s and see".
+float moveUpdate(float dt, float posNow, float speedNow) {
+  if (moveStarts != drive.moveSeen) {             // a new /move
+    drive.moveSeen    = moveStarts;
+    drive.moveOn      = true;
+    drive.moveBraking = false;
+    drive.moveSettle  = -1;
+    drive.moveTarget  = posNow + moveMmCmd / MM_PER_TURN;
+    drive.moveSpeed   = moveMmCmd > 0 ? moveSpeedCmd : -moveSpeedCmd;
+  }
+  uint32_t until = moveUntilMs;
+  bool live = until && (int32_t)(until - millis()) > 0;
+  if (drive.moveOn && !live) drive.moveOn = false;   // cancelled or timed out: the speed ramps to 0 like any stop
+  if (!drive.moveOn) { moveLeftNow = 0; return 0; }
+
+  float off  = drive.moveTarget - posNow;          // wheel turns still to go, + = ahead
+  float toGo = drive.moveSpeed > 0 ? off : -off;   // + = short of it
+  float rate = max((float)driveAccelRate, DRIVE_STOP_ACCEL_MIN);   // how fast the speed target comes down
+  float stopTurns = fabsf(speedNow) * (fabsf(drive.speed) / rate) / 2;
+  if (toGo <= stopTurns) drive.moveBraking = true; // latched
+  float speed = drive.moveBraking ? 0 : drive.moveSpeed;
+
+  if (drive.moveBraking && drive.speed == 0 && drive.moveSettle < 0) drive.moveSettle = MOVE_SETTLE_S;   // just landed
+  if (drive.moveSettle >= 0) {
+    drive.moveSettle -= dt;
+    if (drive.moveSettle <= 0 || settledAt(off, speedNow)) drive.moveOn = false;
+    else speed = settleSpeed(off);
+  }
+  moveLeftNow = drive.moveOn ? off * MM_PER_TURN : 0;
+  return drive.moveOn ? speed : 0;
 }
 
 // Move x toward target by at most step.
@@ -199,12 +292,16 @@ float speedCeiling(float dt, bool saturated) {
 // since arming, same as the speed loop and heading hold measure them).
 // saturated: the motor PWM hit the cap last tick (for speedCeiling()).
 // yawRate: deg/s from the gyro, right + (for exact-angle spins).
-void driveUpdate(float dt, float posNow, float diffNow, bool saturated, float yawRate) {
+// speedNow: wheel turns/s, filtered (for exact-distance moves and the settles).
+void driveUpdate(float dt, float posNow, float diffNow, bool saturated, float yawRate, float speedNow) {
   uint32_t until = driveUntilMs;
   bool live = until && (int32_t)(until - millis()) > 0;
-  float spinTurn = spinUpdate(dt, yawRate);
-  drive.wantSpeed = live ? driveSpeedCmd : 0;
-  drive.wantTurn  = live ? driveTurnCmd  : spinTurn;   // a /drive cancels the spin (spinUntilMs = 0), so only one is ever set
+  float spinSpeed = 0;
+  float spinTurn  = spinUpdate(dt, yawRate, posNow, speedNow, spinSpeed);
+  float moveSpeed = moveUpdate(dt, posNow, speedNow);
+  // Only one of /drive, /spin, /move is ever live: each cancels the others when it starts.
+  drive.wantSpeed = live ? driveSpeedCmd : (drive.moveOn ? moveSpeed : spinSpeed);
+  drive.wantTurn  = live ? driveTurnCmd  : spinTurn;
 
   bool wasDriving = drive.speed != 0, wasTurning = drive.turn != 0;
   float speedBefore = drive.speed;
@@ -222,7 +319,7 @@ void driveUpdate(float dt, float posNow, float diffNow, bool saturated, float ya
   drive.accel = dt > 0 ? (drive.speed - speedBefore) / dt : 0;   // + = the target speeds up forward (or slows a reverse)
   drive.turn  = rampToward(drive.turn,  drive.wantTurn,  DRIVE_TURN_ACCEL * dt);
   bool moving = drive.speed != 0 || drive.turn != 0;
-  drive.stopping = !live && !drive.spinOn && moving;   // a spin ramping down to its angle is landing, not stopping
+  drive.stopping = !live && !drive.spinOn && !drive.moveOn && moving;   // a spin or move ramping down to its target is landing, not stopping
 
   // Position: while moving, the hold point rides with the wheels, so the
   // speed I term (position) never builds up a "you're behind" debt. Speed P

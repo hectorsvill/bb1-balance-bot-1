@@ -14,6 +14,10 @@ spin-450: one full spin right, then one left, at that turn rate.
 Exact-angle spins (firmware 3.10, POST /spin, the firmware lands on the angle
 by itself): exact-200, exact-400: 90 right, 90 left, 360 right, 360 left at
 turn rate 2 or 4. The report adds the real angle from the gyro and the error.
+Exact-distance moves (firmware 3.12, POST /move): move-30, move-60: 100 mm
+forward, 100 back, 300 forward, 300 back at 0.3 or 0.6 turns/s; the report adds
+the real distance from the encoders and the error. They need about 35 cm of
+straight floor ahead of the start.
 Each fast step is 1.5 s long, ramp included, so it rolls at most speed x 1.5
 wheel turns out and the same back: fwd-back-300 goes about 4.5 turns (0.8 m)
 forward, then back. Give it a clear straight line of about 1.5 m ahead of
@@ -119,6 +123,22 @@ for v in (2.0, 4.0):
                                          for d in (90, -90, 360, -360)), []) + [P]
 
 
+# Exact-distance moves (firmware 3.12): one POST /move per step, BB1 lands on it
+# by itself. Name "move +100" = mm, forward +; its speed is the speed (sign =
+# direction) and its seconds the most it waits.
+MOVE = "move "
+MM_PER_TURN = 177.8
+for v in (0.3, 0.6):
+    TESTS[f"move-{v * 100:.0f}"] = sum(([P, (f"{MOVE}{d:+.0f}", v if d > 0 else -v, 0.0,
+                                             round(2 * abs(d) / (v * MM_PER_TURN) + 2, 1))]
+                                        for d in (100, -100, 300, -300)), []) + [P]
+
+
+def move_mm(name):
+    """The distance of a move step ("move +100" -> 100.0), or None for any other step."""
+    return float(name[len(MOVE):]) if name.startswith(MOVE) else None
+
+
 def exact_deg(name):
     """The angle of an exact-spin step ("exact +90" -> 90.0), or None for any other step."""
     return float(name[len(EXACT):]) if name.startswith(EXACT) else None
@@ -148,6 +168,7 @@ class Run:
         self.travel = 0.0               # turns from home, forward +
         self.max_travel = MAX_TRAVEL    # run_test() raises it for a fast test (travel_limit())
         self.spin_left = 0.0            # /state drive.spin_left: deg an exact spin still has to turn
+        self.move_left = 0.0            # /state drive.move_left_mm: mm a move still has to go
 
     def ask(self, fn, *args, **kw):
         """Call BB1. Short Wi-Fi stalls (the Pico's server goes quiet for a second or
@@ -177,6 +198,7 @@ class Run:
         gains_versions(text, self.versions)          # remember gains changed mid-run (POST /gains)
         self.tick = s["tick"]
         self.spin_left = s.get("drive", {}).get("spin_left", 0.0) or 0.0
+        self.move_left = s.get("drive", {}).get("move_left_mm", 0.0) or 0.0
         if self.next_tick is None:
             self.next_tick = s["tick"] + 1            # record from now on
         if not s["armed"]:
@@ -222,28 +244,31 @@ class Run:
             except OSError:
                 time.sleep(0.1)
 
-    def spin(self, deg, rate, secs):
-        """One exact-angle spin: one POST /spin, then wait until /state says it has
-        landed (spin_left back to 0) or secs run out. BB1 does the rest itself."""
+    def target(self, path, left_attr, secs, **fields):
+        """One exact spin or move: one POST, then wait until /state says it has landed
+        (its *_left back to 0) or secs run out. BB1 does the rest itself."""
         try:
-            self.ask(post, f"{self.base}/spin", timeout=1, deg=deg, rate=abs(rate))
+            self.ask(post, f"{self.base}{path}", timeout=1, **fields)
         except urllib.error.HTTPError as e:     # 409: not balancing, or encoder fault
-            raise Stop(f"/spin refused: {e}")
+            raise Stop(f"{path} refused: {e}")
         start = time.time()
         while time.time() - start < secs:
             time.sleep(0.15)
             self.check(force=True)
             self.record()
-            if time.time() - start > 0.5 and not self.spin_left:
+            if time.time() - start > 0.5 and not getattr(self, left_attr):
                 return                 # landed
         self.stop()                    # didn't land in time: stop it
         say(f"    no landing after {secs:g} s: stopped it")
 
     def step(self, name, speed, turn, secs):
-        deg = exact_deg(name)
+        deg, mm = exact_deg(name), move_mm(name)
         if deg is not None:
             say(f"  {name:20s} up to {secs:4.1f} s  rate {abs(turn):.2f}")
-            return self.spin(deg, turn, secs)
+            return self.target("/spin", "spin_left", secs, deg=deg, rate=abs(turn))
+        if mm is not None:
+            say(f"  {name:20s} up to {secs:4.1f} s  speed {abs(speed):.2f}")
+            return self.target("/move", "move_left", secs, dist_mm=mm, speed=abs(speed))
         moving = speed or turn
         say(f"  {name:20s} {secs:4.1f} s" + (f"  speed {speed:+.2f}  turn {turn:+.2f}" if moving else ""))
         end = time.time() + secs
@@ -330,7 +355,7 @@ def report(path, as_json=False):
     bias = [l for l in path.read_text().splitlines() if l.startswith("# gyro_bias_dps,")]
     bias_z = float(bias[0].split(",")[3]) if bias else 0.0
     yaw = (-(df.gz_raw / GYRO_LSB - bias_z) * df.t_us.diff().fillna(0) / 1e6).cumsum()
-    rows_out, exact = [], []
+    rows_out, exact, moves = [], [], []
     if not as_json:
         print(f"{'step':20s} {'asked':>11s} {'got spd':>7s} {'got trn':>7s} {'stop':>5s} {'head':>5s} "
               f"{'lean+':>5s} {'lean-':>5s} {'pwm':>4s} {'sat%':>4s} {'drop':>4s} flags")
@@ -376,6 +401,18 @@ def report(path, as_json=False):
             landed = df[(df.tick >= a) & (df.tick <= b)]
             exact.append({"step": name, "deg": deg, "gyro_deg": _num(got_deg, 1), "error_deg": _num(got_deg - deg, 1),
                           "secs": _num((landed.t_us.iloc[-1] - landed.t_us.iloc[0]) / 1e6, 2)})
+        mm = move_mm(name)
+        if mm is not None:
+            # Exact move: the distance the wheels rolled from the request to the end of
+            # the next pause (the settle and any roll-on count), and how far off it is.
+            drop = 0.0
+            end = int(steps[i + 1][5]) if i + 1 < len(steps) else b
+            w = df[(df.tick >= a) & (df.tick <= end)]
+            got_mm = (pos[w.index[-1]] - pos[w.index[0]]) * MM_PER_TURN
+            landed = df[(df.tick >= a) & (df.tick <= b)]
+            moves.append({"step": name, "mm": mm, "got_mm": _num(got_mm, 0), "error_mm": _num(got_mm - mm, 0),
+                          "turned_deg": _num(yaw[w.index[-1]] - yaw[w.index[0]], 1),
+                          "secs": _num((landed.t_us.iloc[-1] - landed.t_us.iloc[0]) / 1e6, 2)})
         rows_out.append({
             "step": name, "speed": speed, "turn": turn,
             "got_speed": _num(got_s), "got_turn": _num(got_t),
@@ -392,13 +429,18 @@ def report(path, as_json=False):
     if as_json:
         header = [line[2:] for line in path.read_text().splitlines()
                   if line.startswith(("# drive_test,", "# gains_v"))]
-        print(json.dumps({"ok": True, "file": str(path), "steps": rows_out, "exact": exact, "header": header}))
+        print(json.dumps({"ok": True, "file": str(path), "steps": rows_out, "exact": exact, "moves": moves, "header": header}))
         return
     if exact:
         print("\nexact spins (gyro, deg, right +; from the request to the end of the next pause):")
         for e in exact:
             print(f"  {e['step']:14s} asked {e['deg']:+6.0f}  got {e['gyro_deg']:+7.1f}  error {e['error_deg']:+6.1f}  "
                   f"landed in {e['secs']:.2f} s")
+    if moves:
+        print("\nexact moves (encoders, mm, forward +; from the request to the end of the next pause):")
+        for e in moves:
+            print(f"  {e['step']:14s} asked {e['mm']:+6.0f}  got {e['got_mm']:+6.0f}  error {e['error_mm']:+4.0f}  "
+                  f"heading {e['turned_deg']:+5.1f} deg  landed in {e['secs']:.2f} s")
     print("\nasked: speed, turn (turns/s). got: wheel average over the step's last half. "
           "stop: furthest it rolled (or turned) on after the command ended, turns (goal under 0.5). head: turns of "
           "left-minus-right drift after stopping, or during a still step (goal near 0). "

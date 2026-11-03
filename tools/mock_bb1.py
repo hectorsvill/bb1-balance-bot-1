@@ -41,7 +41,7 @@ LOG_MAX_PER_REQUEST = 1000
 ACCEL_PER_G = 16384.0
 GYRO_PER_DPS = 65.5
 CSV_HEADER = ("tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm,spin_left")
+              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm,spin_left,move_left")
 MOTOR_TEST_MAX_PWM = 150
 MOTOR_TEST_MAX_MS = 3000
 DRIVE_MAX_SPEED, DRIVE_MAX_TURN = 3.0, 5.0   # config.h: wheel turns/s (speed 3.0 since firmware 3.6, turn 5.0 since 3.7)
@@ -76,6 +76,42 @@ def spin_left():
         spin["deg"] = 0.0
         return 0.0
     return math.copysign(abs(spin["deg"]) - done, spin["deg"])
+
+
+# Exact-distance move (drive.h, firmware 3.12). Mock: counts down at speed x MM_PER_TURN mm/s, no ramp,
+# and odometry adds finished moves along the mock heading (x forward, y right, since the arm).
+MOVE_MAX_MM, MOVE_MIN_MM, MOVE_DEFAULT_SPEED, MOVE_MAX_SPEED, MM_PER_TURN = 1500.0, 10.0, 0.3, 1.0, 177.8
+move = {"mm": 0.0, "speed": 0.0, "start": 0.0, "arm": None}
+odom = {"x": 0.0, "y": 0.0, "arm": None, "yaw0": 0.0}
+
+
+def move_left():
+    """mm still to go (forward +), 0 when no move is running. A finished move is added to the odometry."""
+    if not move["mm"] or armed_from is None or move["arm"] != armed_from:
+        return 0.0
+    done = move["speed"] * MM_PER_TURN * (time.time() - move["start"])
+    if done >= abs(move["mm"]):
+        odom_add(move["mm"])
+        move["mm"] = 0.0
+        return 0.0
+    return math.copysign(abs(move["mm"]) - done, move["mm"])
+
+
+def odom_now():
+    """Mock odometry since the arm: finished moves along the heading at the time (/drive isn't modelled)."""
+    if odom["arm"] != armed_from:                     # a new arm: start from (0, 0), heading 0
+        odom.update(x=0.0, y=0.0, arm=armed_from, yaw0=yaw_deg())
+    left = move_left()
+    extra = (move["mm"] - left) if move["mm"] else 0.0
+    h = math.radians(yaw_deg() - odom["yaw0"])
+    return {"x_mm": round(odom["x"] + extra * math.cos(h)), "y_mm": round(odom["y"] + extra * math.sin(h)),
+            "heading_deg": round(yaw_deg() - odom["yaw0"], 1)}
+
+
+def odom_add(mm):
+    h = math.radians(yaw_deg() - odom["yaw0"])
+    odom["x"] += mm * math.cos(h)
+    odom["y"] += mm * math.sin(h)
 
 
 def yaw_deg():
@@ -168,13 +204,13 @@ def csv_line(r):
     return (f'{r["tick"]},{r["t_us"]},{r["work_us"]},{r["mode"]},{r["flag_bits"]},{raw},'
             f'{r["pitch"]:.3f},{r["pitch_rate"]:.3f},{r["accel_pitch"]:.3f},'
             f'{r["enc"][0]},{r["enc"][1]},{r["speed"][0]},{r["speed"][1]},{r["pwm"][0]},{r["pwm"][1]},'
-            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10},{mock_battery(r["tick"]):.2f},{6 if r["mode"] == 4 else 1},0.000,0.000,0.000,0.000,0,0.0\n')
+            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10},{mock_battery(r["tick"]):.2f},{6 if r["mode"] == 4 else 1},0.000,0.000,0.000,0.000,0,0.0,0\n')
 
 
 def meta_lines():
     return ("# firmware,bb1 MOCK (tools/mock_bb1.py)\n"
             "# firmware_version,MOCK,build_id,MOCK\n"
-            "# log_format,14\n"
+            "# log_format,15\n"
             "# imu_start,tries,1,bus_pulses,0\n"
             f"# gyro_bias_dps,{bias[0]:.3f},{bias[1]:.3f},{bias[2]:.3f}\n"
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
@@ -198,6 +234,7 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
     ("POST", "/disarm", "why", "text", False, "stop balancing; auto-arm off until the next arm"),
     ("POST", "/drive", "speed,turn,ms", "json", True, "drive while balancing; runs out after ms, then ramps to a stop"),
     ("POST", "/drive/stop", "", "json", False, "ramp to a stop now, keep balancing (also ends a spin)"),
+    ("POST", "/move", "dist_mm,speed", "json", True, "drive straight by dist_mm (forward +) and land on it; speed in wheel turns/s; progress in /state drive.move_left_mm"),
     ("POST", "/spin", "deg,rate", "json", True, "turn on the spot by deg (right +), counted by the gyro; rate in turn units; progress in /state drive.spin_left"),
     ("POST", "/motor/stop", "", "text", False, "STOP: end a motor test and disarm"),
     ("POST", "/step", "", "text", True, "step test while armed: setpoint +2 deg for 1 s"),
@@ -218,7 +255,7 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
 
 def api_list():
     return {
-        "api": 10, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 14,
+        "api": 11, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 15,
         "units": {"angle": "deg (forward +)", "speed": "wheel turns/s (forward +)",
                   "turn": "wheel turns/s left minus right (right +)", "pwm": "-255..255 (forward +)", "counts_per_rev": 520},
         "limits": {"drive_max_speed": DRIVE_MAX_SPEED, "drive_max_turn": DRIVE_MAX_TURN, "drive_hold_ms": DRIVE_HOLD_MS,
@@ -226,7 +263,8 @@ def api_list():
                    "heartbeat_ms": 2000, "motor_test_max_pwm": MOTOR_TEST_MAX_PWM, "motor_test_max_ms": MOTOR_TEST_MAX_MS,
                    "alpha": [0.9, 0.999], "log_max_per_request": LOG_MAX_PER_REQUEST,
                    "spin_max_deg": SPIN_MAX_DEG, "spin_min_deg": SPIN_MIN_DEG, "spin_min_rate": SPIN_MIN_RATE,
-                   "spin_default_rate": SPIN_DEFAULT_RATE},
+                   "spin_default_rate": SPIN_DEFAULT_RATE, "move_max_mm": MOVE_MAX_MM, "move_min_mm": MOVE_MIN_MM,
+                   "move_default_speed": MOVE_DEFAULT_SPEED, "move_max_speed": MOVE_MAX_SPEED, "mm_per_turn": MM_PER_TURN},
         "gains": {k: list(v) for k, v in GAIN_LIMITS.items()},
         "endpoints": [{"method": m, "path": p, "args": a.split(",") if a else [], "answer": ans, "moves": mv, "does": d}
                       for m, p, a, ans, mv, d in API_ENDPOINTS],
@@ -277,7 +315,8 @@ class Handler(BaseHTTPRequestHandler):
                 "drive": {"speed": drive_now()[0], "turn": drive_now()[1], "speed_now": drive_now()[0], "turn_now": drive_now()[1],
                           "left_ms": max(0, int((drive["until"] - time.time()) * 1000)) if drive_now() != (0.0, 0.0) else 0,
                           "commands": drive["commands"], "max_speed": DRIVE_MAX_SPEED, "max_turn": DRIVE_MAX_TURN,
-                          "spin_left": round(spin_left(), 1)},
+                          "spin_left": round(spin_left(), 1), "move_left_mm": round(move_left())},
+                "odom": odom_now(),
                 "enc_fault": 0,
                 "trim_learned": 0.0 if gains["tl"] <= 0 else 0.42,   # mock: a fixed learned trim (firmware 3.5)
                 "yaw_deg": round(yaw_deg(), 1),
@@ -393,6 +432,7 @@ class Handler(BaseHTTPRequestHandler):
             turn = max(-DRIVE_MAX_TURN, min(DRIVE_MAX_TURN, turn))
             ms = int(max(0, min(DRIVE_HOLD_MAX_MS, int(num("ms", DRIVE_HOLD_MS)))))
             spin["deg"] = 0.0                                   # a drive command takes over from a spin
+            move["mm"] = 0.0                                    # and from a move
             drive.update(speed=speed, turn=turn, until=time.time() + ms / 1000 if ms else 0.0,
                          commands=drive["commands"] + 1, arm=armed_from)
             self.reply(json.dumps({"ok": True, "speed": speed, "turn": turn, "ms": ms}), "application/json")
@@ -413,11 +453,34 @@ class Handler(BaseHTTPRequestHandler):
             rate = max(SPIN_MIN_RATE, min(DRIVE_MAX_TURN, abs(rate)))
             timeout = int(2000 * abs(deg) / (rate * SPIN_DEG_PER_TURN)) + 2000
             drive["until"] = 0.0
+            move["mm"] = 0.0
             spin.update(deg=deg, rate=rate, start=time.time(), arm=armed_from)
             self.reply(json.dumps({"ok": True, "deg": round(deg, 1), "rate": round(rate, 2), "timeout_ms": timeout}), "application/json")
+        elif self.path == "/move":
+            # Same rules as handleMove() in web.h.
+            if armed_from is None:
+                return self.reply('{"ok":false,"error":"not balancing: arm first (POST /arm)"}', "application/json", 409)
+            if form.get("dist_mm") is None:
+                return self.reply('{"ok":false,"error":"need dist_mm (forward +, back -)"}', "application/json", 400)
+            try:
+                mm = float(form.get("dist_mm"))
+                speed = float(form.get("speed") or MOVE_DEFAULT_SPEED)
+            except ValueError:
+                mm, speed = float("nan"), 0.0
+            if not (math.isfinite(mm) and math.isfinite(speed)) or abs(mm) < MOVE_MIN_MM:
+                return self.reply('{"ok":false,"error":"dist_mm must be a number, at least 10 either way"}', "application/json", 400)
+            mm = max(-MOVE_MAX_MM, min(MOVE_MAX_MM, mm))
+            speed = max(0.05, min(MOVE_MAX_SPEED, abs(speed)))
+            timeout = int(2000 * abs(mm) / (speed * MM_PER_TURN)) + 2000
+            drive["until"] = 0.0
+            spin["deg"] = 0.0
+            odom_now()                                          # make sure the odometry belongs to this arm
+            move.update(mm=mm, speed=speed, start=time.time(), arm=armed_from)
+            self.reply(json.dumps({"ok": True, "dist_mm": round(mm), "speed": round(speed, 2), "timeout_ms": timeout}), "application/json")
         elif self.path == "/drive/stop":
             drive["until"] = 0.0
             spin["deg"] = 0.0
+            move["mm"] = 0.0
             self.reply('{"ok":true,"speed":0,"turn":0,"ms":0}', "application/json")
         elif self.path == "/motor/stop":
             if armed_from is not None:

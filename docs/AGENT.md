@@ -2,7 +2,7 @@
 
 You are an AI agent driving BB1, a small two-wheel self-balancing robot, over Wi-Fi. This file is everything you need. Read all of it before your first command, and follow the settings in the next section: they are your owner's rules for this session, and they win over anything else here.
 
-**Written for `/api` version: 10**
+**Written for `/api` version: 11**
 
 Your first command is always `api` (below). If its `"api"` number differs from the line above, stop and tell your owner: the firmware changed since this manual was written, and some of it may be wrong.
 
@@ -17,8 +17,8 @@ max_travel_m    = 0.5             # never end up farther than this from where yo
 may_arm         = ask             # ask = ask your owner before every arm; yes = arm when needed
 person_present  = required        # required = only drive while your owner says they are watching
 surface         = unknown         # the floor: wood, carpet... (your owner says; it goes in the log)
-allowed         = state, api, arm, drive, spin, stop, disarm, log   # everything else is off limits (see Never)
-                  # through MCP the same are: bb1_state, bb1_api, bb1_arm, bb1_drive, bb1_spin, bb1_stop, bb1_disarm, bb1_log,
+allowed         = state, api, arm, drive, spin, move, stop, disarm, log   # everything else is off limits (see Never)
+                  # through MCP the same are: bb1_state, bb1_api, bb1_arm, bb1_drive, bb1_spin, bb1_move, bb1_stop, bb1_disarm, bb1_log,
                   # plus the read-only logs_schema, logs_runs, logs_show, logs_ticks, logs_sql
 ```
 
@@ -55,6 +55,7 @@ tools/venv/bin/python tools/bb1.py arm                          # start balancin
 tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2 --max 0.3 --max-turn 0.4 --max-for 3   # forward 0.3 turns/s for 2 s, then stop
 tools/venv/bin/python tools/bb1.py drive --turn 0.4 --for 2 --max 0.3 --max-turn 0.4 --max-for 3    # turn right on the spot for 2 s
 tools/venv/bin/python tools/bb1.py spin --deg 90 --max-turn 0.4                # turn exactly 90 deg right on the spot (left: --deg -90)
+tools/venv/bin/python tools/bb1.py move --mm 100 --max 0.3 --max-mm 500        # drive exactly 10 cm forward and stop there (back: --mm -100)
 tools/venv/bin/python tools/bb1.py stop                         # stop driving, keep balancing
 tools/venv/bin/python tools/bb1.py disarm                       # motors off: BB1 FALLS OVER
 tools/venv/bin/python tools/bb1.py log start --surface wood -n "square"   # label this session's log
@@ -63,7 +64,9 @@ tools/venv/bin/python tools/bb1.py log stop                     # save the log n
 
 Always pass your settings as the caps: `--max` = `max_speed`, `--max-turn` = `max_turn`, `--max-for` = `max_drive_s`. `drive` blocks until it is done and BB1 has settled (or 2 s have passed). A drive with `--speed` and `--turn` both 0 is refused. If the tool cut anything you asked for (`--speed` past `--max`, `--turn` past `--max-turn`, `--for` past `--max-for` or 10 s), the answer's `cut` list says so: plan with what you got, not what you asked.
 
-`spin --deg N` turns on the spot by N degrees (right +, at most 360 per command; pass `--max-turn` = `max_turn`). BB1 counts the turn with its own gyro and lands on it by itself, within about ±5 deg on wood; the tool waits until it has. The answer has `turned_deg` (the gyro's count of what it really turned), `error_deg`, `landed` and `state`. For a heading, prefer `spin` over `drive --turn`: a timed turn's angle depends on the floor and Wi-Fi, a spin's doesn't. A spin isn't perfectly in place: on wood each 90 deg rolled BB1 **forward 0.08-0.31 turns** (1.4-5.5 cm, run 198; `moved_turns` in the answer). Count that in your position.
+`spin --deg N` turns on the spot by N degrees (right +, at most 360 per command; pass `--max-turn` = `max_turn`). BB1 counts the turn with its own gyro and lands on it by itself, within about ±5 deg on wood; the tool waits until it has. The answer has `turned_deg` (the gyro's count of what it really turned), `error_deg`, `landed` and `state`. For a heading, prefer `spin` over `drive --turn`: a timed turn's angle depends on the floor and Wi-Fi, a spin's doesn't. Since firmware 3.12 a spin also steers back to where it started after landing (in 3.11 each 90 deg rolled BB1 forward 1.4-5.5 cm, run 198); check `moved_turns` in the answer anyway.
+
+`move --mm N` (firmware 3.12) drives straight by N mm (forward +, at most 500 per command; pass `--max` = `max_speed` and `--max-mm` = your room left). BB1 plans the stop from its own wheel count and lands on it by itself; the tool waits until it has. The answer has `moved_mm` (BB1's wheel count), `error_mm`, `landed`, `turned_deg` and `state`. **For a distance, prefer `move` over a timed `drive`:** the same 2 s at 0.3 moved anywhere from 2.5 to 11 cm (run 198); a move lands within a few mm on wood.
 
 ### Through MCP instead
 
@@ -94,7 +97,8 @@ To see what happened (your commands, BB1's runs, every tick), use `tools/venv/bi
 ```json
 {"ok": true, "state": {"armed": true, "reason": "", "auto_state": "balancing", "pitch_deg": -0.4,
  "speed": 0.0, "position_turns": 12.31, "drive": {"speed": 0.0, "turn": 0.0, "left_ms": 0},
- "enc_fault": 0, "trim_learned_deg": 1.25, "yaw_deg": 93.4, "batt_v_per_cell": 3.92, "ip": "192.168.1.240"}}
+ "enc_fault": 0, "trim_learned_deg": 1.25, "yaw_deg": 93.4, "odom": {"x_mm": 102, "y_mm": -3, "heading_deg": 90.4},
+ "batt_v_per_cell": 3.92, "ip": "192.168.1.240"}}
 ```
 
 | Field | Meaning | Act on it |
@@ -108,9 +112,10 @@ To see what happened (your commands, BB1's runs, every tick), use `tools/venv/bi
 | `enc_fault` | 0 ok; 1 left, 2 right wheel sensor not counting | not 0: stop, tell your owner (a wire) |
 | `trim_learned_deg` | deg BB1 has learned to add to its balance point while standing still (trim learn `tl`, firmware 3.5; null before). Kept across drives and stops, cleared at power-on | nothing to do. Report it at the end of a session. Stuck at ±3 (the limit): tell your owner, the trim is far off |
 | `yaw_deg` | heading from the gyro since power-on, deg, right + (firmware 3.11; null before). Drifts a few deg a minute | subtract two readings to know how far it turned; better than `turned_turns`, which the wheels' scrub inflates |
+| `odom` | where BB1 is since it last armed (firmware 3.12; null before): `x_mm` forward from where it armed, `y_mm` to the right, `heading_deg` (gyro, right +). Counted on BB1 200 times a second from its wheels and gyro; good to a few cm over a few meters on wood, worse on carpet. Starts again at 0 at every arm | your position: use it instead of adding up moves. Keep `x_mm`, `y_mm` within `max_travel_m` |
 | `batt_v_per_cell` | battery, volts per cell (null = not measured) | under 3.5: finish up and tell your owner; under 3.3 BB1 stops itself |
 
-`drive` answers with `moved_turns` and `turned_turns` (how far it really went), `turned_deg` (the gyro's angle, firmware 3.11), `settled` and a fresh `state`. These count from the start of that one command: BB1 can still roll a little after the answer (up to about 0.3 turns back, run 198), so **track where you are with `state.position_turns` and `state.yaw_deg` read before and after each move**, not by adding up `moved_turns`.
+`drive` answers with `moved_turns` and `turned_turns` (how far it really went), `turned_deg` (the gyro's angle, firmware 3.11), `settled` and a fresh `state`. These count from the start of that one command: BB1 can still roll a little after the answer (up to about 0.3 turns back, run 198), so **track where you are with `state.odom` (firmware 3.12; or `position_turns` and `yaw_deg` before it)**, not by adding up `moved_turns`.
 
 ### Reasons it stops or refuses
 
@@ -136,7 +141,7 @@ Work in small steps and look after every one:
 4. Plan the move in turns (see Units). Keep a running total of how far you are from where you armed; never let it pass `max_travel_m` (0.5 m = 2.8 turns).
 5. `drive` for at most `max_drive_s`. Read `moved_turns`, `turned_turns` and `state`.
 6. Compare with what you asked. **Distance per second is not repeatable:** in run 198 (wood) the same 2 s at 0.3 moved 0.14, 0.28, 0.46 and 0.64 turns. Plan a move, then measure it with `state.position_turns`; never assume time x speed. Short is normal, and the floor matters: on wood forward averages about 60-90% of the asked speed; on carpet much less (3 s at 0.3 moved anywhere from −0.06 to +0.29 turns, back reached a third of the asked speed, 1 s turns at 0.4 gave 0.27, and it often hadn't settled after 2 s). Correct with the next step, but don't expect to land on a target: five tries on carpet reached half of a 1-turn target. Wrong direction, or `ok: false`: stop and think before the next move.
-   The smallest move you can make is about 0.15 turns (2.7 cm): `drive` for 1 s at 0.3 moves about that, sometimes less. Errors smaller than that you can't correct yet (there is no position target); report them instead of chasing them.
+   To correct a distance, use `move --mm` (at least 10 mm). Errors under about 5 mm are BB1's own balance rocking: leave them.
 7. Repeat from step 5. When done: `stop`, leave it balancing unless your owner says otherwise, then `log stop` and give your owner the `run_id`.
 
 Turning on the spot to a heading: `spin --deg 90` (exact, by the gyro). A timed turn: `drive --speed 0 --turn 0.4`. Curves: `drive` with both at once. To go back where you started, drive the same distance the other way: there's no position target yet, so expect some error.

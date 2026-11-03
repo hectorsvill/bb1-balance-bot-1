@@ -254,6 +254,28 @@ const float SPIN_SETTLE_GAIN     = 0.02;   // turns/s of turn target per deg off
 const float SPIN_SETTLE_MAX_TURN = 0.4;
 const float SPIN_SETTLE_DEG      = 1.5;    // close enough
 const float SPIN_SETTLE_DPS      = 15;     // and nearly still
+
+// Odometry and exact-distance moves (firmware 3.12, odom.h, drive.h).
+// The wheel size was measured by rolling it on wood (2026-10-26); the counts
+// per turn (COUNTS_PER_REV) are still assumed, so distances are as good as that.
+const float MM_PER_TURN = 177.8;          // mm a wheel rolls per turn
+// POST /move dist_mm=100 speed=0.3: drive straight by a distance and land on
+// it, the way /spin lands on an angle. The speed target ramps down at the
+// stop rate (max(dacc, DRIVE_STOP_ACCEL_MIN)), so stopping from wheel speed v
+// rolls about v x (v / rate) / 2 more: it starts braking when that's what's left.
+const float MOVE_MAX_MM        = 1500;   // 1.5 m per command at most
+const float MOVE_MIN_MM        = 10;
+const float MOVE_DEFAULT_SPEED = 0.3;    // wheel turns/s (53 mm/s)
+const float MOVE_MAX_SPEED     = 1.0;    // a move is for landing on a spot, not racing
+const unsigned long MOVE_EXTRA_MS = 2000;   // timeout = 2 x the planned time + this
+// Settle after landing, like the spin's: a P correction on the distance left,
+// for up to MOVE_SETTLE_S. It also pulls BB1 back to where a spin started (spins
+// rolled it forward 0.08-0.31 turns per 90 deg, run 198).
+const float MOVE_SETTLE_S         = 1.0;   // 0 = off
+const float MOVE_SETTLE_GAIN      = 1.0;   // turns/s of speed target per wheel turn off: 18 mm off -> 0.1 turns/s
+const float MOVE_SETTLE_MAX_SPEED = 0.15;  // turns/s
+const float MOVE_SETTLE_MM        = 5;     // close enough
+const float MOVE_SETTLE_SPEED     = 0.05;  // turns/s: and nearly still
 const float SPIN_DEFAULT_RATE   = 2.0;    // about 130 deg/s: a 360 in about 3 s
 const float SPIN_DEG_PER_TURN   = 66;     // deg/s of real yaw per turn/s of turn target (runs 189-190): only for the timeout
 const unsigned long SPIN_EXTRA_MS = 2000; // timeout = 2 x the planned time + this; then it ramps to a stop anyway

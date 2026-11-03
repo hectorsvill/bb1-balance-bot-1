@@ -417,6 +417,20 @@ class Bb1MockTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("slowest spin", a["error"])
 
+    def test_5c_move(self):
+        # Exact-distance move (firmware 3.12): lands, reports BB1's own distance and odometry
+        code, a = self.bb1("move", "--mm", "60", "--speed", "1.0", "--max", "1.0")
+        self.assertEqual(code, 0, a)
+        self.assertTrue(a["landed"])
+        self.assertEqual(a["asked"], {"mm": 60.0, "speed": 1.0})
+        self.assertIn("odom", a["state"])
+        code, a = self.bb1("move", "--mm", "900", "--speed", "2", "--max", "1.0", "--max-mm", "40")
+        self.assertEqual(code, 0, a)
+        self.assertEqual(a["asked"], {"mm": 40.0, "speed": 1.0})
+        self.assertEqual(len(a["cut"]), 2, a["cut"])
+        code, a = self.bb1("move", "--mm", "5")
+        self.assertEqual(code, 1)
+
     def test_6_stop_and_disarm(self):
         code, a = self.bb1("stop")
         self.assertEqual((code, a), (0, {"ok": True, "stopped": True}))
@@ -489,7 +503,7 @@ class SessionLogTest(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_MCP, "the mcp package isn't installed (needs Python 3.10+)")
 class McpTest(unittest.TestCase):
-    TOOLS = {"bb1_api", "bb1_state", "bb1_arm", "bb1_drive", "bb1_spin", "bb1_stop", "bb1_disarm", "bb1_log",
+    TOOLS = {"bb1_api", "bb1_state", "bb1_arm", "bb1_drive", "bb1_spin", "bb1_move", "bb1_stop", "bb1_disarm", "bb1_log",
              "logs_schema", "logs_runs", "logs_show", "logs_ticks", "logs_sql"}
 
     @classmethod

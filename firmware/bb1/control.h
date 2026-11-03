@@ -25,6 +25,7 @@
 #include "pid.h"
 #include "telemetry.h"
 #include "drive.h"
+#include "odom.h"
 
 // Why the robot last disarmed, or why an arm request was refused.
 enum Reason : uint8_t {
@@ -97,6 +98,7 @@ void balanceDisarm(uint8_t reason) {
   balance.pid.reset();
   driveUntilMs = 0;                             // a drive command never outlives the arm
   spinUntilMs = 0;                              // nor does a spin
+  moveUntilMs = 0;                              // or a move
   driveReset();
   balance.stepUntilMs = 0;
   stepActive = false;
@@ -126,6 +128,7 @@ void balanceArm(float pitch, bool motorTestOn) {
   balance.newArm = true;                        // balanceTick() records the encoders on the next tick
   driveUntilMs = 0;                             // start standing still, whatever was asked before
   spinUntilMs = 0;
+  moveUntilMs = 0;
   driveReset();
   armedSinceMs = balance.armedAtMs;
   robotArmed = true;
@@ -164,11 +167,12 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     float speed = (r.speed_l + r.speed_r) / 2.0f;                       // counts/s, forward +
     balance.speedFiltered += SPEED_FILTER * (speed - balance.speedFiltered);
     int32_t encNow = (r.enc_l + r.enc_r) / 2;
-    if (balance.newArm) { balance.encAtArm = encNow; balance.diffAtArm = r.enc_r - r.enc_l; balance.newArm = false; }
+    if (balance.newArm) { balance.encAtArm = encNow; balance.diffAtArm = r.enc_r - r.enc_l; balance.newArm = false; odomReset(a.yaw); }
     float turnsPerSec = balance.speedFiltered / COUNTS_PER_REV;
     float turns       = (float)(encNow - balance.encAtArm) / COUNTS_PER_REV;
     float diffTurns   = (float)((r.enc_r - r.enc_l) - balance.diffAtArm) / COUNTS_PER_REV;
-    driveUpdate(dt, turns, diffTurns, balance.outSaturated, a.yawRate);
+    driveUpdate(dt, turns, diffTurns, balance.outSaturated, a.yawRate, turnsPerSec);
+    odomUpdate(turns, a.yaw);                                          // where it is since arming (odom.h)
     // Encoder fault detector (config.h): going straight, both wheels should
     // read about the same. One near 0 while the other spins = not counting.
     float fastSide = max(abs(r.speed_l), abs(r.speed_r)), slowSide = min(abs(r.speed_l), abs(r.speed_r));
@@ -178,6 +182,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
       encoderFault = abs(r.speed_l) < abs(r.speed_r) ? 1 : 2;            // sticky until the next arm
       driveUntilMs = 0;   // also end the command already running (up to 3 s): ramp to a stop now
       spinUntilMs = 0;    // and a spin: it steers with the encoders too
+      moveUntilMs = 0;    // and a move: it measures with them
     }
     if (encoderFault) r.flags |= FLAG_ENC_FAULT;
     if (drive.stopping) r.flags |= FLAG_DRIVE_STOPPING;
@@ -185,7 +190,14 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
                   "drive_speed/drive_turn are int8 in 1/DRIVE_LOG_STEPS (turn: 1/DRIVE_TURN_LOG_STEPS) turns/s: widen them before raising the limits");
     r.drive_speed = driveLogValue(drive.wantSpeed);   // log the operator's command (the ramped target follows from it and the # drive_ settings)
     r.drive_turn  = driveTurnLogValue(drive.wantTurn);
-    r.spin_left_x10 = (int16_t)constrain(lroundf(spinLeftNow * 10), -32000L, 32000L);   // deg still to turn, x10 (log format 14)
+    // One int16 for whichever target is running (log format 15): a spin's deg x10,
+    // or a move's mm with FLAG_MOVE set (the CSV splits them into spin_left / move_left).
+    if (drive.moveOn) {
+      r.spin_left_x10 = (int16_t)constrain(lroundf(moveLeftNow), -32000L, 32000L);
+      r.flags |= FLAG_MOVE;
+    } else {
+      r.spin_left_x10 = (int16_t)constrain(lroundf(spinLeftNow * 10), -32000L, 32000L);   // deg still to turn, x10 (log format 14)
+    }
     // Faster than asked -> lean back (negative); slower -> lean forward.
     // Drive speed I (sdi, config.h): while driving, keep adding lean for as
     // long as BB1 is slower than asked (less when faster). After a stop it

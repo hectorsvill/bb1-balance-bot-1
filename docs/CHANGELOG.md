@@ -2,6 +2,17 @@
 
 Newest first.
 
+## 2026-11-03 - Odometry, exact-distance moves, spins hold position (firmware 3.12, not flashed yet)
+
+- **Why (run 198, the agent's square):** a timed `drive` is not a distance (the same 2 s at 0.3 moved 2.5-11 cm), the agent had to do its own dead reckoning, nothing under about 3 cm could be moved, and each 90 deg spin rolled BB1 forward 1.4-5.5 cm
+- **Odometry (`odom.h`):** every armed tick, the wheels' travel (`MM_PER_TURN` 177.8) in the gyro heading's direction adds to x (forward from where it armed) and y (right). `/state` `odom` {`x_mm`, `y_mm`, `heading_deg`}; reset at every arm
+- **`POST /move dist_mm speed`** (10-1500 mm, 0.05-1.0 turns/s, default 0.3), serial `move MM [SPEED]`, page **Move** buttons (10 cm back, 10 / 30 cm forward) and an odometry line. `drive.h` `moveUpdate()`: brakes when the distance left equals the stopping distance (wheel speed x (speed target / stop rate) / 2), then a settle for up to 1 s (speed = 1.0 x wheel turns off, at most 0.15, done within 5 mm and under 0.05 turns/s). `/drive`, `/spin`, `/move` each cancel the others; stops, disarms and encoder faults end it
+- **Spins hold position:** the spin settle also pulls BB1 back to where the spin started (same P on the wheel position)
+- **Log format 15:** `move_left` (mm) shares the int16 with `spin_left` (flag 128 = a move is running; the CSV writes both columns), so the record stays 72 bytes. Header line `# mm_per_turn,...`. `/state` answer buffer 1728 bytes (about 1600 at the widest)
+- `GET /api` version 11 (`/move` row, `move_*` and `mm_per_turn` limits); `docs/AGENT.md` version line 11, `move` allowed, `odom` replaces hand dead reckoning; API.md, CALIBRATION_AND_LOGS.md, TOOLS.md, WEB_INTERFACE.md, firmware README
+- **Tools:** `bb1.py move --mm N` (speed capped at `--max`, distance at `--max-mm` <= 500; the landing wait shared with `spin`), state summary `odom`; MCP `bb1_move(mm)`; `drive_test.py move-30`, `move-60` with an encoder distance report; mock `/move` and odometry (api 11, format 15); `runs_db.py` `move_left` (`SCHEMA_VERSION` 6)
+- Firmware 3.12: 564,292 B flash (+5.5 KB vs 3.11), 218,152 B static RAM (+88)
+
 ## 2026-11-03 - First agent run with spins (run 198); AGENT.md fixes
 
 - A fresh Claude Code agent drove BB1 from `docs/AGENT.md` alone (the `AGENT_PROMPT.md` prompt, caps 0.3 / 0.4 / 3 s, Hector watching, wood, 3 ft box): a square of 4 drives and 4 `bb1.py spin --deg 90`. It closed the square within about 2 cm of the start, heading +0.7 deg, 11 commands all ok, never disarmed. Spins: +0.9 to +2.3 deg off

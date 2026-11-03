@@ -5,7 +5,7 @@ Everything the web pages do goes through this API, so anything else (curl, a Pyt
 - **Address:** `http://bb1.local` on the home network, or `http://192.168.42.1` on BB1's own network "BB1". (Some computers don't resolve `bb1.local`; use the IP from `wifi` on serial or the page's status bar.)
 - **Style:** plain HTTP. `GET` reads, `POST` does something. Arguments go in the query string or as a form body (`-d name=value`), never JSON. No login: anyone on the same network can drive BB1.
 - **One at a time:** the Pico serves one request at a time and closes each connection after answering. Keep requests short and don't open many in parallel. About 20 `/state` a second plus 10 `/drive` a second is what the page uses.
-- **Answers:** `/api`, `/state`, `/sys`, `/wifi` (GET), `/drive` and `/spin` answer JSON. Older actions answer one line of plain text meant for a person. Errors use the status code: `400` bad argument, `409` not allowed right now (the text says why), `404` unknown path.
+- **Answers:** `/api`, `/state`, `/sys`, `/wifi` (GET), `/drive`, `/spin` and `/move` answer JSON. Older actions answer one line of plain text meant for a person. Errors use the status code: `400` bad argument, `409` not allowed right now (the text says why), `404` unknown path.
 - **Units:** degrees, deg/s, PWM (-255..255, forward +), wheel turns per second (520 encoder counts = 1 turn, assumed). Forward and turn right are positive.
 
 ## Every endpoint with curl
@@ -40,6 +40,7 @@ curl -X POST $B/drive -d speed=-0.3 -d turn=-0.2  # back and left, 500 ms (the d
 curl -X POST $B/drive/stop                        # ramp to a stop, keep balancing (also ends a spin)
 curl -X POST $B/spin -d deg=90                    # turn 90 deg right on the spot, counted by the gyro
 curl -X POST $B/spin -d deg=-360 -d rate=4        # a full spin left, faster
+curl -X POST $B/move -d dist_mm=100               # drive exactly 10 cm forward and stop there
 
 # Settings
 curl -X POST $B/gains -d sdi=2 -d dff=25          # change any of kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax aff dacc lmax tl (RAM only)
@@ -98,7 +99,22 @@ Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are b
 
 ### `POST /drive/stop`
 
-Ramp to a stop now and keep balancing. Always allowed. Also ends an exact-angle spin. Answers `{"ok":true,"speed":0,"turn":0,"ms":0}`.
+Ramp to a stop now and keep balancing. Always allowed. Also ends an exact-angle spin or an exact-distance move. Answers `{"ok":true,"speed":0,"turn":0,"ms":0}`.
+
+### `POST /move` (firmware 3.12)
+
+Drive straight by a distance and stop there. BB1 counts the distance with its wheels and plans the stop by itself, so one request is enough. Same checks as `/drive`.
+
+| Arg | Unit | Default | Limits | Sign |
+|---|---|---|---|---|
+| `dist_mm` | mm of wheel travel | required | at least 10 either way, at most ±1500 (`MOVE_MIN_MM`, `MOVE_MAX_MM`) | forward +, back - |
+| `speed` | wheel turns/s | 0.3 (53 mm/s) | 0.05 to 1.0 (`MOVE_MAX_SPEED`) | none (the sign of `dist_mm` sets the way) |
+
+Answers `{"ok":true,"dist_mm":100,"speed":0.30,"timeout_ms":5747}`. `/state` `drive.move_left_mm` counts down to 0; 0 again = it has landed. A `/drive`, `/spin`, `/drive/stop`, a disarm, an encoder fault or the timeout (twice the planned time + 2 s) ends it early.
+
+How it lands (`drive.h` `moveUpdate()`): the speed target ramps down at the stop rate (the larger of `dacc` and 3 turns/s per second), so from wheel speed v it rolls about v x (target / rate) / 2 more after braking starts; it brakes the first tick that is all that's left. Then a settle like the spin's: for up to 1 s, a speed target of 1.0 x (wheel turns off), at most 0.15 turns/s, until it is within 5 mm and slower than 0.05 turns/s (`MOVE_SETTLE_*` in `config.h`). 177.8 mm per wheel turn (`MM_PER_TURN`, measured) and 520 counts per turn (assumed). Logged: `move_left` (log format 15).
+
+Since 3.12 the spin's settle also pulls BB1 back to where the spin started (same P on the wheel position): spins used to roll it forward 1.4-5.5 cm per 90 deg (run 198).
 
 ### `POST /spin` (firmware 3.10)
 
@@ -141,6 +157,7 @@ The newest values, as one JSON object. The page asks about 20 times a second. As
 | `mode` | 0 boot, 1 calibrating, 2 running (motors off), 3 motor test, 4 armed (balancing), 5 fallen |
 | `flag_bits` | 1 IMU error, 2 loop overran, 4 no gyro calibration yet, 8 PID at the PWM cap, 16 drive command ran out (stopping), 32 encoder fault, 64 I term draining after a drive (`irelax`) |
 | `trim_learned` | deg trim learn (`tl`) adds to the setpoint now (+ = forward), ±3 at most; kept across drives, stops and arms, 0 after a restart or `tl=0` (firmware 3.5) |
+| `odom` | `x_mm`, `y_mm`, `heading_deg`: where BB1 is since it last armed (firmware 3.12, `odom.h`): x forward from where it armed, y to the right, heading from the gyro (right +). Every tick it adds the wheels' travel (mm) in the gyro's direction. Starts at 0 at each arm; nothing is counted while disarmed. A few cm of error over a few meters on wood |
 | `yaw_deg` | heading from the gyro since power-on, deg, right + (firmware 3.11): the body's real rotation, wheel scrub or not. Drifts a few deg a minute (the gyro bias isn't perfect), so subtract two readings close together |
 | `enc_fault` | 0 ok; 1 the left encoder, 2 the right one, is not counting while armed (one wheel reads near 0 while the other spins for 0.3 s). Heading hold is off and `/drive` answers 409 until the next arm. Check that encoder's wires |
 | `pitch`, `accel_pitch`, `pitch_rate` | deg (forward +), deg from the accelerometer only, deg/s |
@@ -149,7 +166,7 @@ The newest values, as one JSON object. The page asks about 20 times a second. As
 | `p`, `i`, `d` | the PID terms right now (PWM) |
 | `enc_l`, `enc_r`, `speed_l`, `speed_r` | encoder counts since boot, wheel speed in counts/s (forward +) |
 | `pwm_l`, `pwm_r` | PWM sent to each motor this tick |
-| `drive` | `speed`, `turn`: the command in force (0 when none); `speed_now`, `turn_now`: the ramped targets BB1 aims for; `left_ms`: time left on the command; `commands`: accepted since boot; `max_speed`, `max_turn`: the limits; `spin_left`: deg an exact-angle spin still has to turn (right +, 0 = none, firmware 3.10) |
+| `drive` | `speed`, `turn`: the command in force (0 when none); `speed_now`, `turn_now`: the ramped targets BB1 aims for; `left_ms`: time left on the command; `commands`: accepted since boot; `max_speed`, `max_turn`: the limits; `spin_left`: deg an exact-angle spin still has to turn (right +, 0 = none, firmware 3.10); `move_left_mm`: mm an exact-distance move still has to go (forward +, 0 = none, firmware 3.12) |
 | `gains` | `ver` (counts every change), `kp`, `ki`, `kd`, `trim`, `cap`, `deadband`, `sp`, `si`, `th`, `auto`, `dff` (drive feedforward), `sdi` (drive speed I), `smode` (speed loop mode), `wsp`, `wsi` (wheel speed loop), `irelax` (I-term relax after a drive, s), `aff` (acceleration lean, deg per turn/s²), `dacc` (speed ramp, turns/s²), `lmax` (lean limit while driving, deg), `tl` (trim learn, deg per wheel turn) |
 | `batt_v`, `batt_ok`, `batt_warn_v`, `batt_low_v`, `batt_cells` | whole-pack volts; false = no sense wire; orange and red limits; 2 cells |
 | `test_running`, `tests_done`, `test_moved`, `test_ms` | motor test status and the last result |

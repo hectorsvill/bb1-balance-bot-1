@@ -25,6 +25,7 @@
 //   POST /drive       args speed, turn (wheel turns/s), ms: drive while balancing (drive.h). Lasts 500 ms unless re-sent
 //   POST /drive/stop  stop driving now (keeps balancing); also ends a spin
 //   POST /spin        args deg (right +), rate (turn units): turn on the spot by an angle (drive.h)
+//   POST /move        args dist_mm (forward +), speed (wheel turns/s): drive straight by a distance (drive.h)
 //   POST /update      new firmware over Wi-Fi (ota.h): lying down and disarmed only, password from secrets.h
 //
 // docs/API.md is the full reference (arguments, answers, units, safety rules).
@@ -77,9 +78,10 @@ void handleState() {
   // On core 0's small stack (4 KB), so sized to fit, not generous: with every
   // number and text at its widest the answer is about 1470 bytes (estimated
   // 2026-10-29: 1440 with aff/dacc/lmax, + 31 for trim_learned and tl;
-  // was 1390 before aff, with 1400 here; + 20 for spin_left, + 20 for yaw_deg, 2026-11-03).
+  // was 1390 before aff, with 1400 here; + 20 for spin_left, + 20 for yaw_deg, + 90 for move_left_mm
+  // and odom, 2026-11-03: about 1600).
   // snprintf cuts it off rather than overflow, but cut JSON won't parse.
-  char json[1600];
+  char json[1728];
   snprintf(json, sizeof(json),
            "{\"have\":%s,\"tick\":%lu,\"t_us\":%lu,\"mode\":%u,\"flag_bits\":%u,"
            "\"pitch\":%.2f,\"accel_pitch\":%.2f,\"pitch_rate\":%.2f,\"work_us\":%u,"
@@ -89,7 +91,8 @@ void handleState() {
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
            "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"step\":%s,\"auto_state\":\"%s\",\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
            "\"enc_fault\":%u,\"trim_learned\":%.2f,\"yaw_deg\":%.1f,"
-           "\"drive\":{\"speed\":%.2f,\"turn\":%.2f,\"speed_now\":%.2f,\"turn_now\":%.2f,\"left_ms\":%ld,\"commands\":%lu,\"max_speed\":%.2f,\"max_turn\":%.2f,\"spin_left\":%.1f},"
+           "\"drive\":{\"speed\":%.2f,\"turn\":%.2f,\"speed_now\":%.2f,\"turn_now\":%.2f,\"left_ms\":%ld,\"commands\":%lu,\"max_speed\":%.2f,\"max_turn\":%.2f,\"spin_left\":%.1f,\"move_left_mm\":%.0f},"
+           "\"odom\":{\"x_mm\":%.0f,\"y_mm\":%.0f,\"heading_deg\":%.1f},"
            "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,\"batt_cells\":%d,"
            "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f,\"sdi\":%.2f,\"smode\":%d,\"wsp\":%.1f,\"wsi\":%.1f,\"irelax\":%.2f,\"aff\":%.2f,\"dacc\":%.2f,\"lmax\":%.1f,\"tl\":%.2f}}",
            have ? "true" : "false",
@@ -110,7 +113,8 @@ void handleState() {
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
            encoderFault, trimLearnedNow, yawDegNow,
            driveLeftMs > 0 ? driveSpeedCmd : 0.0, driveLeftMs > 0 ? driveTurnCmd : 0.0, driveSpeedNow, driveTurnNow, driveLeftMs,
-           (unsigned long)driveCommands, DRIVE_MAX_SPEED, DRIVE_MAX_TURN, spinLeftNow,
+           (unsigned long)driveCommands, DRIVE_MAX_SPEED, DRIVE_MAX_TURN, spinLeftNow, moveLeftNow,
+           odomXNow, odomYNow, odomHeadingNow,
            batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V, BATTERY_CELLS,
            (unsigned long)gainsVersion, gainP, gainI, gainD, balanceTrim, pwmCap, motorDeadband, gainSpeedP, gainSpeedI, gainTurnHold, (int)autoArm, gainDriveFF, gainDriveSpeedI, (int)speedMode, gainWheelSpeedP, gainWheelSpeedI, gainIRelax, gainAccelFF, driveAccelRate, driveLeanMax, gainTrimLearn);
   server.send(200, "application/json", json);
@@ -351,10 +355,41 @@ void handleSpin() {
   server.send(200, "application/json", json);
 }
 
+// POST /move dist_mm=100 speed=0.3 -> drive straight by that many mm (forward +)
+// and land on it (drive.h moveUpdate). Same checks as /drive. The answer comes
+// at once; /state drive.move_left_mm counts down to 0 as it goes.
+void handleMove() {
+  if (!robotArmed) {
+    server.send(409, "application/json", "{\"ok\":false,\"error\":\"not balancing: arm first (POST /arm)\"}");
+    return;
+  }
+  if (encoderFault) {
+    server.send(409, "application/json", "{\"ok\":false,\"error\":\"encoder fault: a wheel is not counting, check its wires (see /state enc_fault)\"}");
+    return;
+  }
+  if (!server.hasArg("dist_mm")) {
+    server.send(400, "application/json", "{\"ok\":false,\"error\":\"need dist_mm (forward +, back -)\"}");
+    return;
+  }
+  float mm    = server.arg("dist_mm").toFloat();
+  float speed = server.hasArg("speed") ? server.arg("speed").toFloat() : MOVE_DEFAULT_SPEED;
+  unsigned long ms = moveCommand(mm, speed);    // clamps, then hands it to core 1 (drive.h)
+  if (!ms) {
+    char err[120];
+    snprintf(err, sizeof(err), "{\"ok\":false,\"error\":\"dist_mm must be a number, at least %.0f either way\"}", MOVE_MIN_MM);
+    server.send(400, "application/json", err);
+    return;
+  }
+  char json[120];
+  snprintf(json, sizeof(json), "{\"ok\":true,\"dist_mm\":%.0f,\"speed\":%.2f,\"timeout_ms\":%lu}", mm, speed, ms);
+  server.send(200, "application/json", json);
+}
+
 // POST /drive/stop -> ramp to a stop now and keep balancing. Always allowed.
 void handleDriveStop() {
   driveUntilMs = 0;
   spinUntilMs = 0;                             // stops a spin too
+  moveUntilMs = 0;                             // and a move
   server.send(200, "application/json", "{\"ok\":true,\"speed\":0,\"turn\":0,\"ms\":0}");
 }
 
@@ -435,6 +470,7 @@ void webBegin() {
   route("/drive", HTTP_POST, handleDrive);
   route("/drive/stop", HTTP_POST, handleDriveStop);
   route("/spin", HTTP_POST, handleSpin);
+  route("/move", HTTP_POST, handleMove);
   // Not through route(): an upload needs a second handler for the file's pieces,
   // and handleUpdateDone() closes the connection itself.
   server.on("/update", HTTP_POST, handleUpdateDone, handleUpdateUpload);

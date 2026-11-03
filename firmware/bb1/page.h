@@ -240,7 +240,15 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
             <button onclick="spin(360)">360 &#8635;</button>
             <label class="small">rate <input type="number" id="spinRate" min="0.5" max="5" step="0.5" value="2" style="width:4em"></label>
           </div>
+          <!-- Exact-distance moves (firmware 3.12): POST /move, counted by the wheels. -->
+          <div class="row" style="margin-top:6px">
+            <span class="name">Move</span>
+            <button onclick="move(-100)">&#9660; 10 cm</button>
+            <button onclick="move(100)">&#9650; 10 cm</button>
+            <button onclick="move(300)">&#9650; 30 cm</button>
+          </div>
           <div class="small muted" id="spinLeft"></div>
+          <div class="small muted" id="odomShow"></div>
           <div class="keys" id="h-keys">Keys: <b>&#8593;</b><b>&#8595;</b><b>&#8592;</b><b>&#8594;</b> or <b>W</b><b>A</b><b>S</b><b>D</b> while held. <b>Space</b> = STOP.</div>
         </div>
       </div>
@@ -756,6 +764,18 @@ async function spin(deg) {
   }
 }
 
+// Exact-distance move: mm forward +. BB1 plans the stop and lands on it by itself.
+async function move(mm) {
+  if (!driveArmed) { el('driveMsg').textContent = 'Arm first: a move works only while BB1 balances.'; return; }
+  try {
+    const res = await fetch('/move', { method: 'POST', body: new URLSearchParams({ dist_mm: mm }) });
+    const j = await res.json();
+    el('driveMsg').textContent = j.ok ? 'moving ' + j.dist_mm + ' mm' : j.error;
+  } catch (e) {
+    el('driveMsg').textContent = 'no answer from the robot';
+  }
+}
+
 // From poll(): what BB1 reports.
 function showDrive(s) {
   driveArmed = s.armed && !s.enc_fault;
@@ -769,7 +789,11 @@ function showDrive(s) {
   el('driveAsk').innerHTML = ask.speed.toFixed(2) + ' / ' + ask.turn.toFixed(2) + ' <small>turns/s</small>';
   el('driveNow').innerHTML = d.speed_now.toFixed(2) + ' / ' + d.turn_now.toFixed(2);
   el('driveWheels').innerHTML = ((s.speed_l + s.speed_r) / 2 / 520).toFixed(2) + ' <small>turns/s</small>';
-  el('spinLeft').textContent = d.spin_left ? 'spin: ' + d.spin_left.toFixed(0) + ' deg to go' : '';
+  el('spinLeft').textContent = d.spin_left ? 'spin: ' + d.spin_left.toFixed(0) + ' deg to go'
+                             : d.move_left_mm ? 'move: ' + d.move_left_mm.toFixed(0) + ' mm to go' : '';
+  const o = s.odom;   // where it is since it armed (odom.h): x forward, y right
+  el('odomShow').textContent = o && s.armed ? 'since arming: ' + (o.x_mm / 10).toFixed(1) + ' cm forward, ' +
+      (o.y_mm / 10).toFixed(1) + ' cm right, heading ' + o.heading_deg.toFixed(0) + ' deg' : '';
 }
 
 // ---------- pulling log records ----------

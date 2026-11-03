@@ -78,6 +78,14 @@ volatile uint32_t spinUntilMs  = 0;          // millis() when the spin gives up 
 volatile uint32_t spinStarts   = 0;          // counts every accepted /spin
 volatile float    spinLeftNow  = 0;          // deg still to turn (core 1 writes; 0 = not spinning), for /state
 volatile float    yawDegNow    = 0;          // gyro heading since power-on, deg, right + (core 1 writes), for /state
+// Exact-distance move (firmware 3.12, drive.h): same handshake as the spin.
+volatile float    moveMmCmd    = 0;          // mm to drive, forward +
+volatile float    moveSpeedCmd = 0;          // wheel turns/s, > 0
+volatile uint32_t moveUntilMs  = 0;          // timeout; 0 = cancelled
+volatile uint32_t moveStarts   = 0;          // counts every accepted /move
+volatile float    moveLeftNow  = 0;          // mm still to go (core 1 writes; 0 = no move), for /state
+// Odometry (odom.h): where BB1 is since it last armed. x forward, y right, mm; heading deg, right +.
+volatile float    odomXNow = 0, odomYNow = 0, odomHeadingNow = 0;
 // What core 1 is actually doing (after the ramp), for /state
 volatile float    driveSpeedNow = 0;
 volatile float    driveTurnNow  = 0;

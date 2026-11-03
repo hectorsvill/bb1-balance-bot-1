@@ -33,6 +33,7 @@ const uint8_t FLAG_SATURATED = 1 << 3;   // armed and the motor PWM hit the cap 
 const uint8_t FLAG_DRIVE_STOPPING = 1 << 4;   // a drive command ran out or was stopped: ramping to a stop (drive.h)
 const uint8_t FLAG_ENC_FAULT = 1 << 5;   // an encoder isn't counting (control.h): heading hold off, driving refused
 const uint8_t FLAG_I_RELAX   = 1 << 6;   // the angle I term is being drained after a drive (irelax, control.h)
+const uint8_t FLAG_MOVE      = 1 << 7;   // an exact-distance move is running: spin_left_x10 holds its mm still to go (log format 15)
 
 // What the ring buffer stores for one control tick: 72 bytes (since firmware 3.3);
 // 2000 of them (10 s) use 144,000 bytes of the 264 KB RAM, more than half of it.
@@ -50,7 +51,9 @@ struct LogData {
   // end, on purpose: raw[] ends 2 bytes before the next float, and the compiler
   // left those 2 bytes empty (padding). This field fills them, so the record
   // stays 72 bytes; at the end it would have cost 8 KB of RAM (static_assert below).
-  int16_t  spin_left_x10; // deg still to turn in an exact-angle spin, x10, right + (0 = no spin; drive.h)
+  int16_t  spin_left_x10; // deg still to turn in an exact-angle spin, x10, right + (0 = no spin; drive.h).
+                          // Since log format 15: with FLAG_MOVE set it is a move's mm still to go instead
+                          // (only one runs at a time; the CSV writes them as spin_left and move_left)
   float    pitch;         // deg, filtered, forward +
   float    pitch_rate;    // deg/s, bias-corrected, forward +
   float    accel_pitch;   // deg, accelerometer only
@@ -179,7 +182,7 @@ uint32_t logOldest() {
 
 const char *CSV_HEADER =
   "tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm,spin_left";
+  "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm,spin_left,move_left";
 
 void csvHeader(Print &p) {
   p.println(CSV_HEADER);
@@ -191,13 +194,14 @@ const int CSV_LINE_MAX = 320;
 
 // Write one record as a CSV line (with "\n") into buf. Returns the length.
 int formatCsv(char *buf, size_t size, const LogRecord &r) {
-  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u,%.2f,%u,%.3f,%.3f,%.3f,%.3f,%d,%.1f\n",
+  return snprintf(buf, size, "%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%ld,%ld,%d,%d,%d,%d,%.2f,%.1f,%.1f,%.1f,%u,%u,%u,%.2f,%u,%.3f,%.3f,%.3f,%.3f,%d,%.1f,%d\n",
                   (unsigned long)r.tick, (unsigned long)r.t_us, r.work_us, r.mode, r.flags,
                   r.raw[0], r.raw[1], r.raw[2], r.raw[3], r.raw[4], r.raw[5], r.raw[6],
                   r.pitch, r.pitch_rate, r.accel_pitch,
                   (long)r.enc_l, (long)r.enc_r, r.speed_l, r.speed_r, r.pwm_l, r.pwm_r,
                   r.setpoint_cdeg / 100.0, r.p_x10 / 10.0, r.i_x10 / 10.0, r.d_x10 / 10.0, r.gains_ver, r.reason, r.web_age * 10, r.batt_mv / 1000.0, r.auto_state, r.drive_speed / DRIVE_LOG_STEPS, r.drive_turn / DRIVE_TURN_LOG_STEPS,
-                  r.drive_speed_now / DRIVE_LOG_STEPS, r.drive_turn_now / DRIVE_TURN_LOG_STEPS, r.speed_pwm, r.spin_left_x10 / 10.0);
+                  r.drive_speed_now / DRIVE_LOG_STEPS, r.drive_turn_now / DRIVE_TURN_LOG_STEPS, r.speed_pwm,
+                  (r.flags & FLAG_MOVE) ? 0.0 : r.spin_left_x10 / 10.0, (r.flags & FLAG_MOVE) ? r.spin_left_x10 : 0);
 }
 
 void printCsv(Print &p, const LogRecord &r) {

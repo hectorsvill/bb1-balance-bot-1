@@ -13,7 +13,7 @@
 
 // Bump this when the log columns change, so old and new files can be told apart.
 const char *FIRMWARE_NAME = "bb1 milestone 2";
-const int   LOG_FORMAT    = 14;  // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping; 10: speed_l/speed_r really over 10 ticks (before: 3 ticks, read 3.3x low); 11: drive_speed_now, drive_turn_now, speed_pwm; 12: the four drive_ columns stored in 1/40 turns/s (CSV still turns/s, now 3 decimals, up to 3.17), flag 8 also counts PID + drive feedforward hitting the cap; 13: drive_turn and drive_turn_now stored in 1/20 turns/s (CSV still turns/s, up to 6.35) for turn 5.0 spins, deadband added per wheel; 14: spin_left (exact-angle spins, deg still to turn)
+const int   LOG_FORMAT    = 15;  // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping; 10: speed_l/speed_r really over 10 ticks (before: 3 ticks, read 3.3x low); 11: drive_speed_now, drive_turn_now, speed_pwm; 12: the four drive_ columns stored in 1/40 turns/s (CSV still turns/s, now 3 decimals, up to 3.17), flag 8 also counts PID + drive feedforward hitting the cap; 13: drive_turn and drive_turn_now stored in 1/20 turns/s (CSV still turns/s, up to 6.35) for turn 5.0 spins, deadband added per wheel; 14: spin_left (exact-angle spins, deg still to turn); 15: move_left (exact-distance moves, mm still to go; flag 128 = a move is running)
 
 String logMetaLines() {
   String m;
@@ -42,5 +42,9 @@ String logMetaLines() {
        ",spin_default_rate," + String(SPIN_DEFAULT_RATE, 2) + ",gyro_yaw_sign," + String((int)GYRO_YAW_SIGN) +
        ",spin_settle_s," + String(SPIN_SETTLE_S, 2) + ",spin_settle_gain," + String(SPIN_SETTLE_GAIN, 3) + ",spin_settle_max_turn," + String(SPIN_SETTLE_MAX_TURN, 2) +
        ",spin_settle_deg," + String(SPIN_SETTLE_DEG, 1) + ",spin_settle_dps," + String(SPIN_SETTLE_DPS, 0) + "\n";
+  m += "# mm_per_turn," + String(MM_PER_TURN, 1) + ",move_max_mm," + String((int)MOVE_MAX_MM) + ",move_min_mm," + String((int)MOVE_MIN_MM) +
+       ",move_default_speed," + String(MOVE_DEFAULT_SPEED, 2) + ",move_max_speed," + String(MOVE_MAX_SPEED, 2) +
+       ",move_settle_s," + String(MOVE_SETTLE_S, 2) + ",move_settle_gain," + String(MOVE_SETTLE_GAIN, 2) +
+       ",move_settle_max_speed," + String(MOVE_SETTLE_MAX_SPEED, 2) + ",move_settle_mm," + String((int)MOVE_SETTLE_MM) + "\n";
   return m;
 }

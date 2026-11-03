@@ -298,6 +298,7 @@ void printHelp() {
                  "), T turn (right +, max " + String(DRIVE_MAX_TURN, 1) + ") for ms (default " + String(DRIVE_HOLD_MS) + ", max " + String(DRIVE_HOLD_MAX_MS) + ")");
   Serial.println("            e.g. drive 0.5 0 2000 = forward half a wheel turn/s for 2 s;  drive stop (or ds) = stop driving");
   Serial.println("  spin DEG [RATE]  turn on the spot by an angle, right + (gyro-counted), e.g. spin 90, spin -360 3; ds stops it");
+  Serial.println("  move MM [SPEED]  drive straight by a distance, forward +, e.g. move 100, move -200 0.5; ds stops it");
   Serial.println("  step      step test: setpoint +" + String(STEP_TEST_DEG, 1) + " deg for " + String(STEP_TEST_MS) + " ms (armed only)");
   Serial.println("  help      this list");
 }
@@ -409,6 +410,24 @@ void handleCommand(String cmd) {
   } else if (cmd == "drive stop" || cmd == "ds") {
     driveUntilMs = 0;
     spinUntilMs = 0;
+    moveUntilMs = 0;
+  } else if (cmd.startsWith("move ")) {
+    // move MM [SPEED]: same as POST /move (drive.h). e.g. "move 100" or "move -200 0.5"
+    String a = cmd.substring(5);
+    a.trim();
+    float mm = a.toFloat();
+    float speed = MOVE_DEFAULT_SPEED;
+    int sp1 = a.indexOf(' ');
+    if (sp1 > 0) speed = a.substring(sp1 + 1).toFloat();
+    if (!robotArmed) {
+      Serial.println("arm first: a move drives BB1 while it balances");
+    } else if (encoderFault) {
+      Serial.println("encoder fault: a wheel is not counting, check its wires");
+    } else {
+      unsigned long ms = moveCommand(mm, speed);   // same clamps as POST /move
+      if (!ms) Serial.println("move: mm must be a number, at least " + String((int)MOVE_MIN_MM) + " (forward +, back -)");
+      else     Serial.println("moving " + String(mm, 0) + " mm at " + String(speed, 2) + " turns/s (gives up after " + String(ms) + " ms)");
+    }
   } else if (cmd.startsWith("spin ")) {
     // spin DEG [RATE]: same as POST /spin (drive.h). e.g. "spin 90" or "spin -360 3"
     String a = cmd.substring(5);

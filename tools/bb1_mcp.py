@@ -94,7 +94,8 @@ def make_server(host, max_speed=0.3, max_turn=0.4, max_for=3.0, db=None):
         """What BB1 is doing now: armed, reason (why it last stopped or refused), auto_state,
         pitch_deg, speed (wheel turns/s), position_turns (since power-on: subtract two readings),
         drive, enc_fault (0 = ok), batt_v_per_cell, yaw_deg (gyro heading since power-on, right +:
-        subtract two readings). full=true returns every /state field."""
+        subtract two readings), odom (x_mm forward, y_mm right, heading_deg since it armed).
+        full=true returns every /state field."""
         return robot("state", *(["--full"] if full else []))
 
     @server.tool(annotations=MOVES, structured_output=True)
@@ -124,6 +125,14 @@ def make_server(host, max_speed=0.3, max_turn=0.4, max_for=3.0, db=None):
         f"count), error_deg, landed, cut and state. Refused unless armed with no encoder fault."))
     def bb1_spin(deg: float) -> dict[str, Any]:
         return robot("spin", "--deg", repr(float(deg)), "--max-turn", repr(max_turn))
+
+    @server.tool(annotations=MOVES, structured_output=True, description=(
+        f"Drive straight by a distance while balancing (firmware 3.12): mm, forward +, at most 500. "
+        f"BB1 plans the stop and lands on it by itself; the speed is capped at {max_speed:g} wheel "
+        f"turns/s. Blocks until it has landed. Read moved_mm (BB1's own count), error_mm, landed, cut "
+        f"and state (odom: x_mm, y_mm, heading_deg since it armed). Refused unless armed with no encoder fault."))
+    def bb1_move(mm: float) -> dict[str, Any]:
+        return robot("move", "--mm", repr(float(mm)), "--max", repr(max_speed))
 
     @server.tool(annotations=MOVES, structured_output=True)
     def bb1_stop() -> dict[str, Any]:

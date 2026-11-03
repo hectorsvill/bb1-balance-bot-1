@@ -10,7 +10,8 @@
 //                     3.8 Wi-Fi settings refused while armed,
 //                     3.9 I2C bus clear + IMU retries at startup,
 //                     3.10 exact-angle spins: POST /spin, gyro-counted,
-//                     3.11 spin settle, /state yaw_deg, spin min rate 0.3).
+//                     3.11 spin settle, /state yaw_deg, spin min rate 0.3,
+//                     3.12 odometry, POST /move, spins hold position).
 //                     The CHANGELOG entry for that change names the version.
 //   BB1_BUILD_ID      written by tools/flash.py into build_id.h (gitignored)
 //                     just before each compile: git commit, "+" if there were
@@ -24,7 +25,7 @@
 
 #pragma once
 
-const char *FIRMWARE_VERSION = "3.11";
+const char *FIRMWARE_VERSION = "3.12";
 
 #if __has_include("build_id.h")
 #include "build_id.h"
