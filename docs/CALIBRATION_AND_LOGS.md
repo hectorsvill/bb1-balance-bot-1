@@ -184,6 +184,8 @@ Since step 4 the top lines come from `log_meta.h`:
 
 `logger.py` and `handheld.py` add `# gains_vN,...` (one per gains version used), `# surface,...`, `# note,...`, `# recorded_at,...` and `# records,...`. `drive_test.py` also adds one `# step,name,speed,turn,from_tick,to_tick` line per step (what was asked, and when) and `# drive_test,<test>,<how it ended>`; `dataset.py` turns the step lines into a `step` column.
 
+Since firmware 3.9 the header also has `# imu_start,tries,N,bus_pulses,M`: how many times startup asked the IMU "who are you?" (1 = found first time) and how many SCL pulses it took to free a stuck I2C bus (0 = the bus was fine). Anything above 1 / 0 means a restart caught the IMU mid-read (`imu.h`).
+
 `log_format` goes up whenever the columns change. Files whose firmware says `MOCK` came from the offline mock: made-up data, keep them out of any analysis or training set.
 
 ### Columns
