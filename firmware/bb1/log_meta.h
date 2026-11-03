@@ -38,7 +38,7 @@ String logMetaLines() {
        ",speed_shift_max," + String(SPEED_SHIFT_MAX, 1) + ",lean_limit_ease_dps," + String(LEAN_LIMIT_EASE_DPS, 1) +
        ",drive_pwm_reserve," + String(DRIVE_PWM_RESERVE, 0) + ",drive_sat_backoff_s," + String(DRIVE_SAT_BACKOFF_S, 2) +
        ",drive_stop_accel_min," + String(DRIVE_STOP_ACCEL_MIN, 2) + ",lift_tps," + String(LIFT_TURNS_PER_SEC, 1) + ",lift_ms," + String(LIFT_MS) + "\n";
-  m += "# spin_max_deg," + String(SPIN_MAX_DEG, 0) + ",spin_min_deg," + String(SPIN_MIN_DEG, 0) + ",spin_min_rate," + String(SPIN_MIN_RATE, 2) +
+  m += "# spin_max_deg," + String((int)SPIN_MAX_DEG) + ",spin_min_deg," + String((int)SPIN_MIN_DEG) + ",spin_min_rate," + String(SPIN_MIN_RATE, 2) +
        ",spin_default_rate," + String(SPIN_DEFAULT_RATE, 2) + ",gyro_yaw_sign," + String((int)GYRO_YAW_SIGN) + "\n";
   return m;
 }
