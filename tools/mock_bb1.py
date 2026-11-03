@@ -60,19 +60,28 @@ arm_until = None                  # tick the arm timer ends at, or None
 drive = {"speed": 0.0, "turn": 0.0, "until": 0.0, "commands": 0}   # like driveSpeedCmd / driveTurnCmd / driveUntilMs (time.time())
 # Exact-angle spin (drive.h, firmware 3.10). Mock: the angle counts down at the
 # rate x SPIN_DEG_PER_TURN deg/s, no ramp; /drive, /drive/stop and disarm end it.
-SPIN_MAX_DEG, SPIN_MIN_DEG, SPIN_MIN_RATE, SPIN_DEFAULT_RATE, SPIN_DEG_PER_TURN = 1080.0, 5.0, 0.5, 2.0, 66.0
+SPIN_MAX_DEG, SPIN_MIN_DEG, SPIN_MIN_RATE, SPIN_DEFAULT_RATE, SPIN_DEG_PER_TURN = 1080.0, 5.0, 0.3, 2.0, 66.0
 spin = {"deg": 0.0, "rate": 0.0, "start": 0.0, "arm": None}
+yaw_base = 0.0      # mock gyro heading (/state yaw_deg, firmware 3.11): finished spins add up here
 
 
 def spin_left():
     """Deg still to turn (right +), 0 when no spin is running."""
+    global yaw_base
     if not spin["deg"] or armed_from is None or spin["arm"] != armed_from:
         return 0.0
     done = spin["rate"] * SPIN_DEG_PER_TURN * (time.time() - spin["start"])
     if done >= abs(spin["deg"]):
+        yaw_base += spin["deg"]
         spin["deg"] = 0.0
         return 0.0
     return math.copysign(abs(spin["deg"]) - done, spin["deg"])
+
+
+def yaw_deg():
+    """Mock heading: finished spins plus how far the running one has got (no drift, /drive turns not modelled)."""
+    left = spin_left()
+    return yaw_base + (spin["deg"] - left if spin["deg"] else 0.0)
 REASONS = {"disarmed by you": 1, "not upright: hold it near the balance point to arm": 6,
            "the page was hidden (tab switched or screen locked)": 10, "arm time finished": 11,
            "picked up (wheels spinning in the air)": 12,
@@ -209,7 +218,7 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
 
 def api_list():
     return {
-        "api": 9, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 14,
+        "api": 10, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 14,
         "units": {"angle": "deg (forward +)", "speed": "wheel turns/s (forward +)",
                   "turn": "wheel turns/s left minus right (right +)", "pwm": "-255..255 (forward +)", "counts_per_rev": 520},
         "limits": {"drive_max_speed": DRIVE_MAX_SPEED, "drive_max_turn": DRIVE_MAX_TURN, "drive_hold_ms": DRIVE_HOLD_MS,
@@ -271,6 +280,7 @@ class Handler(BaseHTTPRequestHandler):
                           "spin_left": round(spin_left(), 1)},
                 "enc_fault": 0,
                 "trim_learned": 0.0 if gains["tl"] <= 0 else 0.42,   # mock: a fixed learned trim (firmware 3.5)
+                "yaw_deg": round(yaw_deg(), 1),
                 "batt_v": mock_battery(r["tick"]), "batt_ok": True, "batt_warn_v": 7.0, "batt_low_v": 6.6, "batt_cells": 2,
             }
             self.reply(json.dumps(state), "application/json")

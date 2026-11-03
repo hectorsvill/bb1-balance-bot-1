@@ -56,6 +56,7 @@ struct Drive {
   // Exact-angle spin (spinUpdate() below)
   bool     spinOn      = false;  // a spin is running (turning or ramping down)
   bool     spinBraking = false;  // the turn target is ramping down to land on the angle
+  float    spinSettle  = -1;     // s left of the settle after landing (-1 = not settling yet)
   float    spinLeft    = 0;      // deg still to turn, right + (counts down by the gyro yaw)
   float    spinTurn    = 0;      // the turn target while spinning, turns/s, right +
   uint32_t spinSeen    = 0;      // the last spinStarts this core acted on
@@ -127,6 +128,7 @@ float spinUpdate(float dt, float yawRate) {
     drive.spinSeen    = spinStarts;
     drive.spinOn      = true;
     drive.spinBraking = false;
+    drive.spinSettle  = -1;
     drive.spinLeft    = spinDegCmd;
     drive.spinTurn    = spinDegCmd > 0 ? spinRateCmd : -spinRateCmd;
   }
@@ -139,9 +141,20 @@ float spinUpdate(float dt, float yawRate) {
   float toGo = drive.spinTurn > 0 ? drive.spinLeft : -drive.spinLeft;   // deg still to go, + = short of it
   float stopDeg = fabsf(yawRate) * (fabsf(drive.turn) / DRIVE_TURN_ACCEL) / 2;
   if (toGo <= stopDeg) drive.spinBraking = true;  // latched: once braking, it never speeds up again
-  if (drive.spinBraking && drive.turn == 0) drive.spinOn = false;   // ramped down: done
+  float turn = drive.spinBraking ? 0 : drive.spinTurn;
+
+  // Settle (firmware 3.11, config.h): the turn target has ramped down, but the
+  // body may still be turning. Steer back by the gyro until it's close and still.
+  if (drive.spinBraking && drive.turn == 0 && drive.spinSettle < 0) drive.spinSettle = SPIN_SETTLE_S;   // just landed
+  if (drive.spinSettle >= 0) {
+    drive.spinSettle -= dt;
+    bool still = fabsf(drive.spinLeft) < SPIN_SETTLE_DEG && fabsf(yawRate) < SPIN_SETTLE_DPS;
+    if (drive.spinSettle <= 0 || still) drive.spinOn = false;          // done (or out of time)
+    else if (fabsf(drive.spinLeft) >= SPIN_SETTLE_DEG)                // + = still short to the right
+      turn = constrain(SPIN_SETTLE_GAIN * drive.spinLeft, -SPIN_SETTLE_MAX_TURN, SPIN_SETTLE_MAX_TURN);
+  }
   spinLeftNow = drive.spinOn ? drive.spinLeft : 0;
-  return drive.spinOn && !drive.spinBraking ? drive.spinTurn : 0;
+  return drive.spinOn ? turn : 0;
 }
 
 // Move x toward target by at most step.

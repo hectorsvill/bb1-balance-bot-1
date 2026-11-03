@@ -77,6 +77,7 @@ volatile float    spinRateCmd  = 0;          // turns/s of wheel difference, > 0
 volatile uint32_t spinUntilMs  = 0;          // millis() when the spin gives up (timeout); 0 = cancelled
 volatile uint32_t spinStarts   = 0;          // counts every accepted /spin
 volatile float    spinLeftNow  = 0;          // deg still to turn (core 1 writes; 0 = not spinning), for /state
+volatile float    yawDegNow    = 0;          // gyro heading since power-on, deg, right + (core 1 writes), for /state
 // What core 1 is actually doing (after the ramp), for /state
 volatile float    driveSpeedNow = 0;
 volatile float    driveTurnNow  = 0;

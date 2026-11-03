@@ -241,7 +241,19 @@ const unsigned long DRIVE_HOLD_MAX_MS = 3000;   // longest a single command may 
 const float GYRO_YAW_SIGN       = -1;     // right turn = gyro z negative (runs 189-190)
 const float SPIN_MAX_DEG        = 1080;   // three full spins at most per command
 const float SPIN_MIN_DEG        = 5;      // smaller than this the stop ramp alone overshoots it
-const float SPIN_MIN_RATE       = 0.5;    // turns/s of wheel difference (same unit as /drive turn)
+const float SPIN_MIN_RATE       = 0.3;    // turns/s of wheel difference (same unit as /drive turn). Was 0.5 in 3.10: AGENT.md's default turn cap is 0.4
+// Settle (firmware 3.11): when the turn target has ramped down, the body still
+// turns on a little (runs 193-194: 0-4 deg, 10 deg on a 90 at turn 4), because
+// the heading hold grabs the wheels wherever they are. For up to SPIN_SETTLE_S
+// after that, a small P correction on the gyro angle still to go turns it back:
+// turn = SPIN_SETTLE_GAIN x deg off, at most SPIN_SETTLE_MAX_TURN. It is done
+// when it's within SPIN_SETTLE_DEG and turning slower than SPIN_SETTLE_DPS.
+// Quad picture: Betaflight's position hold nudging back after a stop.
+const float SPIN_SETTLE_S        = 1.0;    // 0 = off (the 3.10 behavior)
+const float SPIN_SETTLE_GAIN     = 0.02;   // turns/s of turn target per deg off: 10 deg off -> 0.2 turns/s (about 13 deg/s)
+const float SPIN_SETTLE_MAX_TURN = 0.4;
+const float SPIN_SETTLE_DEG      = 1.5;    // close enough
+const float SPIN_SETTLE_DPS      = 15;     // and nearly still
 const float SPIN_DEFAULT_RATE   = 2.0;    // about 130 deg/s: a 360 in about 3 s
 const float SPIN_DEG_PER_TURN   = 66;     // deg/s of real yaw per turn/s of turn target (runs 189-190): only for the timeout
 const unsigned long SPIN_EXTRA_MS = 2000; // timeout = 2 x the planned time + this; then it ramps to a stop anyway

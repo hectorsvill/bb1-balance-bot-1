@@ -396,6 +396,27 @@ class Bb1MockTest(unittest.TestCase):
         code, a = self.bb1("drive", "--turn", "0.9", "--for", "0.2", "--max", "0.25")
         self.assertEqual(a["asked"]["turn"], 0.25)
 
+    def test_5b_spin(self):
+        # Exact-angle spin (firmware 3.11): lands, reports the gyro angle, caps and says so
+        code, a = self.bb1("spin", "--deg", "45", "--max-turn", "2")
+        self.assertEqual(code, 0, a)
+        self.assertTrue(a["landed"])
+        self.assertEqual(a["asked"], {"deg": 45.0, "rate": 2.0})
+        self.assertAlmostEqual(a["turned_deg"], 45.0, delta=2)
+        self.assertIn("yaw_deg", a["state"])
+        code, a = self.bb1("spin", "--deg", "-500", "--rate", "3", "--max-turn", "2", "--max-deg", "30")
+        self.assertEqual(code, 0, a)
+        self.assertEqual(a["asked"], {"deg": -30.0, "rate": 2.0})
+        self.assertEqual(len(a["cut"]), 2, a["cut"])
+        code, a = self.bb1("spin", "--deg", "10", "--max-turn", "0.5")   # default rate under the cap: not a cut
+        self.assertEqual(a["cut"], [], a)
+        # too small, or a turn cap below BB1's slowest spin: refused with a reason
+        code, a = self.bb1("spin", "--deg", "3")
+        self.assertEqual(code, 1)
+        code, a = self.bb1("spin", "--deg", "90", "--max-turn", "0.2")
+        self.assertEqual(code, 1)
+        self.assertIn("slowest spin", a["error"])
+
     def test_6_stop_and_disarm(self):
         code, a = self.bb1("stop")
         self.assertEqual((code, a), (0, {"ok": True, "stopped": True}))
@@ -468,7 +489,7 @@ class SessionLogTest(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_MCP, "the mcp package isn't installed (needs Python 3.10+)")
 class McpTest(unittest.TestCase):
-    TOOLS = {"bb1_api", "bb1_state", "bb1_arm", "bb1_drive", "bb1_stop", "bb1_disarm", "bb1_log",
+    TOOLS = {"bb1_api", "bb1_state", "bb1_arm", "bb1_drive", "bb1_spin", "bb1_stop", "bb1_disarm", "bb1_log",
              "logs_schema", "logs_runs", "logs_show", "logs_ticks", "logs_sql"}
 
     @classmethod
