@@ -3,7 +3,7 @@
 | Folder | What it is |
 |---|---|
 | `bb1/` | The main firmware, grown one step at a time (see `docs/FIRMWARE_PLAN.md`) |
-| `motor_test/`, `imu_test/` | Bring-up tests, kept as they were |
+| `motor_test/`, `imu_test/`, `tof_test/` | Bring-up tests, kept as they were |
 | `uf2/` | Prebuilt files to drag onto the Pico |
 
 ## RAM (firmware 3.3, 2026-10-28)
@@ -296,6 +296,7 @@ Two small Arduino C++ sketches that check each part works before we write the ba
 | :-: | :-: | :-: |
 | motor_test | Each motor spins both ways through the D153C; each encoder counts | Yes (D153C switch on) |
 | imu_test | The MPU-6050 answers on I2C and gives sensible readings | No (USB alone powers the IMU) |
+| tof_test | The VL53L0X answers on I2C1 (0x29) and reads distance | No (USB alone powers it) |
 
 Board: Raspberry Pi Pico W with the "Raspberry Pi Pico/RP2040" core by Earle F. Philhower (version 6.3.0 used to compile these).
 
@@ -348,3 +349,7 @@ Write down for each command: which wheel turned, which way it rolled (robot forw
 ## Test 2: MPU-6050 (imu_test)
 
 Flash `imu_test.ino.uf2` the same way. Expect `device at 0x68` and `WHO_AM_I = 0x68`. Sitting still and level, one accel axis reads about 1.00 g and the gyro reads close to 0. Tilt the robot forward slowly and note which tilt angle changes and its sign: that axis becomes our pitch angle.
+
+## Test 3: VL53L0X distance sensor (tof_test, 2026-11-03)
+
+Needs the Pololu library once: `arduino-cli lib install "VL53L0X@1.3.1"`. Compile with the plain board (`rp2040:rp2040:rpipicow`) and flash over USB (it replaces bb1, which has to go back on over USB afterwards: `tools/flash.py --execute`, no `--ota`). It keeps the motor driver asleep (STBY low). Expect `found 0x29` from the I2C1 scan, then a distance in mm about 20 times a second that follows a hand from about 30 mm out to 1-1.2 m; `out of range` past that.

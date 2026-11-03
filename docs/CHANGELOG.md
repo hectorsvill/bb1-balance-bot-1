@@ -2,6 +2,13 @@
 
 Newest first.
 
+## 2026-11-03 - CI: bring-up sketches, RAM budget, cache
+
+- `compile.yml` also compiles `motor_test`, `imu_test` and `tof_test` (installs the Pololu `VL53L0X` 1.3.1 library), so the bring-up sketches can't rot unnoticed
+- **RAM budget:** the bb1 compile fails above 86% static RAM (`RAM_MAX_PCT`; 83% at 3.11). Wi-Fi needs the heap that's left, and too little only shows up on the robot
+- The Arduino core and libraries are cached between runs (about 300 MB less to download)
+- `bb1.py`'s state summary passes `distance_mm` through once the firmware's `/state` has it (VL53L0X, not fitted yet)
+
 ## 2026-11-03 - Spin settle, gyro heading, `bb1.py spin` (firmware 3.11, flashed 2026-11-03)
 
 - **Spin settle (`drive.h`):** 3.10 lands the turn target within 2 deg, but the body coasts on 0-4 deg (10 on a 90 at turn 4), because the heading hold grabs the wheels wherever they are. Now, for up to `SPIN_SETTLE_S` (1 s) after landing, a P correction on the gyro angle still to go steers it back: turn = `SPIN_SETTLE_GAIN` (0.02) x deg off, at most 0.4, done within 1.5 deg and under 15 deg/s. `SPIN_SETTLE_S` 0 = the 3.10 behavior. Settings in the `# spin_max_deg` header line

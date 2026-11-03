@@ -85,7 +85,7 @@ Or drag `firmware/uf2/bb1.ino.uf2` onto the Pico in BOOTSEL mode (its own-networ
 
 ```text
 firmware/bb1/   the main firmware, grown step by step (firmware/README.md)
-firmware/motor_test, imu_test   bring-up sketches
+firmware/motor_test, imu_test, tof_test   bring-up sketches
 firmware/uf2/   prebuilt files you can drag onto the Pico
 tools/          Python helpers (venv: tools/requirements.txt)
 cad/            OpenSCAD sources; cad/stl/ the exact STLs printed
