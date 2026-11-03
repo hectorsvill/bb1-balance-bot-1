@@ -2,6 +2,11 @@
 
 Newest first.
 
+## 2026-11-03 - First agent run with spins (run 198); AGENT.md fixes
+
+- A fresh Claude Code agent drove BB1 from `docs/AGENT.md` alone (the `AGENT_PROMPT.md` prompt, caps 0.3 / 0.4 / 3 s, Hector watching, wood, 3 ft box): a square of 4 drives and 4 `bb1.py spin --deg 90`. It closed the square within about 2 cm of the start, heading +0.7 deg, 11 commands all ok, never disarmed. Spins: +0.9 to +2.3 deg off
+- What it found, now in AGENT.md: track position with `state.position_turns` / `yaw_deg` before and after each move (BB1 crept back 0.28 turns once after a drive, so `moved_turns` doesn't add up); spins roll forward 0.08-0.31 turns per 90 deg; the same 2 s at 0.3 moved 0.14-0.64 turns, so time x speed is not a distance; moves under about 0.15 turns can't be made yet (no position target)
+
 ## 2026-11-03 - CI: bring-up sketches, RAM budget, cache
 
 - `compile.yml` also compiles `motor_test`, `imu_test` and `tof_test` (installs the Pololu `VL53L0X` 1.3.1 library), so the bring-up sketches can't rot unnoticed
