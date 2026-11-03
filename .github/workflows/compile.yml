@@ -1,7 +1,14 @@
-# Compile firmware/bb1 on every push and pull request to main.
-# Board: Raspberry Pi Pico W. FQBN rp2040:rp2040:rpipicow:flash=2097152_1048576 (1 MB program, 1 MB for OTA updates; ota.h fails the build without it).
+# Compile the firmware on every push and pull request to main.
+# Board: Raspberry Pi Pico W. bb1 needs FQBN rp2040:rp2040:rpipicow:flash=2097152_1048576
+# (1 MB program, 1 MB for OTA updates; ota.h fails the build without it). The bring-up
+# sketches (motor_test, imu_test, tof_test) use the plain rp2040:rp2040:rpipicow.
 # Core: Earle Philhower arduino-pico 6.3.0 (the version FLASHING.md and CLAUDE.md were tested with).
+# Libraries: Pololu VL53L0X 1.3.1 for tof_test (bb1 itself uses none).
 # No prompts: a failing compile fails the job. First, a quick check that docs/AGENT.md matches API_VERSION.
+#
+# RAM budget: static RAM was 83% at firmware 3.11, and a bigger log buffer or a new
+# global only shows up on the robot (Wi-Fi needs the heap that's left). The bb1 step
+# fails the build above RAM_MAX_PCT, so a change that eats the margin is caught here.
 
 name: Compile bb1
 
@@ -10,6 +17,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+
+env:
+  RAM_MAX_PCT: 86      # static RAM limit for bb1, percent (83% at 3.11; raise it only on purpose)
 
 jobs:
   compile:
@@ -22,6 +32,15 @@ jobs:
       - name: docs/AGENT.md matches the firmware's /api version
         run: python3 tools/check_agent_doc.py
 
+      # The core download is about 300 MB; keep it between runs.
+      - name: Cache the Arduino core and libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+            ~/Arduino/libraries
+          key: arduino-rp2040-6.3.0-vl53l0x-1.3.1
+
       - name: Install arduino-cli 1.5.1
         run: |
           curl -fsSL -o /tmp/arduino-cli.tar.gz \
@@ -30,16 +49,33 @@ jobs:
           sudo mv /tmp/arduino-cli /usr/local/bin/arduino-cli
           arduino-cli version
 
-      - name: Install the RP2040 core (Earle Philhower 6.3.0)
+      - name: Install the RP2040 core (Earle Philhower 6.3.0) and libraries
         run: |
-          arduino-cli config init
+          arduino-cli config init --overwrite
           arduino-cli config add board_manager.additional_urls \
             https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
           arduino-cli core update-index
           arduino-cli core install rp2040:rp2040@6.3.0
+          arduino-cli lib install "VL53L0X@1.3.1"
 
       - name: Copy the secrets template
         run: cp firmware/bb1/secrets.example.h firmware/bb1/secrets.h
 
-      - name: Compile firmware/bb1
-        run: arduino-cli compile --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 --output-dir build/bb1 firmware/bb1
+      - name: Compile firmware/bb1 (and check the RAM budget)
+        run: |
+          arduino-cli compile --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 \
+            --output-dir build/bb1 firmware/bb1 | tee build-bb1.txt
+          pct=$(grep -o 'Global variables use [0-9]* bytes ([0-9]*%)' build-bb1.txt | grep -o '([0-9]*' | tr -d '(')
+          echo "static RAM: ${pct}% (limit ${RAM_MAX_PCT}%)"
+          if [ -z "$pct" ]; then echo "couldn't read the RAM line"; exit 1; fi
+          if [ "$pct" -gt "$RAM_MAX_PCT" ]; then
+            echo "::error::bb1 static RAM is ${pct}%, over the ${RAM_MAX_PCT}% budget: Wi-Fi needs the heap that's left. Find the new RAM use first."
+            exit 1
+          fi
+
+      - name: Compile the bring-up sketches
+        run: |
+          for sketch in motor_test imu_test tof_test; do
+            echo "== $sketch"
+            arduino-cli compile --fqbn rp2040:rp2040:rpipicow --output-dir build/$sketch firmware/$sketch
+          done

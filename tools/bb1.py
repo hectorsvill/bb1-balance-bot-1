@@ -184,6 +184,9 @@ def summary(s):
         "yaw_deg": s.get("yaw_deg"),              # gyro heading since power-on, right + (firmware 3.11 on; None before)
         "batt_v_per_cell": round(s["batt_v"] / cells, 2) if s.get("batt_ok") else None,
         "ip": s.get("ip"),
+        # Front distance sensor (VL53L0X, not fitted yet): passed through as soon as the
+        # firmware's /state has it, so agents see it without a tool change. Absent until then.
+        **({"distance_mm": s["distance_mm"]} if "distance_mm" in s else {}),
     }
 
 
