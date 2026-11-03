@@ -261,6 +261,10 @@ class Run:
         self.stop()                    # didn't land in time: stop it
         say(f"    no landing after {secs:g} s: stopped it")
 
+    def spin(self, deg, rate, secs):
+        """One exact-angle spin (drive_explore.py --exact-spins calls this)."""
+        return self.target("/spin", "spin_left", secs, deg=deg, rate=abs(rate))
+
     def step(self, name, speed, turn, secs):
         deg, mm = exact_deg(name), move_mm(name)
         if deg is not None:
