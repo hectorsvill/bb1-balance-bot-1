@@ -155,6 +155,14 @@ class CompileTest(unittest.TestCase):
 
 # --- 2. runs_db.py: the fixture catalog -----------------------------------------------------------
 
+class GenDocsTest(unittest.TestCase):
+    def test_docs_pages_current(self):
+        """firmware/bb1/docs_pages.h is what tools/gen_docs.py makes from docs/AGENT.md and API.md."""
+        import gen_docs
+        self.assertEqual(gen_docs.OUT.read_text(encoding="utf-8"), gen_docs.render(),
+                         "run python3 tools/gen_docs.py and commit docs_pages.h")
+
+
 class NoLogsInRepoTest(unittest.TestCase):
     def test_no_logs_are_committed(self):
         # This repo is public: recorded runs live in the private repo bb1-private.
@@ -362,6 +370,12 @@ class Bb1MockTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(a["firmware"], "bb1 MOCK")
         self.assertIn("drive_max_speed", a["limits"])
+        # The mock reads the endpoint list from api.h, and serves the docs from docs/ (like docs_pages.h on BB1).
+        self.assertEqual(a["docs"], {"agent": "/agent", "api": "/api.md"})
+        self.assertIn("/agent", [e["path"] for e in a["endpoints"]])
+        with urllib.request.urlopen(f"http://{self.host}/agent", timeout=5) as r:
+            self.assertTrue(r.headers["Content-Type"].startswith("text/markdown"))
+            self.assertTrue(r.read().decode().startswith("# BB1 agent manual"))
 
     def test_2_drive_refused_when_not_balancing(self):
         self.bb1("disarm")

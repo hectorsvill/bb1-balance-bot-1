@@ -185,40 +185,28 @@ def meta_lines():
             .format(**gains))
 
 
-# GET /api: the same list as firmware/bb1/api.h (keep the two in step).
+# GET /api: the limits below are copied from config.h (keep them in step); the endpoint list comes from api.h.
 GAIN_LIMITS = {"kp": (0, 100), "ki": (0, 100), "kd": (0, 20), "trim": (-20, 20), "cap": (0, 255), "deadband": (0, 100), "sp": (0, 20), "si": (0, 20), "th": (0, 200), "auto": (0, 1), "dff": (0, 150), "sdi": (0, 20), "smode": (0, 1), "wsp": (0, 200), "wsi": (0, 200), "irelax": (0, 5), "aff": (0, 5), "dacc": (0.1, 6), "lmax": (6, 15), "tl": (0, 5)}
-API_ENDPOINTS = [   # method, path, args, answer, moves, does
-    ("GET", "/api", "", "json", False, "this list"),
-    ("GET", "/state", "", "json", False, "everything now; also the heartbeat for heartbeat arms"),
-    ("GET", "/log", "since", "csv", False, "every 5 ms record from tick since on (max log_max_per_request)"),
-    ("GET", "/log/meta", "", "text", False, "the # setting lines for the top of a log file"),
-    ("GET", "/sys", "", "json", False, "RAM and flash use"),
-    ("GET", "/wifi", "", "json", False, "network mode and saved home network name"),
-    ("POST", "/arm", "seconds,heartbeat", "text", True, "start balancing; refused unless within arm_angle of trim; result in /state armed, reason"),
-    ("POST", "/disarm", "why", "text", False, "stop balancing; auto-arm off until the next arm"),
-    ("POST", "/drive", "speed,turn,ms", "json", True, "drive while balancing; runs out after ms, then ramps to a stop"),
-    ("POST", "/drive/stop", "", "json", False, "ramp to a stop now, keep balancing (also ends a spin)"),
-    ("POST", "/spin", "deg,rate", "json", True, "turn on the spot by deg (right +), counted by the gyro; rate in turn units; progress in /state drive.spin_left"),
-    ("POST", "/motor/stop", "", "text", False, "STOP: end a motor test and disarm"),
-    ("POST", "/step", "", "text", True, "step test while armed: setpoint +2 deg for 1 s"),
-    ("POST", "/gains", ",".join(GAIN_LIMITS), "text", False, "change settings (see gains for limits)"),
-    ("POST", "/gains/save", "", "text", False, "store settings in flash (disarmed only)"),
-    ("POST", "/gains/defaults", "", "text", False, "back to the config.h defaults"),
-    ("POST", "/alpha", "value", "text", False, "angle filter weight"),
-    ("POST", "/cal", "", "text", False, "recalibrate the gyro (2 s, keep still; disarms)"),
-    ("POST", "/motor", "left,right,ms", "text", True, "timed motor test, disarmed only, wheels in the air"),
-    ("POST", "/wifi", "ssid,password", "text", False, "save a home network and restart (disarmed only)"),
-    ("POST", "/wifi/forget", "", "text", False, "forget the home network and restart (disarmed only)"),
-    ("POST", "/update", "firmware", "json", False,
-     "new firmware over Wi-Fi (multipart file, Basic auth bb1); lying down and disarmed only; restarts"),
-    ("GET", "/", "", "html", False, "the main page"),
-    ("GET", "/tune", "", "html", False, "the PID tuning page"),
-]
+API_H = REPO / "firmware" / "bb1" / "api.h"
+DOCS = {"/agent": REPO / "docs" / "AGENT.md", "/api.md": REPO / "docs" / "API.md"}   # what BB1 serves from docs_pages.h
+
+
+def read_api_h():
+    """API_VERSION and the endpoint rows, read straight out of firmware/bb1/api.h,
+    so the mock's /api can't drift from the firmware's (no second copy to keep in step)."""
+    text = API_H.read_text()
+    version = int(re.search(r"const int API_VERSION = (\d+);", text).group(1))
+    rows = re.findall(r'\{"(GET|POST)",\s*"([^"]+)",\s*"([^"]*)",\s*"(\w+)",\s*(true|false),\s*"([^"]*)"\}', text)
+    return version, [(m, p, a, ans, mv == "true", d) for m, p, a, ans, mv, d in rows]
+
+
+API_VERSION, API_ENDPOINTS = read_api_h()   # method, path, args, answer, moves, does
 
 
 def api_list():
     return {
-        "api": 10, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 14,
+        "api": API_VERSION, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 14,
+        "docs": {"agent": "/agent", "api": "/api.md"},
         "units": {"angle": "deg (forward +)", "speed": "wheel turns/s (forward +)",
                   "turn": "wheel turns/s left minus right (right +)", "pwm": "-255..255 (forward +)", "counts_per_rev": 520},
         "limits": {"drive_max_speed": DRIVE_MAX_SPEED, "drive_max_turn": DRIVE_MAX_TURN, "drive_hold_ms": DRIVE_HOLD_MS,
@@ -250,6 +238,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(read_page(), "text/html")
         elif url.path == "/tune":
             self.reply(read_page(TUNE_H, "TUNE_HTML"), "text/html")
+        elif url.path in DOCS:                 # the docs BB1 serves (GET /agent, /api.md), read fresh from docs/
+            self.reply(DOCS[url.path].read_text(encoding="utf-8"), "text/markdown; charset=utf-8")
         elif url.path == "/api":
             self.reply(json.dumps(api_list()), "application/json")
         elif url.path == "/state":

@@ -2,7 +2,9 @@
 
 You are an AI agent driving BB1, a small two-wheel self-balancing robot, over Wi-Fi. This file is everything you need. Read all of it before your first command, and follow the settings in the next section: they are your owner's rules for this session, and they win over anything else here.
 
-**Written for `/api` version: 10**
+**Written for `/api` version: 12**
+
+BB1 serves this manual itself: `curl -s http://bb1.local/agent` (Markdown). The HTTP reference with curl for every endpoint is at `/api.md`, and the live list of endpoints and limits (JSON) at `/api`. If you have the repo, use the tool below; if you only have curl, see "Only curl" after it.
 
 Your first command is always `api` (below). If its `"api"` number differs from the line above, stop and tell your owner: the firmware changed since this manual was written, and some of it may be wrong.
 
@@ -89,6 +91,22 @@ To see what happened (your commands, BB1's runs, every tick), use `tools/venv/bi
 
 **Exit codes:** 0 done; 1 BB1 refused, or a safety check ended the command (read `error` and `reason`); 2 BB1 didn't answer.
 
+### Only curl (no repo)
+
+Without the repo you have no `bb1.py`, so **you are the tool**: apply its caps yourself on every request. Same settings, same rules; `B=http://bb1.local`.
+
+| Tool command | HTTP request | You must also |
+|---|---|---|
+| `api` | `curl -s $B/api` | compare its `"api"` with this manual's version line |
+| `state` | `curl -s $B/state` | read it before and after every move |
+| `arm` | `curl -s -X POST $B/arm -d seconds=0 -d heartbeat=0` | ask first (`may_arm`); check `/state` `armed` and `reason` after |
+| `drive --speed S --turn T --for F` | `curl -s -X POST $B/drive -d speed=S -d turn=T -d ms=F*1000` | keep `S` within `max_speed`, `T` within `max_turn`, `F` within `max_drive_s`; poll `/state` until `drive.left_ms` is 0, then `stop` |
+| `spin --deg N` | `curl -s -X POST $B/spin -d deg=N -d rate=R` | `R` = `max_turn` (at least 0.3); poll `/state` until `drive.spin_left` is 0 |
+| `stop` | `curl -s -X POST $B/drive/stop` | |
+| `disarm` | `curl -s -X POST $B/disarm` | BB1 falls over (see Safety rules) |
+
+There is no `log start`/`log stop` without the repo: BB1 keeps only the last 10 s (`GET /log`). Tell your owner the times of your session instead of a `run_id`. One request at a time, never in parallel. Everything else in this manual (settings, Safety rules, Never) applies unchanged.
+
 ### Reading `state`
 
 ```json
@@ -159,13 +177,13 @@ These change how BB1 works or can damage it, and are only for your owner (`allow
 - motor tests (`/motor`): wheels must be off the floor
 - firmware updates (`/update`, `tools/flash.py --execute` or `--yes`). `tools/flash.py` with no `--execute` only prints a JSON plan and does not flash. Do not pass `--execute`, `--yes`, or `--force`.
 - Wi-Fi settings (`/wifi`, `/wifi/forget`): BB1 would restart and could drop off the network (refused with `409` while armed)
-- calling the HTTP API directly to get around the tool's limits (use `bb1.py spin`, not `POST /spin`)
+- calling the HTTP API directly to get around the tool's limits when you have the tool (use `bb1.py spin`, not `POST /spin`). With only curl, follow "Only curl" and apply the caps yourself
 - changing the MCP server's caps or how it is started (`claude mcp add` / `remove`, its `--max-*` options), or editing `tools/bb1.py` / `tools/bb1_mcp.py`: the caps are your owner's
 
 ## More
 
 - For owners: a ready prompt to start an agent session, with task ideas: `docs/AGENT_PROMPT.md`.
-- Every endpoint: `docs/API.md`, or `bb1.py api` for the live list with its limits.
+- Every endpoint: `docs/API.md` (served by BB1 at `/api.md`), or `bb1.py api` / `GET /api` for the live list with its limits.
 - The tool itself: `tools/bb1.py` (its top comment lists every safety check); the MCP server: `tools/bb1_mcp.py` (`docs/TOOLS.md`).
 - Reading logs: `tools/logs.py` (read only; `docs/TOOLS.md`).
 
@@ -179,3 +197,5 @@ Update this file in the same change as any of these, and set the version line at
 - a unit is measured again (wheel turn, track width, counts per turn)
 
 `tools/check_agent_doc.py` (run by CI) fails when the version line here doesn't match `API_VERSION` in `firmware/bb1/api.h`.
+
+BB1 serves this file at `/agent` and `docs/API.md` at `/api.md` from `firmware/bb1/docs_pages.h`, which `tools/gen_docs.py` writes from the two `.md` files. Edit only the `.md`: `tools/flash.py` regenerates the header before every compile, and CI (`gen_docs.py --check`) fails if the committed header is stale. Run `python3 tools/gen_docs.py` before committing a doc change.

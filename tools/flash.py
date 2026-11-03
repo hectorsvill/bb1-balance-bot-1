@@ -75,6 +75,7 @@ from pathlib import Path
 import serial
 
 import cli_util
+import gen_docs
 from serial_log import find_port   # picks the Pico by its USB ID
 
 REPO = Path(__file__).resolve().parent.parent
@@ -162,6 +163,11 @@ def compile_firmware():
         die("firmware/bb1/secrets.h is missing: copy secrets.example.h to secrets.h first.", cli_util.EXIT_USAGE)
     build_id = write_build_id()
     say(f"version {firmware_version()}, build id {build_id}")
+    # The docs BB1 serves (GET /agent, /api.md) come from docs/*.md: rebuild docs_pages.h so they can't be stale.
+    try:
+        say(gen_docs.write())
+    except ValueError as e:
+        die(f"tools/gen_docs.py: {e}. Nothing was flashed.")
     result = subprocess.run(["arduino-cli", "compile", "--fqbn", FQBN, "--output-dir", str(BUILD), str(SKETCH)],
                             capture_output=True, text=True)
     if result.returncode != 0:

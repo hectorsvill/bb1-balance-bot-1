@@ -4,9 +4,12 @@
 // reading docs/API.md. The table below is the list; the limits come straight
 // from config.h, so they can't go stale when a limit changes.
 //
-// Adding an endpoint: route it in webBegin() (web.h), add a row here, a fake
+// Adding an endpoint: route it in webBegin() (web.h), add a row here (the
+// mock reads this table, so it lists the new endpoint by itself), a fake
 // answer in tools/mock_bb1.py, a row in docs/API.md, and check docs/AGENT.md
 // (bump API_VERSION and AGENT.md's version line together; CI compares them).
+// BB1 serves both .md files (GET /agent, /api.md) from docs_pages.h, which
+// tools/gen_docs.py writes from them: never edit the docs in two places.
 
 #pragma once
 #include "config.h"
@@ -18,20 +21,24 @@
 // 4 = gains aff, dacc, lmax (fast drive step 1), 5 = gain tl and
 // /state trim_learned (trim learn, firmware 3.5), 6 = drive_max_speed 3.0
 // (fast drive step 2, firmware 3.6), 7 = drive_max_turn 5.0 (fast spins,
-// firmware 3.7).
-const int API_VERSION = 10;
+// firmware 3.7), 8 = Wi-Fi refused while armed (3.8), 9 = POST /spin (3.10),
+// 10 = yaw_deg (3.11), 11 = POST /move and odom (3.12, branch odom-move),
+// 12 = GET /agent and GET /api.md (the docs, 3.13).
+const int API_VERSION = 12;
 
 struct ApiEndpoint {
   const char *method;   // "GET" or "POST"
   const char *path;
   const char *args;     // argument names, comma separated ("" = none)
-  const char *answer;   // "json", "text", "csv" or "html"
+  const char *answer;   // "json", "text", "csv", "html" or "markdown"
   bool moves;           // true = can turn the wheels
   const char *does;     // one line for a person (or an agent) to read
 };
 
 const ApiEndpoint API_ENDPOINTS[] = {
   {"GET",  "/api",            "",                  "json", false, "this list"},
+  {"GET",  "/agent",          "",                  "markdown", false, "the agent manual (docs/AGENT.md, Markdown): read it before driving"},
+  {"GET",  "/api.md",         "",                  "markdown", false, "every endpoint with curl examples (docs/API.md, Markdown)"},
   {"GET",  "/state",          "",                  "json", false, "everything now; also the heartbeat for heartbeat arms"},
   {"GET",  "/log",            "since",             "csv",  false, "every 5 ms record from tick since on (max log_max_per_request)"},
   {"GET",  "/log/meta",       "",                  "text", false, "the # setting lines for the top of a log file"},
@@ -80,9 +87,10 @@ String apiArgs(const char *args) {
 // logMax is LOG_MAX_PER_REQUEST from web.h.
 String apiJson(uint32_t logMax) {
   String j;
-  j.reserve(4900);                              // one allocation instead of many small ones
+  j.reserve(5300);                              // one allocation instead of many small ones
   j += "{\"api\":" + String(API_VERSION) + ",\"firmware\":\"" + FIRMWARE_NAME + "\",\"version\":\"" + FIRMWARE_VERSION + "\",\"build_id\":\"" + BB1_BUILD_ID +
        "\",\"log_format\":" + String(LOG_FORMAT) + ",";
+  j += "\"docs\":{\"agent\":\"/agent\",\"api\":\"/api.md\"},";   // read these before driving
   j += "\"units\":{\"angle\":\"deg (forward +)\",\"speed\":\"wheel turns/s (forward +)\",\"turn\":\"wheel turns/s left minus right (right +)\","
        "\"pwm\":\"-255..255 (forward +)\",\"counts_per_rev\":" + String(COUNTS_PER_REV) + "},";
   j += "\"limits\":{\"drive_max_speed\":" + String(DRIVE_MAX_SPEED, 2) + ",\"drive_max_turn\":" + String(DRIVE_MAX_TURN, 2) +

@@ -291,6 +291,15 @@ python3 tools/check_agent_doc.py
 
 Checks that the "Written for `/api` version" line in `docs/AGENT.md` matches `API_VERSION` in `firmware/bb1/api.h`. CI runs it on every pull request, so bumping `API_VERSION` without updating the agent manual fails the build. No venv needed (standard library only).
 
+### gen_docs.py: the docs BB1 serves
+
+```bash
+python3 tools/gen_docs.py            # rebuild firmware/bb1/docs_pages.h from docs/AGENT.md and docs/API.md
+python3 tools/gen_docs.py --check    # exit 1 if it is out of date (CI)
+```
+
+BB1 serves `docs/AGENT.md` at `/agent` and `docs/API.md` at `/api.md` (Markdown), so an agent with only curl can learn to drive it. The `.md` files are the only copy: this script turns each into a C++ raw string in `firmware/bb1/docs_pages.h` (kept in flash, not RAM). Never edit the header. `flash.py` runs this before every compile; CI and `test_tools.py` fail if the committed header is stale, so run it before committing a doc change. To serve another doc, add a row to `PAGES` and a route in `web.h`. The mock serves the `.md` files straight from `docs/`, and reads its `/api` endpoint list from `api.h`. No venv needed.
+
 ### drive_test.py: drive tests over Wi-Fi, recorded and reported
 
 **Moves BB1.** BB1 must already be balancing on the floor, with about 1 m clear all round.

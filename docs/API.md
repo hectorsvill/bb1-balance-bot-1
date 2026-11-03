@@ -5,6 +5,7 @@ Everything the web pages do goes through this API, so anything else (curl, a Pyt
 - **Address:** `http://bb1.local` on the home network, or `http://192.168.42.1` on BB1's own network "BB1". (Some computers don't resolve `bb1.local`; use the IP from `wifi` on serial or the page's status bar.)
 - **Style:** plain HTTP. `GET` reads, `POST` does something. Arguments go in the query string or as a form body (`-d name=value`), never JSON. No login: anyone on the same network can drive BB1.
 - **One at a time:** the Pico serves one request at a time and closes each connection after answering. Keep requests short and don't open many in parallel. About 20 `/state` a second plus 10 `/drive` a second is what the page uses.
+- **Docs on the robot:** BB1 serves this file at `/api.md` and the agent manual `docs/AGENT.md` at `/agent` (Markdown, firmware 3.13), so an agent with only curl can learn to drive it. Both are built from the `.md` files by `tools/gen_docs.py`; never edit `firmware/bb1/docs_pages.h`.
 - **Answers:** `/api`, `/state`, `/sys`, `/wifi` (GET), `/drive` and `/spin` answer JSON. Older actions answer one line of plain text meant for a person. Errors use the status code: `400` bad argument, `409` not allowed right now (the text says why), `404` unknown path.
 - **Units:** degrees, deg/s, PWM (-255..255, forward +), wheel turns per second (520 encoder counts = 1 turn, assumed). Forward and turn right are positive.
 
@@ -17,6 +18,8 @@ B=http://bb1.local                      # or http://192.168.1.240, http://192.16
 
 # Reading (safe any time)
 curl -s $B/api | python3 -m json.tool   # every endpoint and its limits, JSON (start here)
+curl -s $B/agent                        # the agent manual (docs/AGENT.md), Markdown: how to drive safely
+curl -s $B/api.md                       # this file, Markdown
 curl -s $B/state                        # everything now, JSON (also the heartbeat)
 curl -s $B/state | python3 -m json.tool # the same, readable
 curl -s "$B/log?since=0"                # log records as CSV (up to 1000; ask since=<to> next)
@@ -176,12 +179,13 @@ The list of every endpoint and its limits, as JSON, so a program or an AI agent 
 
 | Field | Meaning |
 |---|---|
-| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first, 2 = `POST /update`, 3 = `version`, `build_id`, 4 = gains `aff`, `dacc`, `lmax`, 5 = gain `tl` and `/state` `trim_learned`) |
+| `api` | version of this list; goes up when an endpoint, argument or limit is added (1 = first, 2 = `POST /update`, 3 = `version`, `build_id`, 4 = gains `aff`, `dacc`, `lmax`, 5 = gain `tl` and `/state` `trim_learned`, ... 9 = `POST /spin`, 10 = `yaw_deg`, 11 = `POST /move` (branch `odom-move`), 12 = `GET /agent`, `GET /api.md`; every step is in `api.h`) |
 | `firmware`, `version`, `build_id`, `log_format` | firmware name (the mock says `bb1 MOCK`), version and build id (see `GET /sys`), log column version |
+| `docs` | where the Markdown docs are: `{"agent":"/agent","api":"/api.md"}` |
 | `units` | what `angle`, `speed`, `turn`, `pwm` mean, and `counts_per_rev` |
 | `limits` | `drive_max_speed`, `drive_max_turn` (turns/s), `drive_hold_ms` (default command length), `drive_hold_max_ms`, `arm_seconds_max`, `arm_angle` (must be this close to trim to arm, deg), `fall_angle` (deg), `heartbeat_ms`, `motor_test_max_pwm`, `motor_test_max_ms`, `alpha` [min, max], `log_max_per_request` |
 | `gains` | each `/gains` setting and its [min, max]; values outside are clamped. `auto` and `smode` are 0 or 1; `trim` also takes `here`; `dacc` starts at 0.1 and `lmax` at 6 |
-| `endpoints` | one object per route: `method`, `path`, `args` (names), `answer` (`json`, `text`, `csv`, `html`), `moves` (true = can turn the wheels), `does` |
+| `endpoints` | one object per route: `method`, `path`, `args` (names), `answer` (`json`, `text`, `csv`, `html`, `markdown`), `moves` (true = can turn the wheels), `does` |
 
 ```json
 {"api":6,"firmware":"bb1 milestone 2","version":"3.6","build_id":"ota 1a2b3c4+ 2026-10-29 14:05","log_format":12,
@@ -190,7 +194,7 @@ The list of every endpoint and its limits, as JSON, so a program or an AI agent 
  "endpoints":[{"method":"POST","path":"/drive","args":["speed","turn","ms"],"answer":"json","moves":true,"does":"..."}, ...]}
 ```
 
-Adding an endpoint: route it in `web.h`, add a row to `API_ENDPOINTS` in `api.h` (and bump `API_VERSION`), the same row in `tools/mock_bb1.py`, a row here, and an update to `docs/AGENT.md` with its version line set to the new `API_VERSION` (CI checks they match).
+Adding an endpoint: route it in `web.h`, add a row to `API_ENDPOINTS` in `api.h` (and bump `API_VERSION`; the mock reads that table, so no second copy), a fake answer in `tools/mock_bb1.py`, a row here, and an update to `docs/AGENT.md` with its version line set to the new `API_VERSION` (CI checks they match).
 
 ### `GET /sys`
 
@@ -225,6 +229,7 @@ RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_bu
 | `POST /wifi/forget` | forget it and restart on the own network. Disarmed only (`409`) |
 | `GET /`, `GET /tune` | the main page and the tuning page |
 | `GET /api` | every endpoint and its limits, JSON (see above) |
+| `GET /agent`, `GET /api.md` | `docs/AGENT.md` and this file as Markdown (`text/markdown`), from `docs_pages.h` (`tools/gen_docs.py`). About 17 and 26 KB, sent from flash |
 | `POST /update` | new firmware over Wi-Fi (`ota.h`): multipart form field `firmware` = `build/bb1/bb1.ino.bin` (or gzipped), Basic auth user `bb1`, password `BB1_OTA_PASSWORD` from `secrets.h`. Refused (`409`, JSON `error`) while armed, during a motor test, or unless lying down (more than 45 deg from the trim); `401` for a wrong password. On success answers `{"ok":true,"bytes":N,...}` and restarts; the bootloader copies the new firmware in (about 10-20 s until Wi-Fi is back). While it runs, every arm is refused with reason "a firmware update is running" (code 14). A broken-off upload changes nothing |
 
 ## Ready for an AI agent? (milestone 3)

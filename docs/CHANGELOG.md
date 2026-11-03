@@ -2,6 +2,14 @@
 
 Newest first.
 
+## 2026-11-03 - BB1 serves its own docs: `GET /agent`, `GET /api.md` (firmware 3.13, `/api` 12; not flashed)
+
+- `curl http://bb1.local/agent` gives the agent manual (`docs/AGENT.md`) and `/api.md` the HTTP reference (`docs/API.md`), as Markdown. An agent with only curl and BB1's address can now learn to drive it. `/api` (JSON) gains `"docs":{"agent":"/agent","api":"/api.md"}` and both rows
+- **Written once:** the `.md` files stay the only copy. `tools/gen_docs.py` builds `firmware/bb1/docs_pages.h` (raw strings in flash, about 45 KB; static RAM unchanged at 83%, flash 57%) from them; `flash.py` runs it before every compile; CI (`gen_docs.py --check`) and `test_tools.py` fail when the header is stale
+- The mock reads its `/api` endpoint list and `API_VERSION` from `api.h` instead of a copy, and serves `/agent` and `/api.md` from `docs/`
+- AGENT.md: where BB1 serves it, and an "Only curl" section (each tool command as an HTTP request, with the caps the agent must apply itself)
+- Built on `main` (3.11). 3.12 and `/api` 11 are the odometry/`POST /move` branch `odom-move`, not merged; whichever merges second takes the next numbers
+
 ## 2026-11-03 - First agent run with spins (run 198); AGENT.md fixes
 
 - A fresh Claude Code agent drove BB1 from `docs/AGENT.md` alone (the `AGENT_PROMPT.md` prompt, caps 0.3 / 0.4 / 3 s, Hector watching, wood, 3 ft box): a square of 4 drives and 4 `bb1.py spin --deg 90`. It closed the square within about 2 cm of the start, heading +0.7 deg, 11 commands all ok, never disarmed. Spins: +0.9 to +2.3 deg off
