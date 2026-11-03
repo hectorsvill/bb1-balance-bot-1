@@ -53,14 +53,57 @@ uint8_t imuReadReg(uint8_t reg) {
   return Wire.available() ? Wire.read() : 0xFF;
 }
 
+// What startup had to do to find the chip (in the log header and on serial),
+// so we can see how often a restart catches the bus stuck.
+int imuBusPulses = 0;   // SCL pulses it took to free SDA (0 = the bus was fine)
+int imuTries     = 0;   // WHO_AM_I attempts (1 = found first time, 0 = never found)
+
+// Free a stuck I2C bus. Why it gets stuck: a software restart (OTA, Wi-Fi
+// save, rp2040.reboot) resets the Pico but not the MPU-6050, which stays
+// powered. If the restart lands in the middle of a read, the chip is still
+// sending a byte and holds SDA low, waiting for clock pulses that never come.
+// The Pico then sees a busy bus and can't reach the chip; only a power cycle
+// (the battery off) cleared it. The standard fix (I2C spec, "bus clear"):
+// clock SCL by hand until the chip lets go of SDA (at most 9 pulses: 8 data
+// bits + the ack), then send a STOP so it's back to idle.
+void imuBusRecover() {
+  pinMode(PIN_IMU_SDA, INPUT_PULLUP);
+  pinMode(PIN_IMU_SCL, OUTPUT);
+  digitalWrite(PIN_IMU_SCL, HIGH);
+  delayMicroseconds(10);
+  imuBusPulses = 0;
+  while (digitalRead(PIN_IMU_SDA) == LOW && imuBusPulses < 9) {
+    digitalWrite(PIN_IMU_SCL, LOW);  delayMicroseconds(10);   // 50 kHz: slow is fine here
+    digitalWrite(PIN_IMU_SCL, HIGH); delayMicroseconds(10);
+    imuBusPulses++;
+  }
+  // STOP: SDA goes low -> high while SCL is high.
+  pinMode(PIN_IMU_SDA, OUTPUT);
+  digitalWrite(PIN_IMU_SDA, LOW);  delayMicroseconds(10);
+  digitalWrite(PIN_IMU_SDA, HIGH); delayMicroseconds(10);
+  pinMode(PIN_IMU_SDA, INPUT);     // hand both pins back; Wire.begin() takes them over
+  pinMode(PIN_IMU_SCL, INPUT);
+}
+
 // Set up I2C and the chip. Returns false if the chip doesn't answer.
 bool imuBegin() {
+  imuBusRecover();                       // first: make sure the bus is idle
   Wire.setSDA(PIN_IMU_SDA);
   Wire.setSCL(PIN_IMU_SCL);
   Wire.begin();
   Wire.setClock(400000);                 // 400 kHz: 14 bytes take about 0.4 ms
 
-  if (imuReadReg(REG_WHO_AM_I) != 0x68) return false;
+  // Ask "who are you?" up to 3 times. Between tries, reset the chip itself
+  // (PWR_MGMT_1 bit 7: all its registers back to power-on values, as if the
+  // battery had been pulled) and give it 100 ms to come back.
+  imuTries = 0;
+  bool found = false;
+  for (int attempt = 1; attempt <= 3 && !found; attempt++) {
+    found = imuReadReg(REG_WHO_AM_I) == 0x68;
+    if (found) imuTries = attempt;
+    else { imuWrite(REG_PWR_MGMT_1, 0x80); delay(100); }
+  }
+  if (!found) return false;
 
   imuWrite(REG_PWR_MGMT_1, 0x01);        // wake up, clock from the gyro
   delay(50);

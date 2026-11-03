@@ -2,6 +2,13 @@
 
 Newest first.
 
+## 2026-11-02 - IMU found again after a software restart (firmware 3.9, not flashed yet)
+
+- **Bug:** twice (after an OTA flash 2026-10-31, after a Wi-Fi save restart 2026-11-02) BB1 came back with `auto-arm: off: IMU not found`, and only a power cycle fixed it. A software restart resets the Pico but not the MPU-6050 (still powered). If the restart lands mid-read, the chip keeps holding SDA low, waiting for clock pulses, so the bus looks busy and WHO_AM_I fails
+- **Fix (`imu.h`):** `imuBusRecover()` runs before `Wire.begin()`: it clocks SCL by hand (up to 9 pulses) until the chip lets go of SDA, then sends a STOP (the I2C spec's bus clear). Then up to 3 WHO_AM_I tries, with a chip reset (`PWR_MGMT_1` bit 7) and 100 ms between them
+- **Logged:** new header line `# imu_start,tries,N,bus_pulses,M` (no column change, `LOG_FORMAT` stays 13); serial prints a line when it took more than one try or any pulses. Mock header too. Docs: CALIBRATION_AND_LOGS.md, POWER_ON.md, FLASHING.md
+- Firmware 3.9: 554,244 B flash (+536 vs 3.8), 218,024 B static RAM (+8)
+
 ## 2026-11-02 - Tooling hygiene (no firmware change)
 
 - **`tools/flash.py` plans by default.** No `--execute` (alias `--yes`): one JSON plan on stdout (target, transport `usb`/`ota`, host, firmware path, whether the lying-down check runs) and exit 0. Nothing is compiled or uploaded. `--execute` does the real flash. `--force` still skips the lying-down check, and it is refused (exit 2, warning in the plan) unless `--execute` is also passed

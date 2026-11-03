@@ -21,6 +21,7 @@ String logMetaLines() {
   m += "# firmware," + String(FIRMWARE_NAME) + "\n";
   m += "# firmware_version," + String(FIRMWARE_VERSION) + ",build_id," + String(BB1_BUILD_ID) + "\n";   // version.h
   m += "# log_format," + String(LOG_FORMAT) + "\n";
+  m += "# imu_start,tries," + String(imuTries) + ",bus_pulses," + String(imuBusPulses) + "\n";   // imu.h: how hard startup had to work to find the chip
   m += "# gyro_bias_dps," + String(gyroBias[0], 3) + "," + String(gyroBias[1], 3) + "," + String(gyroBias[2], 3) + "\n";
   m += "# alpha," + String(requestedAlpha, 3) + ",loop_hz," + String(LOOP_HZ) +
        ",accel_lsb_per_g," + String(ACCEL_PER_G, 1) + ",gyro_lsb_per_dps," + String(GYRO_PER_DPS, 1) + "\n";

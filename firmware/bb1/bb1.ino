@@ -542,6 +542,8 @@ void loop() {
   if (!imuChecked && millis() > 3000) {
     imuChecked = true;
     if (!imuFound) Serial.println("! MPU-6050 not found at 0x68: check VCC (pin 36), GND (pin 8), SDA GP4, SCL GP5.");
+    else if (imuTries > 1 || imuBusPulses > 0)   // found, but it took work: worth knowing
+      Serial.println("MPU-6050 found after " + String(imuTries) + " tries, " + String(imuBusPulses) + " bus-clear pulses (a restart caught the bus mid-read)");
   }
 
   // Report each finished calibration (core 1 counts them up).
