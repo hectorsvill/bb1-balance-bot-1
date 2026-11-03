@@ -4,6 +4,7 @@ No robot, no compile, no network. flash.py without --execute must only print a
 plan. deadband_test.py must not sit on input() when stdin is not a terminal.
 """
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -165,6 +166,8 @@ class JsonFlagTest(unittest.TestCase):
         for path in scripts:
             if path.name == "cli_util.py":
                 continue
+            if path.name == "bb1_mcp.py" and importlib.util.find_spec("mcp") is None:
+                continue   # needs the mcp package (Python 3.10+); CI's 3.9 job doesn't have it
             with self.subTest(path.name):
                 res = run(path.name, ["--help"])
                 self.assertEqual(res.returncode, 0, res.stderr)
