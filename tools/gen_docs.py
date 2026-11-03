@@ -53,6 +53,8 @@ def render():
         text = (REPO / src).read_text(encoding="utf-8")
         if END in text:
             raise ValueError(f"{src} contains {END!r}, which would end the C++ string early")
+        if "</script" in text.lower():                         # docs_view.h puts the Markdown inside a <script>
+            raise ValueError(f"{src} contains '</script', which would end the web page's copy early")
         out.append(f"// {path} <- {src} ({len(text.encode('utf-8'))} bytes)")
         out.append(f'const char {name}[] = R"BB1DOC({text}{END};')
         out.append("")

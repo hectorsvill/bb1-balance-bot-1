@@ -376,6 +376,11 @@ class Bb1MockTest(unittest.TestCase):
         with urllib.request.urlopen(f"http://{self.host}/agent", timeout=5) as r:
             self.assertTrue(r.headers["Content-Type"].startswith("text/markdown"))
             self.assertTrue(r.read().decode().startswith("# BB1 agent manual"))
+        # A browser (Accept: text/html) gets the docs_view.h page instead, on /api too.
+        req = urllib.request.Request(f"http://{self.host}/api", headers={"Accept": "text/html"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            self.assertTrue(r.headers["Content-Type"].startswith("text/html"))
+            self.assertIn("# BB1 HTTP API", r.read().decode())
 
     def test_2_drive_refused_when_not_balancing(self):
         self.bb1("disarm")

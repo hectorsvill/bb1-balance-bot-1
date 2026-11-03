@@ -112,6 +112,17 @@ def read_page(path=PAGE_H, name="PAGE_HTML"):
     return re.search(name + r'\[\] = R"PAGE\((.*)\)PAGE"', text, re.S).group(1)
 
 
+def doc_answer(handler, path, query):
+    """GET /agent, /api.md (and /api from a browser) like web.h's sendDoc(): plain Markdown,
+    or the docs_view.h page around it when a browser asks for HTML (and no ?raw)."""
+    md = DOCS["/api.md" if path == "/api" else path].read_text(encoding="utf-8")
+    if "text/html" not in (handler.headers.get("Accept") or "") or "raw" in query:
+        return md, "text/markdown; charset=utf-8"
+    view = (REPO / "firmware" / "bb1" / "docs_view.h").read_text()
+    head, tail = (re.search(n + r'\[\] = R"DOCS\((.*?)\)DOCS"', view, re.S).group(1) for n in ("DOCS_HEAD", "DOCS_TAIL"))
+    return head + md + tail, "text/html; charset=utf-8"
+
+
 def total_written():
     """How many records the pretend robot has made since it 'booted'."""
     return int((time.time() - START) * LOOP_HZ)
@@ -238,8 +249,9 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(read_page(), "text/html")
         elif url.path == "/tune":
             self.reply(read_page(TUNE_H, "TUNE_HTML"), "text/html")
-        elif url.path in DOCS:                 # the docs BB1 serves (GET /agent, /api.md), read fresh from docs/
-            self.reply(DOCS[url.path].read_text(encoding="utf-8"), "text/markdown; charset=utf-8")
+        elif url.path in DOCS or (url.path == "/api" and "text/html" in (self.headers.get("Accept") or "")
+                                  and "raw" not in args):   # the docs, read fresh from docs/
+            self.reply(*doc_answer(self, url.path, args))
         elif url.path == "/api":
             self.reply(json.dumps(api_list()), "application/json")
         elif url.path == "/state":

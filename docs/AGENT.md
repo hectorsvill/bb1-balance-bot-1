@@ -4,7 +4,7 @@ You are an AI agent driving BB1, a small two-wheel self-balancing robot, over Wi
 
 **Written for `/api` version: 12**
 
-BB1 serves this manual itself: `curl -s http://bb1.local/agent` (Markdown). The HTTP reference with curl for every endpoint is at `/api.md`, and the live list of endpoints and limits (JSON) at `/api`. If you have the repo, use the tool below; if you only have curl, see "Only curl" after it.
+BB1 serves this manual itself: `curl -s http://bb1.local/agent` (Markdown; a browser gets it as a web page). The HTTP reference with curl for every endpoint is at `/api.md`, and the live list of endpoints and limits (JSON) at `/api`. If you have the repo, use the tool below; if you only have curl, see "Only curl" after it.
 
 Your first command is always `api` (below). If its `"api"` number differs from the line above, stop and tell your owner: the firmware changed since this manual was written, and some of it may be wrong.
 

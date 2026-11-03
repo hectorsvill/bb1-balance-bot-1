@@ -6,14 +6,14 @@
 
 #pragma once
 
-// /agent <- docs/AGENT.md (18886 bytes)
+// /agent <- docs/AGENT.md (18919 bytes)
 const char AGENT_MD[] = R"BB1DOC(# BB1 agent manual
 
 You are an AI agent driving BB1, a small two-wheel self-balancing robot, over Wi-Fi. This file is everything you need. Read all of it before your first command, and follow the settings in the next section: they are your owner's rules for this session, and they win over anything else here.
 
 **Written for `/api` version: 12**
 
-BB1 serves this manual itself: `curl -s http://bb1.local/agent` (Markdown). The HTTP reference with curl for every endpoint is at `/api.md`, and the live list of endpoints and limits (JSON) at `/api`. If you have the repo, use the tool below; if you only have curl, see "Only curl" after it.
+BB1 serves this manual itself: `curl -s http://bb1.local/agent` (Markdown; a browser gets it as a web page). The HTTP reference with curl for every endpoint is at `/api.md`, and the live list of endpoints and limits (JSON) at `/api`. If you have the repo, use the tool below; if you only have curl, see "Only curl" after it.
 
 Your first command is always `api` (below). If its `"api"` number differs from the line above, stop and tell your owner: the firmware changed since this manual was written, and some of it may be wrong.
 
@@ -210,7 +210,7 @@ Update this file in the same change as any of these, and set the version line at
 BB1 serves this file at `/agent` and `docs/API.md` at `/api.md` from `firmware/bb1/docs_pages.h`, which `tools/gen_docs.py` writes from the two `.md` files. Edit only the `.md`: `tools/flash.py` regenerates the header before every compile, and CI (`gen_docs.py --check`) fails if the committed header is stale. Run `python3 tools/gen_docs.py` before committing a doc change.
 )BB1DOC";
 
-// /api.md <- docs/API.md (26350 bytes)
+// /api.md <- docs/API.md (26727 bytes)
 const char API_MD[] = R"BB1DOC(# BB1 HTTP API
 
 Everything the web pages do goes through this API, so anything else (curl, a Python script, an AI agent) can do the same. The code is `firmware/bb1/web.h`; this file is the reference. `tools/mock_bb1.py` answers the same requests with made-up data, so you can try them without the robot.
@@ -218,7 +218,7 @@ Everything the web pages do goes through this API, so anything else (curl, a Pyt
 - **Address:** `http://bb1.local` on the home network, or `http://192.168.42.1` on BB1's own network "BB1". (Some computers don't resolve `bb1.local`; use the IP from `wifi` on serial or the page's status bar.)
 - **Style:** plain HTTP. `GET` reads, `POST` does something. Arguments go in the query string or as a form body (`-d name=value`), never JSON. No login: anyone on the same network can drive BB1.
 - **One at a time:** the Pico serves one request at a time and closes each connection after answering. Keep requests short and don't open many in parallel. About 20 `/state` a second plus 10 `/drive` a second is what the page uses.
-- **Docs on the robot:** BB1 serves this file at `/api.md` and the agent manual `docs/AGENT.md` at `/agent` (Markdown, firmware 3.13), so an agent with only curl can learn to drive it. Both are built from the `.md` files by `tools/gen_docs.py`; never edit `firmware/bb1/docs_pages.h`.
+- **Docs on the robot:** BB1 serves this file at `/api.md` and the agent manual `docs/AGENT.md` at `/agent` (firmware 3.13), so an agent with only curl can learn to drive it. A browser gets them as a web page (links on the main page; `/api` in a browser shows this file too), curl gets plain Markdown, and `?raw=1` forces plain (on `/api`: the JSON). Both are built from the `.md` files by `tools/gen_docs.py`; never edit `firmware/bb1/docs_pages.h`.
 - **Answers:** `/api`, `/state`, `/sys`, `/wifi` (GET), `/drive` and `/spin` answer JSON. Older actions answer one line of plain text meant for a person. Errors use the status code: `400` bad argument, `409` not allowed right now (the text says why), `404` unknown path.
 - **Units:** degrees, deg/s, PWM (-255..255, forward +), wheel turns per second (520 encoder counts = 1 turn, assumed). Forward and turn right are positive.
 
@@ -442,7 +442,7 @@ RAM and flash use: `ram_total`, `ram_static`, `heap_total`, `heap_used`, `log_bu
 | `POST /wifi/forget` | forget it and restart on the own network. Disarmed only (`409`) |
 | `GET /`, `GET /tune` | the main page and the tuning page |
 | `GET /api` | every endpoint and its limits, JSON (see above) |
-| `GET /agent`, `GET /api.md` | `docs/AGENT.md` and this file as Markdown (`text/markdown`), from `docs_pages.h` (`tools/gen_docs.py`). About 17 and 26 KB, sent from flash |
+| `GET /agent`, `GET /api.md` | `docs/AGENT.md` and this file as Markdown (`text/markdown`), from `docs_pages.h` (`tools/gen_docs.py`). About 19 and 26 KB, sent from flash. A browser (`Accept: text/html`) gets a web page instead: `docs_view.h` around the same Markdown, rendered by a small script on the page; `?raw=1` = plain. `GET /api` from a browser shows this file the same way |
 | `POST /update` | new firmware over Wi-Fi (`ota.h`): multipart form field `firmware` = `build/bb1/bb1.ino.bin` (or gzipped), Basic auth user `bb1`, password `BB1_OTA_PASSWORD` from `secrets.h`. Refused (`409`, JSON `error`) while armed, during a motor test, or unless lying down (more than 45 deg from the trim); `401` for a wrong password. On success answers `{"ok":true,"bytes":N,...}` and restarts; the bootloader copies the new firmware in (about 10-20 s until Wi-Fi is back). While it runs, every arm is refused with reason "a firmware update is running" (code 14). A broken-off upload changes nothing |
 
 ## Ready for an AI agent? (milestone 3)

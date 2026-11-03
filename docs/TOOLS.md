@@ -298,7 +298,7 @@ python3 tools/gen_docs.py            # rebuild firmware/bb1/docs_pages.h from do
 python3 tools/gen_docs.py --check    # exit 1 if it is out of date (CI)
 ```
 
-BB1 serves `docs/AGENT.md` at `/agent` and `docs/API.md` at `/api.md` (Markdown), so an agent with only curl can learn to drive it. The `.md` files are the only copy: this script turns each into a C++ raw string in `firmware/bb1/docs_pages.h` (kept in flash, not RAM). Never edit the header. `flash.py` runs this before every compile; CI and `test_tools.py` fail if the committed header is stale, so run it before committing a doc change. To serve another doc, add a row to `PAGES` and a route in `web.h`. The mock serves the `.md` files straight from `docs/`, and reads its `/api` endpoint list from `api.h`. No venv needed.
+BB1 serves `docs/AGENT.md` at `/agent` and `docs/API.md` at `/api.md` (Markdown), so an agent with only curl can learn to drive it. The `.md` files are the only copy: this script turns each into a C++ raw string in `firmware/bb1/docs_pages.h` (kept in flash, not RAM). Never edit the header. `flash.py` runs this before every compile; CI and `test_tools.py` fail if the committed header is stale, so run it before committing a doc change. A browser gets each doc as a web page: `firmware/bb1/docs_view.h` (hand-written, a small Markdown renderer) wrapped around the same text, so there is still one copy. To serve another doc, add a row to `PAGES` and a route in `web.h`. The mock serves the `.md` files straight from `docs/`, and reads its `/api` endpoint list from `api.h`. No venv needed.
 
 ### drive_test.py: drive tests over Wi-Fi, recorded and reported
 

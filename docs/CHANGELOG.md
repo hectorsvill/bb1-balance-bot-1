@@ -6,6 +6,7 @@ Newest first.
 
 - `curl http://bb1.local/agent` gives the agent manual (`docs/AGENT.md`) and `/api.md` the HTTP reference (`docs/API.md`), as Markdown. An agent with only curl and BB1's address can now learn to drive it. `/api` (JSON) gains `"docs":{"agent":"/agent","api":"/api.md"}` and both rows
 - **Written once:** the `.md` files stay the only copy. `tools/gen_docs.py` builds `firmware/bb1/docs_pages.h` (raw strings in flash, about 45 KB; static RAM unchanged at 83%, flash 57%) from them; `flash.py` runs it before every compile; CI (`gen_docs.py --check`) and `test_tools.py` fail when the header is stale
+- **In a browser** the same URLs are a web page (`docs_view.h`: a small Markdown renderer around the same text, no second copy; links on the main page), and `/api` in a browser shows the API reference. curl, `bb1.py` and `fetch()` still get Markdown / JSON; `?raw=1` forces plain. Flash 58%
 - The mock reads its `/api` endpoint list and `API_VERSION` from `api.h` instead of a copy, and serves `/agent` and `/api.md` from `docs/`
 - AGENT.md: where BB1 serves it, and an "Only curl" section (each tool command as an HTTP request, with the caps the agent must apply itself)
 - Built on `main` (3.11). 3.12 and `/api` 11 are the odometry/`POST /move` branch `odom-move`, not merged; whichever merges second takes the next numbers

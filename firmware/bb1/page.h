@@ -205,6 +205,8 @@ const char PAGE_HTML[] = R"PAGE(<!doctype html>
         <button class="stop big" id="disarmBtn" onclick="disarm()">STOP</button>
         <span class="spacer"></span>
         <a href="/tune" style="color:var(--blue)">Tune gains and test runs &rarr;</a>
+        <a href="/agent" style="color:var(--blue)">Agent manual</a>
+        <a href="/api" style="color:var(--blue)">API docs</a>
       </div>
       <div class="msg">BB1 starts balancing by itself when it's upright and still for 1 s, and again after you stand it back up from a fall. STOP turns that off until you press ARM. Laying it down stops the motors. Space bar = STOP.</div>
     </div>
