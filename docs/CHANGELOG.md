@@ -2,7 +2,7 @@
 
 Newest first.
 
-## 2026-11-03 - BB1 serves its own docs: `GET /agent`, `GET /api.md` (firmware 3.13, `/api` 12; not flashed)
+## 2026-11-03 - BB1 serves its own docs: `GET /agent`, `GET /api.md` (firmware 3.13, `/api` 12; flashed over Wi-Fi 2026-11-03)
 
 - `curl http://bb1.local/agent` gives the agent manual (`docs/AGENT.md`) and `/api.md` the HTTP reference (`docs/API.md`), as Markdown. An agent with only curl and BB1's address can now learn to drive it. `/api` (JSON) gains `"docs":{"agent":"/agent","api":"/api.md"}` and both rows
 - **Written once:** the `.md` files stay the only copy. `tools/gen_docs.py` builds `firmware/bb1/docs_pages.h` (raw strings in flash, about 45 KB; static RAM unchanged at 83%, flash 57%) from them; `flash.py` runs it before every compile; CI (`gen_docs.py --check`) and `test_tools.py` fail when the header is stale
