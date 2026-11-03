@@ -22,6 +22,7 @@ Newest first.
 
 - **Bug:** `POST /wifi`, `POST /wifi/forget` and serial `wifi reset` wrote flash (`EEPROM.commit()`) and restarted BB1 with no armed check. The flash write pauses core 1's 200 Hz loop with the last PWM still on the wheels, then the restart drops the robot mid-balance
 - **Fix:** all three now refuse while armed or in a motor test (`wifiChangeBlocked()` in `wifi_setup.h`; `409` over HTTP, a message on serial), the same rule as Save gains and OTA. The delayed restart after an accepted save (1 s later) also checks again: if auto-arm started balancing in that second, it disarms first and restarts 200 ms later
+- **Tested on BB1 (2026-11-03, 3.9):** armed (`/state` `"armed":true`), `POST /wifi/forget` answered `409 disarm first: ...`, BB1 kept balancing and kept the home network
 - `GET /api` version 8 (the two rows say "disarmed only"); `docs/AGENT.md` version line 8; `docs/API.md`; `mock_bb1.py` (api 8, refuses `/wifi` while armed)
 
 ## 2026-10-31 - Fast spins: turn 5.0, deadband per wheel (firmware 3.7, flashed 2026-10-31)
