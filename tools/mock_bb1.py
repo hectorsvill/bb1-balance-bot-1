@@ -181,8 +181,8 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
     ("POST", "/alpha", "value", "text", False, "angle filter weight"),
     ("POST", "/cal", "", "text", False, "recalibrate the gyro (2 s, keep still; disarms)"),
     ("POST", "/motor", "left,right,ms", "text", True, "timed motor test, disarmed only, wheels in the air"),
-    ("POST", "/wifi", "ssid,password", "text", False, "save a home network and restart"),
-    ("POST", "/wifi/forget", "", "text", False, "forget the home network and restart"),
+    ("POST", "/wifi", "ssid,password", "text", False, "save a home network and restart (disarmed only)"),
+    ("POST", "/wifi/forget", "", "text", False, "forget the home network and restart (disarmed only)"),
     ("POST", "/update", "firmware", "json", False,
      "new firmware over Wi-Fi (multipart file, Basic auth bb1); lying down and disarmed only; restarts"),
     ("GET", "/", "", "html", False, "the main page"),
@@ -192,7 +192,7 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
 
 def api_list():
     return {
-        "api": 7, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 13,
+        "api": 8, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 13,
         "units": {"angle": "deg (forward +)", "speed": "wheel turns/s (forward +)",
                   "turn": "wheel turns/s left minus right (right +)", "pwm": "-255..255 (forward +)", "counts_per_rev": 520},
         "limits": {"drive_max_speed": DRIVE_MAX_SPEED, "drive_max_turn": DRIVE_MAX_TURN, "drive_hold_ms": DRIVE_HOLD_MS,
@@ -377,6 +377,8 @@ class Handler(BaseHTTPRequestHandler):
                     t[1] = now
             self.reply("stopped")
         elif self.path in ("/wifi", "/wifi/forget"):
+            if armed_from is not None:
+                return self.reply("disarm first: saving Wi-Fi settings pauses the control loop and restarts BB1", status=409)
             self.reply("mock: nothing saved, the real robot would restart now")
         else:
             self.reply("not found", status=404)

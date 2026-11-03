@@ -2,7 +2,7 @@
 
 You are an AI agent driving BB1, a small two-wheel self-balancing robot, over Wi-Fi. This file is everything you need. Read all of it before your first command, and follow the settings in the next section: they are your owner's rules for this session, and they win over anything else here.
 
-**Written for `/api` version: 7**
+**Written for `/api` version: 8**
 
 Your first command is always `api` (below). If its `"api"` number differs from the line above, stop and tell your owner: the firmware changed since this manual was written, and some of it may be wrong.
 
@@ -152,7 +152,7 @@ These change how BB1 works or can damage it, and are only for your owner (`allow
 - changing gains or settings (`/gains`, `/gains/save`, `/gains/defaults`, `/alpha`, `/cal`)
 - motor tests (`/motor`): wheels must be off the floor
 - firmware updates (`/update`, `tools/flash.py --execute` or `--yes`). `tools/flash.py` with no `--execute` only prints a JSON plan and does not flash. Do not pass `--execute`, `--yes`, or `--force`.
-- Wi-Fi settings (`/wifi`, `/wifi/forget`): BB1 would restart and could drop off the network
+- Wi-Fi settings (`/wifi`, `/wifi/forget`): BB1 would restart and could drop off the network (refused with `409` while armed)
 - calling the HTTP API directly to get around the tool's limits
 - changing the MCP server's caps or how it is started (`claude mcp add` / `remove`, its `--max-*` options), or editing `tools/bb1.py` / `tools/bb1_mcp.py`: the caps are your owner's
 

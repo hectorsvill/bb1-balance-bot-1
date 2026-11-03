@@ -52,6 +52,16 @@ void wifiLoadSettings() {
   wifiSettings.password[63] = 0;
 }
 
+// Wi-Fi settings may only change while the motors are off. EEPROM.commit()
+// pauses both cores for the flash write (core 1's 200 Hz loop stops with the
+// last PWM still on the wheels) and the change ends in a restart, so doing it
+// while balancing would drop BB1. Same rule as Save gains (settings.h) and OTA.
+// Returns "" when it's fine, or the reason for the page / serial.
+String wifiChangeBlocked() {
+  if (robotArmed || motorTestRunning) return "disarm first: saving Wi-Fi settings pauses the control loop and restarts BB1";
+  return "";
+}
+
 // Save a home network. Takes effect after a restart.
 void wifiSaveHomeNetwork(const String &ssid, const String &password) {
   memset(&wifiSettings, 0, sizeof(wifiSettings));
