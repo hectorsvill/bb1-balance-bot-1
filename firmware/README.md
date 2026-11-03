@@ -26,7 +26,7 @@ The RP2040 has 256 KB of main RAM. Static RAM (fixed at compile time) is 218.0 K
 
 ## Firmware updates over Wi-Fi (`ota.h`, 2026-10-27, flashed)
 
-`POST /update` takes a new firmware over Wi-Fi; `tools/flash.py --ota` sends it. Lying down and disarmed only (BB1 checks), password `BB1_OTA_PASSWORD` in `secrets.h`. Needs Flash Size "Sketch: 1MB, FS: 1MB" (`flash.py` and CI use it; the first one goes on over USB). How it works and what to do when it fails: `docs/FLASHING.md`, "Flashing over Wi-Fi".
+`POST /update` takes a new firmware over Wi-Fi; `tools/flash.py --ota --execute` sends it (without `--execute`, flash.py only prints a JSON plan). Lying down and disarmed only (BB1 checks), password `BB1_OTA_PASSWORD` in `secrets.h`. Needs Flash Size "Sketch: 1MB, FS: 1MB" (`flash.py` and CI use it; the first one goes on over USB). How it works and what to do when it fails: `docs/FLASHING.md`, "Flashing over Wi-Fi".
 
 `version.h` says which firmware this is: `FIRMWARE_VERSION` (bump it by hand per firmware change) and `BB1_BUILD_ID` (written by `flash.py` into the gitignored `build_id.h`). Shown in `/sys`, `/api`, the main page and the log files.
 

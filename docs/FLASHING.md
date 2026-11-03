@@ -19,12 +19,14 @@ The battery voltage divider (docs/FUTURE_INTEGRATIONS.md) will let the page show
 
 ## Flashing with tools/flash.py (the easy way)
 
-One command does the compile, the safety check, the upload and the check afterwards:
+With no extra flag, `flash.py` only prints a JSON plan and exits 0. It does not compile or upload. The plan says the target (`firmware/bb1`), the transport (`usb` or `ota`), the host (OTA only), the firmware path, and whether the lying-down check will run.
+
+Add **`--execute`** (alias `--yes`) to do the compile, the safety check, the upload and the check afterwards:
 
 1. **Lay BB1 down** on its front.
 2. Switch the **D153C on**, then plug in **USB** (power order below).
 3. Close anything holding the port: Arduino IDE Serial Monitor, `handheld.py`, `arduino-cli monitor`.
-4. From the repo folder: `tools/venv/bin/python tools/flash.py`
+4. From the repo folder: `tools/venv/bin/python tools/flash.py --execute`
 5. **Expect**, in order:
    - `== Compiling firmware/bb1` and the `Sketch uses ...` lines
    - `== Safety check`: `pitch +89 deg ...` and `Lying down: safe to flash.`
@@ -43,7 +45,7 @@ One command does the compile, the safety check, the upload and the check afterwa
 | `Upload failed` | close any serial monitor and retry; else BOOTSEL (section 3) |
 | `Compile failed` | the error is printed above it |
 
-Options: `--skip-compile` (upload the last build), `--force` (skip the lying-down check), `-p PORT`, `--ota` and `--host` (next section).
+Options: `--execute` / `--yes` (do the flash; without it you only get the JSON plan), `--skip-compile` (upload the last build), `--force` (skip the lying-down check; **requires `--execute`**, and the plan warns that the safety check will be skipped — wheels off the table), `-p PORT`, `--json` (with `--execute`, the final result is JSON and the progress goes to stderr), `--ota` and `--host` (next section). Exit codes: 0 ok, including a plan; 1 compile, upload, or the safety check failed; 2 bad arguments, missing `secrets.h`, no build yet, or BB1 didn't answer. `--force` without `--execute` is exit 2 and still prints the plan, with `lying_down_check` false and a warning.
 
 ## Flashing over Wi-Fi: `tools/flash.py --ota` (no USB cable)
 
@@ -54,7 +56,7 @@ BB1 can take a new firmware over Wi-Fi (`firmware/bb1/ota.h`). The new file land
 **Every time after that:**
 
 1. **Lay BB1 down** on its front, battery on, on Wi-Fi (no USB needed).
-2. From the repo folder: `tools/venv/bin/python tools/flash.py --ota` (add `--host 192.168.x.x` if `bb1.local` is slow).
+2. From the repo folder: `tools/venv/bin/python tools/flash.py --ota --execute` (add `--host 192.168.x.x` if `bb1.local` is slow; the host defaults to `$BB1_HOST` or `bb1.local`). Without `--execute` this only prints the plan.
 3. **Expect**, in order:
    - `== Compiling firmware/bb1`, `version 3.2, build id <branch> <commit> <time>` and the `Sketch uses ...` lines
    - `== Safety check over Wi-Fi`: `pitch +89 deg ... armed False, now running version ...` and `Lying down: safe to flash.`

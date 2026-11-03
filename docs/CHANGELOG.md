@@ -2,6 +2,15 @@
 
 Newest first.
 
+## 2026-11-02 - Tooling hygiene (no firmware change)
+
+- **`tools/flash.py` plans by default.** No `--execute` (alias `--yes`): one JSON plan on stdout (target, transport `usb`/`ota`, host, firmware path, whether the lying-down check runs) and exit 0. Nothing is compiled or uploaded. `--execute` does the real flash. `--force` still skips the lying-down check, and it is refused (exit 2, warning in the plan) unless `--execute` is also passed
+- **`tools/deadband_test.py --yes`** skips the wheels-off prompt. If stdin is not a terminal and `--yes` is missing, exit 2 instead of waiting on `input()`
+- **`--json` and exit codes** on every script in `tools/` (`tools/cli_util.py`): 0 ok, 1 check/test failed, 2 usage/config, 130 Ctrl-C where a tool stops the motors. `bb1.py`, `logs.py` and `todo.py` still always print JSON. `drive_test.py --host` defaults to `$BB1_HOST` or `bb1.local`
+- **Ruff** (`ruff.toml`, scoped to `tools/`, `tools/requirements-dev.txt`) and a `ruff check tools` step in `.github/workflows/tools.yml`. Dependabot weekly for pip (`tools/`) and GitHub Actions (`.github/dependabot.yml`)
+- **Release workflow** `.github/workflows/release.yml`: tag `v*` builds the UF2 with the same arduino-cli setup as compile.yml and uploads `bb1.ino.uf2` to the GitHub Release. The copies in `firmware/uf2/` stay in git until a release exists
+- Docs: `docs/TOOLS.md`, `docs/FLASHING.md`, `docs/AGENT.md`, `tools/README.md`, `CLAUDE.md`
+
 ## 2026-11-01 - Wi-Fi settings refused while armed (firmware 3.8, flashed 2026-11-02; GitHub issue #16)
 
 - **Bug:** `POST /wifi`, `POST /wifi/forget` and serial `wifi reset` wrote flash (`EEPROM.commit()`) and restarted BB1 with no armed check. The flash write pauses core 1's 200 Hz loop with the last PWM still on the wheels, then the restart drops the robot mid-balance

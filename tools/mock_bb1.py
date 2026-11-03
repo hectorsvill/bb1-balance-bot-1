@@ -22,7 +22,10 @@ import json
 import math
 import random
 import re
+import sys
 import time
+
+import cli_util
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -387,14 +390,18 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=8080)
+    cli_util.standard_cli(ap)
     args = ap.parse_args()
     server = ThreadingHTTPServer(("localhost", args.port), Handler)
-    print(f"Mock BB1 running: open http://localhost:{args.port}  (Ctrl-C to stop)")
-    print(f"Serving the page from {PAGE_H.relative_to(REPO)}; edit it and reload the browser.")
+    if args.json:
+        print(json.dumps({"ok": True, "url": f"http://localhost:{args.port}"}))
+    else:
+        print(f"Mock BB1 running: open http://localhost:{args.port}  (Ctrl-C to stop)")
+        print(f"Serving the page from {PAGE_H.relative_to(REPO)}; edit it and reload the browser.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nstopped")
+        print("\nstopped", file=sys.stderr if args.json else sys.stdout)
 
 
 if __name__ == "__main__":

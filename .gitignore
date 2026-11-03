@@ -33,6 +33,7 @@ credentials*
 # Python virtual environment for tools/ (rebuilt from tools/requirements.txt)
 venv/
 __pycache__/
+.ruff_cache/
 
 # Recorded runs never go in this public repo: they live in the private repo
 # bb1-private. logs is a link to bb1-private/logs (no trailing slash: a link isn't

@@ -227,6 +227,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--base", required=True, help="http://<ip>[:port], already looked up by bb1.py")
     ap.add_argument("--host", required=True, help="the name the agent used (for the status)")
+    # bb1.py owns the JSON an agent sees. This process is the recorder it starts.
+    ap.add_argument("--json", action="store_true", help="accepted and ignored; bb1.py is the JSON interface")
     args = ap.parse_args()
     PID.write_text(str(os.getpid()))
     try:

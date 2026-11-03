@@ -11,8 +11,11 @@ Any other lines in the file (the "> csv" echo, calibration messages) are skipped
 
 import argparse
 import io
+import json
+import sys
 from pathlib import Path
 
+import cli_util
 import pandas as pd
 
 REPO = Path(__file__).resolve().parent.parent   # the repo folder (tools/ is one level down)
@@ -29,7 +32,9 @@ def find_file(name):
         return p
     if not p.is_absolute() and (REPO / p).exists():
         return REPO / p
-    raise SystemExit(f"Can't find {name} (looked in {Path.cwd()} and {REPO}). Try: ls {REPO / 'logs'}")
+    cli_util.fail(
+        f"Can't find {name} (looked in {Path.cwd()} and {REPO}). Try: ls {REPO / 'logs'}",
+        cli_util.EXIT_USAGE, "--json" in sys.argv)
 
 
 def load(path):
@@ -44,9 +49,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("file")
     ap.add_argument("--plot", action="store_true", help="show pitch, accel pitch and rate over time")
+    cli_util.standard_cli(ap)
     args = ap.parse_args()
 
     df = load(find_file(args.file))
+    if df.empty:
+        cli_util.fail("No CSV rows in that file.", cli_util.EXIT_FAIL, args.json)
     per_sec = df.groupby(df.t.astype(int)).agg(
         pitch=("pitch", "mean"),
         accel_pitch=("accel_pitch", "mean"),
@@ -54,15 +62,27 @@ def main():
         loop_max_us=("loop_max_us", "max"),
     )
     per_sec.index.name = "second"
-    print(per_sec.round(1).to_string())
+    if not args.json:
+        print(per_sec.round(1).to_string())
 
     # How well the filter agrees with the accelerometer while the robot is still
     # (rate under 2 deg/s). While moving they should differ: that's the filter's job.
     still = df[df.pitch_rate.abs() < 2]
     gap = (still.pitch - still.accel_pitch).abs().max() if len(still) else float("nan")
-    print(f"\nrows {len(df)}, {df.t.iloc[-1]:.0f} s")
-    print(f"loop work: avg {df.loop_avg_us.mean():.0f} us, max {df.loop_max_us.max()} us (budget 5000)")
-    print(f"largest pitch vs accel-only gap while rate < 2 deg/s (still or moving slowly): {gap:.2f} deg")
+    if args.json:
+        print(json.dumps({
+            "ok": True,
+            "rows": int(len(df)),
+            "seconds": round(float(df.t.iloc[-1])),
+            "loop_avg_us": round(float(df.loop_avg_us.mean())),
+            "loop_max_us": int(df.loop_max_us.max()),
+            "still_gap_deg": None if gap != gap else round(float(gap), 2),
+            "per_second": json.loads(per_sec.round(1).reset_index().to_json(orient="records")),
+        }))
+    else:
+        print(f"\nrows {len(df)}, {df.t.iloc[-1]:.0f} s")
+        print(f"loop work: avg {df.loop_avg_us.mean():.0f} us, max {df.loop_max_us.max()} us (budget 5000)")
+        print(f"largest pitch vs accel-only gap while rate < 2 deg/s (still or moving slowly): {gap:.2f} deg")
 
     if args.plot:
         import matplotlib.pyplot as plt

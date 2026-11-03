@@ -22,7 +22,6 @@ Only the standard library is used here (unittest, subprocess, sqlite3).
 
 import asyncio
 import json
-import os
 import py_compile
 import shutil
 import socket

@@ -6,7 +6,11 @@ changes, change it in both places, then run:
     tools/venv/bin/python tools/make_wiring_svg.py
 """
 
+import argparse
+import json
 from pathlib import Path
+
+import cli_util
 
 OUT = Path(__file__).resolve().parent.parent / "docs" / "wiring.svg"
 
@@ -73,6 +77,9 @@ def box(x, y, w, h, fill, stroke, title):
 
 
 def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    cli_util.standard_cli(ap)
+    args = ap.parse_args()
     top = 110                                  # first D153C wire
     d_h = len(D153C) * DY + 10
     imu_top = top + d_h + 50                   # first GY-521 wire
@@ -95,7 +102,10 @@ def main():
         s.append(f'<text x="20" y="{notes_y + k * 22}">{note}</text>')
     s.append("</svg>")
     OUT.write_text("\n".join(s) + "\n")
-    print(f"wrote {OUT}")
+    if args.json:
+        print(json.dumps({"ok": True, "file": str(OUT)}))
+    else:
+        print(f"wrote {OUT}")
 
 
 if __name__ == "__main__":

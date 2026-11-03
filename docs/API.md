@@ -54,7 +54,7 @@ curl -X POST $B/motor -d left=80 -d right=80 -d ms=1000   # PWM up to ±150, at 
 curl -X POST $B/wifi --data-urlencode ssid='MyHome' --data-urlencode password='...'   # join a home network
 curl -X POST $B/wifi/forget                       # forget it, back to its own network "BB1"
 
-# Firmware update over Wi-Fi (BB1 restarts; lying down and disarmed only). tools/flash.py --ota does this for you
+# Firmware update over Wi-Fi (BB1 restarts; lying down and disarmed only). tools/flash.py --ota --execute does this for you (no --execute = a JSON plan only)
 curl -u bb1:<BB1_OTA_PASSWORD> -F firmware=@build/bb1/bb1.ino.bin $B/update
 ```
 

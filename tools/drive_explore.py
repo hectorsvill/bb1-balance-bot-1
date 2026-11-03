@@ -31,6 +31,7 @@ import sys
 import time
 from datetime import datetime
 
+import cli_util
 import drive_test
 from drive_test import COUNTS_PER_REV, Run, Stop
 from logger import get, log_path, save_log
@@ -92,6 +93,10 @@ class Explorer:
         self.chunk_start = datetime.now()
         self.meta = get(f"{base}/log/meta")
 
+    def _say(self, text):
+        """Progress. With --json this goes to stderr so the final document is the only stdout."""
+        print(text, file=sys.stderr if self.args.json else sys.stdout)
+
     def state(self):
         """/state, or None during a short Wi-Fi stall (ridden out like every other request:
         one slow answer while the Pico sends a slow /log ended a run after 18 s, 2026-10-26).
@@ -113,7 +118,8 @@ class Explorer:
         out = None
         if self.args.out_dir:            # e.g. a scratch folder for mock runs: mock data never goes in logs/
             out = f"{self.args.out_dir}/{log_path(note, self.chunk_start).name}"
-        save_log(log_path(note, self.chunk_start, out), meta, note, self.chunk_start, r.header, r.rows, r.lost, r.versions, self.args.surface)
+        save_log(log_path(note, self.chunk_start, out), meta, note, self.chunk_start, r.header, r.rows, r.lost,
+                 r.versions, self.args.surface, announce=not self.args.json)
         r.rows, r.lost, self.steps = [], 0, []
         self.chunk += 1
         self.chunk_start = datetime.now()
@@ -171,7 +177,7 @@ class Explorer:
         self.odo = Odometry(s["enc_l"], s["enc_r"])
         t_end = time.time() + self.args.minutes * 60
         why = "done"
-        print(f"Exploring a {self.args.box} m box for {self.args.minutes:g} min. Ctrl-C stops.")
+        self._say(f"Exploring a {self.args.box} m box for {self.args.minutes:g} min. Ctrl-C stops.")
         try:
             while time.time() < t_end:
                 try:
@@ -183,7 +189,7 @@ class Explorer:
                     if "no answer" not in str(e):
                         raise
                     # Wi-Fi stall: BB1 has already stopped by itself. Wait and try again.
-                    print(f"  {datetime.now():%H:%M:%S} Wi-Fi: {e}; waiting")
+                    self._say(f"  {datetime.now():%H:%M:%S} Wi-Fi: {e}; waiting")
                     for _ in range(10):
                         time.sleep(3)
                         try:
@@ -198,8 +204,8 @@ class Explorer:
                     self.save_chunk()
                 if time.time() - getattr(self, "last_print", 0) > 30:
                     self.last_print = time.time()
-                    print(f"  {datetime.now():%H:%M:%S} x {self.odo.x:+.2f} y {self.odo.y:+.2f} m, "
-                          f"heading {math.degrees(self.odo.th) % 360:3.0f} deg, batt {s['batt_v'] / 2:.2f} V/cell")
+                    self._say(f"  {datetime.now():%H:%M:%S} x {self.odo.x:+.2f} y {self.odo.y:+.2f} m, "
+                               f"heading {math.degrees(self.odo.th) % 360:3.0f} deg, batt {s['batt_v'] / 2:.2f} V/cell")
                     s = json.loads(get(f"{self.base}/state"))
         except Stop as e:
             why = f"stopped: {e}"
@@ -209,7 +215,7 @@ class Explorer:
             why = f"stopped: error {e!r}"
         finally:
             r.stop()
-        print(f"  {why}")
+        self._say(f"  {why}")
         t = time.time() + 2               # 2 s more so a fall is in the file
         while time.time() < t:
             try:
@@ -219,6 +225,7 @@ class Explorer:
                 pass
             time.sleep(0.25)
         self.save_chunk(why.replace(",", ";"))
+        return why
 
 
 def main():
@@ -233,6 +240,7 @@ def main():
     ap.add_argument("-n", "--note", default="", help="note in every chunk's file and name")
     ap.add_argument("--seed", type=int, help="random seed (to repeat a run)")
     ap.add_argument("--out-dir", help="save the chunks here instead of logs/ (use it for the mock)")
+    cli_util.standard_cli(ap)
     args = ap.parse_args()
     random.seed(args.seed)
     drive_test.MAX_TRAVEL = 1e9          # the box check replaces drive_test's 3-turn limit
@@ -240,11 +248,18 @@ def main():
     try:
         ip = socket.gethostbyname(name)
     except OSError:
-        sys.exit(f"Can't find {name}. Try --host <ip>.")
+        cli_util.fail(f"Can't find {name}. Try --host <ip>.", cli_util.EXIT_USAGE, args.json)
     try:
-        Explorer(f"http://{ip}{':' + port if port else ''}", args).main()
+        why = Explorer(f"http://{ip}{':' + port if port else ''}", args).main()
     except Stop as e:
-        sys.exit(f"Not starting: {e}")
+        cli_util.fail(f"Not starting: {e}", cli_util.EXIT_FAIL, args.json)
+    if args.json:
+        print(json.dumps({"ok": why == "done", "why": why}))
+    # Same codes with or without --json: 0 finished the minutes, 1 stopped early, 130 Ctrl-C.
+    if why == "stopped: Ctrl-C":
+        raise SystemExit(cli_util.EXIT_INTERRUPT)
+    if why != "done":
+        raise SystemExit(cli_util.EXIT_FAIL)
 
 
 if __name__ == "__main__":

@@ -11,10 +11,12 @@ capturing a test run to paste into a log note.
 
 import argparse
 import glob
+import json
 import sys
 import time
 from pathlib import Path
 
+import cli_util
 import serial  # pyserial
 from serial.tools import list_ports
 
@@ -44,9 +46,14 @@ def main():
     ap.add_argument("-t", "--seconds", type=float, default=15, help="how long to read (default 15)")
     ap.add_argument("-o", "--out", help="also save to this file (a relative path is inside the repo folder, e.g. logs/run.txt)")
     ap.add_argument("-s", "--send", help="send this line (plus newline) after opening")
+    cli_util.standard_cli(ap)
     args = ap.parse_args()
 
-    port = args.port or find_port()
+    try:
+        port = args.port or find_port()
+    except SystemExit as e:
+        message = e.code if isinstance(e.code, str) else "No Pico found (is USB plugged in?)."
+        cli_util.fail(message, cli_util.EXIT_USAGE, args.json)
     out = None
     if args.out:
         # Relative paths are taken from the repo folder, not from wherever the
@@ -63,17 +70,27 @@ def main():
         if args.send:
             ser.write((args.send + "\n").encode())
         end = time.time() + args.seconds
+        lines = []
         while time.time() < end:
             raw = ser.readline()
             if not raw:
                 continue
             line = raw.decode(errors="replace").rstrip()
-            print(line)
+            lines.append(line)
+            if not args.json:
+                print(line)
             if out:
                 out.write(line + "\n")
     if out:
         out.close()
-        print(f"saved to {out_path}")
+        if not args.json:
+            print(f"saved to {out_path}")
+    if args.json:
+        saved = str(out_path) if out else None
+        payload = {"ok": True, "port": port, "lines": len(lines), "file": saved}
+        if not out:
+            payload["text"] = lines
+        print(json.dumps(payload))
 
 
 if __name__ == "__main__":

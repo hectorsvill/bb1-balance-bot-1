@@ -1,0 +1,15 @@
+# Lint the Python tools only. Firmware under firmware/ is C++ and is not checked.
+# CI runs `ruff check tools` (.github/workflows/tools.yml).
+
+target-version = "py39"
+line-length = 100
+
+# A `ruff check` with no path still stays out of the C++ tree, the build, and logs.
+extend-exclude = ["firmware", "cad", "build", "logs", "docs"]
+
+[lint]
+# Explicit so a newer ruff's default set cannot fail CI on style this repo
+# uses on purpose: long teaching comments (E501), `l` for one log line (E741),
+# a semicolon in a plot call (E702), a short lambda (E731).
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E501", "E741", "E702", "E731"]

@@ -1,0 +1,59 @@
+# On a version tag (v1.2.3, v3.8, ...), build the same UF2 as compile.yml and
+# attach it to the GitHub Release for that tag. Creating the release in the
+# GitHub UI pushes the tag and this job only uploads the file. Pushing the tag
+# by itself creates the release.
+# The copies in firmware/uf2/ stay in git until a release exists and someone
+# removes them on purpose. This workflow does not delete them.
+
+name: Release UF2
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  uf2:
+    name: Build bb1.ino.uf2 and upload it
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Install arduino-cli 1.5.1
+        run: |
+          curl -fsSL -o /tmp/arduino-cli.tar.gz \
+            https://github.com/arduino/arduino-cli/releases/download/v1.5.1/arduino-cli_1.5.1_Linux_64bit.tar.gz
+          tar -xzf /tmp/arduino-cli.tar.gz -C /tmp arduino-cli
+          sudo mv /tmp/arduino-cli /usr/local/bin/arduino-cli
+          arduino-cli version
+
+      - name: Install the RP2040 core (Earle Philhower 6.3.0)
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls \
+            https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+          arduino-cli core update-index
+          arduino-cli core install rp2040:rp2040@6.3.0
+
+      - name: Copy the secrets template
+        run: cp firmware/bb1/secrets.example.h firmware/bb1/secrets.h
+
+      - name: Compile firmware/bb1
+        run: arduino-cli compile --fqbn rp2040:rp2040:rpipicow:flash=2097152_1048576 --output-dir build/bb1 firmware/bb1
+
+      - name: Attach bb1.ino.uf2 to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          asset="build/bb1/bb1.ino.uf2"
+          notes="UF2 built from this tag (arduino-cli, Raspberry Pi Pico W, Flash Size Sketch 1MB / FS 1MB). Drag it onto the Pico in BOOTSEL mode. The files in firmware/uf2/ are the same kind of image, checked into the repo."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$asset" --clobber
+          else
+            gh release create "$tag" "$asset" --title "$tag" --notes "$notes"
+          fi

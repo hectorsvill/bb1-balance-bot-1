@@ -1,0 +1,2 @@
+# Lint only (not needed to run the tools). CI installs this next to requirements.txt.
+ruff==0.17.3

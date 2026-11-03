@@ -13,8 +13,11 @@ Column meanings: docs/CALIBRATION_AND_LOGS.md.
 
 import argparse
 import io
+import json
+import sys
 from pathlib import Path
 
+import cli_util
 import pandas as pd
 
 REPO = Path(__file__).resolve().parent.parent
@@ -26,7 +29,9 @@ def find_file(name):
         return p
     if not p.is_absolute() and (REPO / p).exists():
         return REPO / p
-    raise SystemExit(f"Can't find {name} (looked in {Path.cwd()} and {REPO}). Try: ls {REPO / 'logs'}")
+    cli_util.fail(
+        f"Can't find {name} (looked in {Path.cwd()} and {REPO}). Try: ls {REPO / 'logs'}",
+        cli_util.EXIT_USAGE, "--json" in sys.argv)
 
 
 def load_dump(path):
@@ -54,21 +59,46 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("file")
     ap.add_argument("--plot", action="store_true", help="plot pitch, accel pitch, rate and loop time")
+    cli_util.standard_cli(ap)
     args = ap.parse_args()
 
     df, settings = load_dump(find_file(args.file))
     gaps = int((df.tick.diff().dropna() != 1).sum())        # tick should go up by exactly 1
     spacing = df.t_us.diff().dropna()                        # should be 5000 us every time
+    imu_errors = int(((df.flag_bits & 1) > 0).sum())
+    overruns = int(((df.flag_bits & 2) > 0).sum())
+    # A complete log has no missing ticks. The report still prints either way;
+    # exit 1 means the check failed.
+    ok = gaps == 0
 
-    print(f"settings: {settings}")
-    print(f"{len(df)} records, {df.t.iloc[-1]:.2f} s, ticks {df.tick.iloc[0]} to {df.tick.iloc[-1]}")
-    print(f"missing ticks: {gaps}  (0 = nothing lost)")
-    print(f"tick spacing: {spacing.min():.0f} to {spacing.max():.0f} us  (5000 = exactly 200 Hz)")
-    print(f"work per tick: avg {df.work_us.mean():.0f} us, max {df.work_us.max()} us  (budget 5000)")
-    print(f"IMU errors: {int(((df.flag_bits & 1) > 0).sum())}, overruns: {int(((df.flag_bits & 2) > 0).sum())}")
-    print(f"pitch: {df.pitch.min():.1f} to {df.pitch.max():.1f} deg")
+    if args.json:
+        payload = {
+            "ok": ok,
+            "settings": settings,
+            "records": len(df),
+            "seconds": round(float(df.t.iloc[-1]), 2),
+            "tick_from": int(df.tick.iloc[0]),
+            "tick_to": int(df.tick.iloc[-1]),
+            "missing_ticks": gaps,
+            "spacing_us": [int(spacing.min()), int(spacing.max())],
+            "work_us_avg": round(float(df.work_us.mean())),
+            "work_us_max": int(df.work_us.max()),
+            "imu_errors": imu_errors,
+            "overruns": overruns,
+            "pitch_min": round(float(df.pitch.min()), 1),
+            "pitch_max": round(float(df.pitch.max()), 1),
+        }
+    else:
+        payload = None
+        print(f"settings: {settings}")
+        print(f"{len(df)} records, {df.t.iloc[-1]:.2f} s, ticks {df.tick.iloc[0]} to {df.tick.iloc[-1]}")
+        print(f"missing ticks: {gaps}  (0 = nothing lost)")
+        print(f"tick spacing: {spacing.min():.0f} to {spacing.max():.0f} us  (5000 = exactly 200 Hz)")
+        print(f"work per tick: avg {df.work_us.mean():.0f} us, max {df.work_us.max()} us  (budget 5000)")
+        print(f"IMU errors: {imu_errors}, overruns: {overruns}")
+        print(f"pitch: {df.pitch.min():.1f} to {df.pitch.max():.1f} deg")
     wheels = "enc_l" in df                                   # step 5 (log_format 2) and later
-    if wheels:
+    if wheels and not args.json:
         moving = df[(df.pwm_l != 0) | (df.pwm_r != 0)]
         print(f"encoders moved: left {df.enc_l.iloc[-1] - df.enc_l.iloc[0]}, right {df.enc_r.iloc[-1] - df.enc_r.iloc[0]} counts")
         if len(moving):
@@ -101,6 +131,14 @@ def main():
             a4.set_xlabel("seconds")
         fig.suptitle(args.file)
         plt.show()
+
+    if args.json:
+        if wheels:
+            payload["enc_left"] = int(df.enc_l.iloc[-1] - df.enc_l.iloc[0])
+            payload["enc_right"] = int(df.enc_r.iloc[-1] - df.enc_r.iloc[0])
+        print(json.dumps(payload))
+    if not ok:
+        raise SystemExit(cli_util.EXIT_FAIL)
 
 
 if __name__ == "__main__":

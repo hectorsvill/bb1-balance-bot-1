@@ -37,6 +37,8 @@ cable, so a Wi-Fi hiccup can cut a try short.
 """
 
 import argparse
+
+import cli_util
 import json
 import select
 import shutil
@@ -213,13 +215,16 @@ def main():
     ap.add_argument("--kd", type=float, help="set kd before the test")
     ap.add_argument("--cap", type=float, help="set the PWM cap before the test (of 255)")
     ap.add_argument("--trim", help="set the trim before the test (a number, or here)")
+    cli_util.standard_cli(ap)
     args = ap.parse_args()
     arm_s = min(max(args.seconds, 1), 10)            # a short timer: every motor run stops by itself
 
     try:
         ip = socket.gethostbyname(args.host)           # look up bb1.local once; the IP is instant after that
     except OSError:
-        sys.exit(f"Can't find {args.host}. Is BB1 on and on this network? Try --host <ip> (type 'wifi' on serial).")
+        cli_util.fail(
+            f"Can't find {args.host}. Is BB1 on and on this network? Try --host <ip> (type 'wifi' on serial).",
+            cli_util.EXIT_USAGE, args.json)
     started = datetime.now()
     out = log_path(args.note, started)
 

@@ -17,6 +17,8 @@ how many records were lost and we count them.
 """
 
 import argparse
+
+import cli_util
 import json
 import re
 import socket
@@ -76,7 +78,7 @@ def gains_versions(state_json, versions):
     versions[g["ver"]] = " ".join(f"{k} {g[k]:g}" for k in GAIN_KEYS if k in g)
 
 
-def save_log(out, meta, note, started, header, rows, lost, versions=None, surface="unknown"):
+def save_log(out, meta, note, started, header, rows, lost, versions=None, surface="unknown", announce=True):
     """Write the same layout as the page's Download: settings lines, header, rows.
 
     surface (wood, carpet, air...) is a label for analysis and training: the
@@ -90,8 +92,10 @@ def save_log(out, meta, note, started, header, rows, lost, versions=None, surfac
         f.write(f"# records,{len(rows)},lost,{lost}\n")
         f.write(header + "\n")
         f.write("\n".join(rows) + "\n")
-    print(f"Saved {len(rows)} records ({len(rows) / 200:.1f} s, {lost} lost) to {out}")
-    print(f"Check it:  tools/venv/bin/python tools/check_dump.py {out.relative_to(REPO) if out.is_relative_to(REPO) else out} --plot")
+    if announce:
+        print(f"Saved {len(rows)} records ({len(rows) / 200:.1f} s, {lost} lost) to {out}")
+        rel = out.relative_to(REPO) if out.is_relative_to(REPO) else out
+        print(f"Check it:  tools/venv/bin/python tools/check_dump.py {rel} --plot")
     # Every log also goes straight into logs/runs.sqlite, the one place to find
     # and read our data (tools/logs.py). Logs saved outside logs/ are left out.
     import runs_db
@@ -105,7 +109,9 @@ def main():
     ap.add_argument("-n", "--note", default="", help="a note saved in the file and its name")
     ap.add_argument("-o", "--out", help="output file (default logs/bb1_<date>_<time>[_note].csv)")
     ap.add_argument("--surface", default="unknown", help="what BB1 stands on: wood, carpet, air... (saved in the file)")
+    cli_util.standard_cli(ap)
     args = ap.parse_args()
+    log = sys.stderr if args.json else sys.stdout
 
     # Look up bb1.local once. Some tools take seconds to resolve .local names
     # on every request; the IP address is instant.
@@ -113,7 +119,8 @@ def main():
     try:
         ip = socket.gethostbyname(name)
     except OSError:
-        sys.exit(f"Can't find {name}. Is BB1 on and on this network? Try --host <ip> (type 'wifi' on serial).")
+        cli_util.fail(f"Can't find {name}. Is BB1 on and on this network? Try --host <ip> (type 'wifi' on serial).",
+                      cli_util.EXIT_USAGE, args.json)
     base = f"http://{ip}{':' + port if port else ''}"
 
     started = datetime.now()
@@ -126,8 +133,8 @@ def main():
     gains_versions(state, versions)
 
     rows, lost, header = [], 0, ""
-    print(f"Recording from {args.host} ({ip}) into {out}")
-    print("Press Ctrl-C to stop." if not args.seconds else f"Stopping after {args.seconds:.0f} s.")
+    print(f"Recording from {args.host} ({ip}) into {out}", file=log)
+    print("Press Ctrl-C to stop." if not args.seconds else f"Stopping after {args.seconds:.0f} s.", file=log)
     t0 = time.time()
     last_print = 0
     try:
@@ -135,7 +142,7 @@ def main():
             try:
                 info, header, new = fetch_log(base, next_tick)
             except OSError as e:
-                print(f"  no answer from the robot ({e}), retrying")
+                print(f"  no answer from the robot ({e}), retrying", file=log)
                 time.sleep(0.5)
                 continue
             rows += new
@@ -147,13 +154,16 @@ def main():
                 except OSError:
                     pass
                 last_print = time.time()
-                print(f"  {len(rows)} records ({len(rows) / 200:.1f} s){f', {lost} lost' if lost else ''}")
+                print(f"  {len(rows)} records ({len(rows) / 200:.1f} s){f', {lost} lost' if lost else ''}", file=log)
             if info["to"] - info["from"] < MAX_PER_REQUEST:
                 time.sleep(0.25)          # caught up: wait a little before asking again
     except KeyboardInterrupt:
         pass
 
-    save_log(out, meta, args.note, started, header, rows, lost, versions, args.surface)
+    save_log(out, meta, args.note, started, header, rows, lost, versions, args.surface, announce=not args.json)
+    if args.json:
+        saved = str(out.relative_to(REPO)) if out.is_relative_to(REPO) else str(out)
+        print(json.dumps({"ok": True, "file": saved, "records": len(rows), "lost": lost}))
 
 
 if __name__ == "__main__":
