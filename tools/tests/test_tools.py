@@ -408,6 +408,8 @@ class Bb1MockTest(unittest.TestCase):
         self.assertEqual(code, 0, a)
         self.assertEqual(a["asked"], {"deg": -30.0, "rate": 2.0})
         self.assertEqual(len(a["cut"]), 2, a["cut"])
+        code, a = self.bb1("spin", "--deg", "10", "--max-turn", "0.5")   # default rate under the cap: not a cut
+        self.assertEqual(a["cut"], [], a)
         # too small, or a turn cap below BB1's slowest spin: refused with a reason
         code, a = self.bb1("spin", "--deg", "3")
         self.assertEqual(code, 1)

@@ -319,7 +319,7 @@ def cmd_spin(base, args):
     deg = max(-max_deg, min(max_deg, args.deg))
     rate = min(abs(args.rate) if args.rate is not None else SPIN_RATE, max_turn)
     cut = [f"{name} {asked:g} cut to {got:g}" for name, asked, got in
-           (("--deg", args.deg, deg), ("--rate", args.rate if args.rate is not None else SPIN_RATE, rate)) if asked != got]
+           (("--deg", args.deg, deg), ("--rate", args.rate, rate)) if asked is not None and asked != got]   # the default rate isn't "asked"
     if abs(deg) < 5:
         out(ok=False, error="spin at least 5 deg either way (right +, left -)")
         return 1
