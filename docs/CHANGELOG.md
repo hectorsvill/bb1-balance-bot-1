@@ -2,7 +2,7 @@
 
 Newest first.
 
-## 2026-11-02 - IMU found again after a software restart (firmware 3.9, not flashed yet)
+## 2026-11-02 - IMU found again after a software restart (firmware 3.9, flashed 2026-11-03)
 
 - **Bug:** twice (after an OTA flash 2026-10-31, after a Wi-Fi save restart 2026-11-02) BB1 came back with `auto-arm: off: IMU not found`, and only a power cycle fixed it. A software restart resets the Pico but not the MPU-6050 (still powered). If the restart lands mid-read, the chip keeps holding SDA low, waiting for clock pulses, so the bus looks busy and WHO_AM_I fails
 - **Fix (`imu.h`):** `imuBusRecover()` runs before `Wire.begin()`: it clocks SCL by hand (up to 9 pulses) until the chip lets go of SDA, then sends a STOP (the I2C spec's bus clear). Then up to 3 WHO_AM_I tries, with a chip reset (`PWR_MGMT_1` bit 7) and 100 ms between them
