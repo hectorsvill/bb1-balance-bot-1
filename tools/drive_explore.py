@@ -5,7 +5,8 @@ Usage (BB1 balancing in the middle of a clear box on the floor):
     tools/venv/bin/python tools/drive_explore.py --box 1.5 --minutes 1 --host localhost:8080   # mock
 
 Moves BB1. It picks random drive commands (straight, reverse, spin, arc,
-stop) for 1-4 s each, at most --max-speed, and keeps BB1 inside a square box
+stop) for 1-4 s each, plus with --exact-spins exact 90 and 360 deg spins
+(POST /spin, firmware 3.10+), at most --max-speed, and keeps BB1 inside a square box
 of --box metres around where it started: it tracks x, y and heading from the
 encoders (odometry) and, near the edge, turns toward the middle and drives
 back. Every command is a "# step" line in the log, like drive_test.py.
@@ -42,18 +43,24 @@ SAFE_BOX = 0.8         # use 80% of the box: odometry drifts
 
 
 class Odometry:
-    """x, y (metres, x = forward at the start) and heading (rad, + = left) from the encoders."""
+    """x, y (metres, x = forward at the start) and heading (rad, + = left) from the encoders.
+    Heading from BB1's gyro (/state yaw_deg, firmware 3.11+) when it has one: the
+    wheels scrub in a spin and overcount the turn by about 20% (runs 189-190)."""
 
-    def __init__(self, enc_l, enc_r):
+    def __init__(self, enc_l, enc_r, yaw_deg=None):
         self.x = self.y = self.th = 0.0
         self.l, self.r = enc_l, enc_r
+        self.yaw0 = yaw_deg
 
-    def update(self, enc_l, enc_r):
+    def update(self, enc_l, enc_r, yaw_deg=None):
         dl = (enc_l - self.l) / COUNTS_PER_REV * WHEEL_TURN_M
         dr = (enc_r - self.r) / COUNTS_PER_REV * WHEEL_TURN_M
         self.l, self.r = enc_l, enc_r
         d = (dl + dr) / 2
-        self.th += (dr - dl) / TRACK_M          # right wheel further = turned left
+        if self.yaw0 is not None and yaw_deg is not None:
+            self.th = -math.radians(yaw_deg - self.yaw0)   # gyro: yaw is right +, th is left +
+        else:
+            self.th += (dr - dl) / TRACK_M      # right wheel further = turned left
         self.x += d * math.cos(self.th)
         self.y += d * math.sin(self.th)
 
@@ -63,11 +70,20 @@ class Odometry:
         return math.atan2(math.sin(a), math.cos(a))
 
 
-def pick_move(max_speed):
-    """A random (name, speed, turn, seconds). turn + = right, like /drive."""
+def pick_move(max_speed, exact_spins=False):
+    """A random (name, speed, turn, seconds). turn + = right, like /drive.
+    exact_spins: also "exact +90" / "exact -360" style steps (one POST /spin each:
+    the name carries the angle, turn the rate, seconds the most it waits)."""
     s = round(random.uniform(0.15, max_speed), 2)
     t = round(random.uniform(0.2, 0.6), 2)
-    kind = random.choices(["fwd", "back", "spin", "arc", "stop"], weights=[3, 2, 2, 3, 2])[0]
+    kinds, weights = ["fwd", "back", "spin", "arc", "stop"], [3, 2, 2, 3, 2]
+    if exact_spins:
+        kinds, weights = kinds + ["exact"], weights + [3]
+    kind = random.choices(kinds, weights=weights)[0]
+    if kind == "exact":
+        deg = random.choice([90, 90, 360]) * random.choice([-1, 1])
+        rate = random.choice([2.0, 2.0, 4.0])
+        return f"{drive_test.EXACT}{deg:+d}", 0.0, rate if deg > 0 else -rate, round(2 * abs(deg) / (rate * 66) + 2, 1)
     secs = round(random.uniform(1.0, 4.0), 1)
     if kind == "fwd":
         return f"fwd {s}", s, 0.0, secs
@@ -105,7 +121,7 @@ class Explorer:
         if text is None:
             return None
         s = json.loads(text)
-        self.odo.update(s["enc_l"], s["enc_r"])
+        self.odo.update(s["enc_l"], s["enc_r"], s.get("yaw_deg"))
         return s
 
     def save_chunk(self, why=""):
@@ -129,6 +145,14 @@ class Explorer:
         """Run one move. Returns when it's done or the edge is near (driving away from the middle)."""
         r = self.run
         start = r.tick
+        deg = drive_test.exact_deg(name)
+        if deg is not None:            # exact spin: BB1 lands on the angle by itself
+            r.spin(deg, turn, secs)
+            s = self.state()
+            if s:
+                self.watch(s)
+            self.steps.append((name, speed, turn, start, r.tick))
+            return
         end = time.time() + secs
         moving = speed or turn
         while time.time() < end:
@@ -174,7 +198,7 @@ class Explorer:
         r = self.run
         r.check(force=True)             # refuses unless armed and no encoder fault
         s = json.loads(get(f"{self.base}/state"))
-        self.odo = Odometry(s["enc_l"], s["enc_r"])
+        self.odo = Odometry(s["enc_l"], s["enc_r"], s.get("yaw_deg"))
         t_end = time.time() + self.args.minutes * 60
         why = "done"
         self._say(f"Exploring a {self.args.box} m box for {self.args.minutes:g} min. Ctrl-C stops.")
@@ -184,7 +208,7 @@ class Explorer:
                     if self.outside(0.7):
                         self.go_home()
                     else:
-                        self.drive_for(*pick_move(self.args.max_speed))
+                        self.drive_for(*pick_move(self.args.max_speed, self.args.exact_spins))
                 except Stop as e:
                     if "no answer" not in str(e):
                         raise
@@ -239,6 +263,7 @@ def main():
     ap.add_argument("--surface", default="wood")
     ap.add_argument("-n", "--note", default="", help="note in every chunk's file and name")
     ap.add_argument("--seed", type=int, help="random seed (to repeat a run)")
+    ap.add_argument("--exact-spins", action="store_true", help="also exact 90 / 360 deg spins (POST /spin, firmware 3.10+)")
     ap.add_argument("--out-dir", help="save the chunks here instead of logs/ (use it for the mock)")
     cli_util.standard_cli(ap)
     args = ap.parse_args()
