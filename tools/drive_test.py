@@ -11,6 +11,9 @@ and the fast ones (firmware 3.6, run them one at a time in this order):
 fwd-back-100, fwd-back-150, fwd-back-200, fwd-back-250, fwd-back-300.
 Spins (firmware 3.7, on the spot, same order): spin-100, spin-200, spin-300,
 spin-450: one full spin right, then one left, at that turn rate.
+Exact-angle spins (firmware 3.10, POST /spin, the firmware lands on the angle
+by itself): exact-200, exact-400: 90 right, 90 left, 360 right, 360 left at
+turn rate 2 or 4. The report adds the real angle from the gyro and the error.
 Each fast step is 1.5 s long, ramp included, so it rolls at most speed x 1.5
 wheel turns out and the same back: fwd-back-300 goes about 4.5 turns (0.8 m)
 forward, then back. Give it a clear straight line of about 1.5 m ahead of
@@ -58,6 +61,7 @@ def say(*args, **kwargs):
 
 
 COUNTS_PER_REV = 520           # config.h, assumed
+GYRO_LSB = 65.5                # imu.h GYRO_PER_DPS: gyro counts per deg/s (+/-500 deg/s range)
 CMD_MS = 3000                  # how long each /drive command lasts (re-sent every 100 ms). Was 1000: about
                                # every 10 s one GET /log answer takes 1-2.5 s, the Pico serves nothing else
                                # meanwhile, and a 1 s command ran out: 41% of the moving time in the first
@@ -101,6 +105,23 @@ SPIN_TURNS = 4.49
 for v in (1.0, 2.0, 3.0, 4.5):
     TESTS[f"spin-{v * 100:.0f}"] = [P, (f"spin right {v:g}", 0.0, v, round(SPIN_TURNS / v, 2)), P,
                                     (f"spin left {v:g}", 0.0, -v, round(SPIN_TURNS / v, 2)), P]
+# Exact-angle spins (firmware 3.10). One POST /spin per step; BB1 counts the
+# angle with its gyro and lands on it by itself, so Wi-Fi timing doesn't
+# matter. The step's name carries the angle ("exact 90", "exact -360", right
+# +); its turn is the rate (sign = direction) and its seconds the most it
+# waits: twice the planned time + 2 s (SPIN_DEG_PER_TURN, measured runs 189-190:
+# the wheels scrub, so 360 deg is about 5.4 turns of difference, not 4.49).
+EXACT = "exact "
+SPIN_DEG_PER_TURN = 66.0
+for v in (2.0, 4.0):
+    TESTS[f"exact-{v * 100:.0f}"] = sum(([P, (f"{EXACT}{d:+.0f}", 0.0, v if d > 0 else -v,
+                                              round(2 * abs(d) / (v * SPIN_DEG_PER_TURN) + 2, 1))]
+                                         for d in (90, -90, 360, -360)), []) + [P]
+
+
+def exact_deg(name):
+    """The angle of an exact-spin step ("exact +90" -> 90.0), or None for any other step."""
+    return float(name[len(EXACT):]) if name.startswith(EXACT) else None
 
 
 def travel_limit(steps):
@@ -126,6 +147,7 @@ class Run:
         self.home = None                # wheel position (turns) when the test started
         self.travel = 0.0               # turns from home, forward +
         self.max_travel = MAX_TRAVEL    # run_test() raises it for a fast test (travel_limit())
+        self.spin_left = 0.0            # /state drive.spin_left: deg an exact spin still has to turn
 
     def ask(self, fn, *args, **kw):
         """Call BB1. Short Wi-Fi stalls (the Pico's server goes quiet for a second or
@@ -154,6 +176,7 @@ class Run:
         s = json.loads(text)
         gains_versions(text, self.versions)          # remember gains changed mid-run (POST /gains)
         self.tick = s["tick"]
+        self.spin_left = s.get("drive", {}).get("spin_left", 0.0) or 0.0
         if self.next_tick is None:
             self.next_tick = s["tick"] + 1            # record from now on
         if not s["armed"]:
@@ -199,7 +222,28 @@ class Run:
             except OSError:
                 time.sleep(0.1)
 
+    def spin(self, deg, rate, secs):
+        """One exact-angle spin: one POST /spin, then wait until /state says it has
+        landed (spin_left back to 0) or secs run out. BB1 does the rest itself."""
+        try:
+            self.ask(post, f"{self.base}/spin", timeout=1, deg=deg, rate=abs(rate))
+        except urllib.error.HTTPError as e:     # 409: not balancing, or encoder fault
+            raise Stop(f"/spin refused: {e}")
+        start = time.time()
+        while time.time() - start < secs:
+            time.sleep(0.15)
+            self.check(force=True)
+            self.record()
+            if time.time() - start > 0.5 and not self.spin_left:
+                return                 # landed
+        self.stop()                    # didn't land in time: stop it
+        say(f"    no landing after {secs:g} s: stopped it")
+
     def step(self, name, speed, turn, secs):
+        deg = exact_deg(name)
+        if deg is not None:
+            say(f"  {name:20s} up to {secs:4.1f} s  rate {abs(turn):.2f}")
+            return self.spin(deg, turn, secs)
         moving = speed or turn
         say(f"  {name:20s} {secs:4.1f} s" + (f"  speed {speed:+.2f}  turn {turn:+.2f}" if moving else ""))
         end = time.time() + secs
@@ -281,7 +325,12 @@ def report(path, as_json=False):
                       cli_util.EXIT_FAIL, as_json)
     pos = (df.enc_l + df.enc_r) / 2 / COUNTS_PER_REV        # wheel turns, forward +
     head = (df.enc_l - df.enc_r) / COUNTS_PER_REV           # left-minus-right turns (the heading)
-    rows_out = []
+    # Real yaw from the gyro, deg, right + (gz reads negative turning right; runs 189-190),
+    # summed tick by tick: what the body really turned, wheel scrub or not.
+    bias = [l for l in path.read_text().splitlines() if l.startswith("# gyro_bias_dps,")]
+    bias_z = float(bias[0].split(",")[3]) if bias else 0.0
+    yaw = (-(df.gz_raw / GYRO_LSB - bias_z) * df.t_us.diff().fillna(0) / 1e6).cumsum()
+    rows_out, exact = [], []
     if not as_json:
         print(f"{'step':20s} {'asked':>11s} {'got spd':>7s} {'got trn':>7s} {'stop':>5s} {'head':>5s} "
               f"{'lean+':>5s} {'lean-':>5s} {'pwm':>4s} {'sat%':>4s} {'drop':>4s} flags")
@@ -316,6 +365,17 @@ def report(path, as_json=False):
         sat = 100 * ((g.flag_bits & FLAG_SAT) > 0).mean()
         pwm = g[["pwm_l", "pwm_r"]].abs().max().max()
         fault = bool(flags & FLAG_ENC_FAULT)
+        deg = exact_deg(name)
+        if deg is not None:
+            # Exact spin: the angle the gyro saw from the request to the end of the next
+            # pause (so the settle after landing counts), and how far off it is.
+            drop = 0.0                 # the turn command goes to 0 on purpose while it lands
+            end = int(steps[i + 1][5]) if i + 1 < len(steps) else b
+            w = df[(df.tick >= a) & (df.tick <= end)]
+            got_deg = yaw[w.index[-1]] - yaw[w.index[0]]
+            landed = df[(df.tick >= a) & (df.tick <= b)]
+            exact.append({"step": name, "deg": deg, "gyro_deg": _num(got_deg, 1), "error_deg": _num(got_deg - deg, 1),
+                          "secs": _num((landed.t_us.iloc[-1] - landed.t_us.iloc[0]) / 1e6, 2)})
         rows_out.append({
             "step": name, "speed": speed, "turn": turn,
             "got_speed": _num(got_s), "got_turn": _num(got_t),
@@ -332,8 +392,13 @@ def report(path, as_json=False):
     if as_json:
         header = [line[2:] for line in path.read_text().splitlines()
                   if line.startswith(("# drive_test,", "# gains_v"))]
-        print(json.dumps({"ok": True, "file": str(path), "steps": rows_out, "header": header}))
+        print(json.dumps({"ok": True, "file": str(path), "steps": rows_out, "exact": exact, "header": header}))
         return
+    if exact:
+        print("\nexact spins (gyro, deg, right +; from the request to the end of the next pause):")
+        for e in exact:
+            print(f"  {e['step']:14s} asked {e['deg']:+6.0f}  got {e['gyro_deg']:+7.1f}  error {e['error_deg']:+6.1f}  "
+                  f"landed in {e['secs']:.2f} s")
     print("\nasked: speed, turn (turns/s). got: wheel average over the step's last half. "
           "stop: furthest it rolled (or turned) on after the command ended, turns (goal under 0.5). head: turns of "
           "left-minus-right drift after stopping, or during a still step (goal near 0). "

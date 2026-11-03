@@ -13,7 +13,7 @@
 
 // Bump this when the log columns change, so old and new files can be told apart.
 const char *FIRMWARE_NAME = "bb1 milestone 2";
-const int   LOG_FORMAT    = 13;  // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping; 10: speed_l/speed_r really over 10 ticks (before: 3 ticks, read 3.3x low); 11: drive_speed_now, drive_turn_now, speed_pwm; 12: the four drive_ columns stored in 1/40 turns/s (CSV still turns/s, now 3 decimals, up to 3.17), flag 8 also counts PID + drive feedforward hitting the cap; 13: drive_turn and drive_turn_now stored in 1/20 turns/s (CSV still turns/s, up to 6.35) for turn 5.0 spins, deadband added per wheel
+const int   LOG_FORMAT    = 14;  // 2: step 5 added enc_l..pwm_r; 3: step 6 added setpoint..gains_ver; 4: reason; 5: web_age_ms; 6: batt_v; 7: auto_state; 8: auto_state 3 now means "no IMU" (was "waiting for calibration"); 9: drive_speed, drive_turn, flag 16 = drive stopping; 10: speed_l/speed_r really over 10 ticks (before: 3 ticks, read 3.3x low); 11: drive_speed_now, drive_turn_now, speed_pwm; 12: the four drive_ columns stored in 1/40 turns/s (CSV still turns/s, now 3 decimals, up to 3.17), flag 8 also counts PID + drive feedforward hitting the cap; 13: drive_turn and drive_turn_now stored in 1/20 turns/s (CSV still turns/s, up to 6.35) for turn 5.0 spins, deadband added per wheel; 14: spin_left (exact-angle spins, deg still to turn)
 
 String logMetaLines() {
   String m;
@@ -38,5 +38,7 @@ String logMetaLines() {
        ",speed_shift_max," + String(SPEED_SHIFT_MAX, 1) + ",lean_limit_ease_dps," + String(LEAN_LIMIT_EASE_DPS, 1) +
        ",drive_pwm_reserve," + String(DRIVE_PWM_RESERVE, 0) + ",drive_sat_backoff_s," + String(DRIVE_SAT_BACKOFF_S, 2) +
        ",drive_stop_accel_min," + String(DRIVE_STOP_ACCEL_MIN, 2) + ",lift_tps," + String(LIFT_TURNS_PER_SEC, 1) + ",lift_ms," + String(LIFT_MS) + "\n";
+  m += "# spin_max_deg," + String((int)SPIN_MAX_DEG) + ",spin_min_deg," + String((int)SPIN_MIN_DEG) + ",spin_min_rate," + String(SPIN_MIN_RATE, 2) +
+       ",spin_default_rate," + String(SPIN_DEFAULT_RATE, 2) + ",gyro_yaw_sign," + String((int)GYRO_YAW_SIGN) + "\n";
   return m;
 }

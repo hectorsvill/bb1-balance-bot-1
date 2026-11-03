@@ -20,6 +20,7 @@ struct Angle {
   float pitch      = 0;   // deg, forward lean positive (the filter's answer)
   float pitchRate  = 0;   // deg/s, forward positive (straight from the gyro)
   float accelPitch = 0;   // deg, accelerometer only (for comparison and logs)
+  float yawRate    = 0;   // deg/s, right turn + (gyro z, bias-corrected): exact-angle spins count it (drive.h)
   float alpha      = FILTER_ALPHA;
   bool  started    = false;
 };
@@ -36,6 +37,7 @@ void angleUpdate(Angle &a, const ImuSample &s, float dt) {
   // rate (config.h GYRO_YAW_TO_PITCH). The chip is flat, so gz is the yaw rate.
   a.accelPitch = accelPitchDeg(s);
   a.pitchRate  = GYRO_PITCH_SIGN * s.gx + GYRO_YAW_TO_PITCH * s.gz;   // pitch is the rotation about the chip's X axis
+  a.yawRate    = GYRO_YAW_SIGN * s.gz;                                 // measured 2026-11-03: a right spin reads gz negative
 
   if (!a.started) {
     // First tick: start from the accelerometer's answer instead of 0,

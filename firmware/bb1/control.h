@@ -96,6 +96,7 @@ void balanceDisarm(uint8_t reason) {
   balance.armed = false;
   balance.pid.reset();
   driveUntilMs = 0;                             // a drive command never outlives the arm
+  spinUntilMs = 0;                              // nor does a spin
   driveReset();
   balance.stepUntilMs = 0;
   stepActive = false;
@@ -124,6 +125,7 @@ void balanceArm(float pitch, bool motorTestOn) {
   balance.speedFiltered = 0;
   balance.newArm = true;                        // balanceTick() records the encoders on the next tick
   driveUntilMs = 0;                             // start standing still, whatever was asked before
+  spinUntilMs = 0;
   driveReset();
   armedSinceMs = balance.armedAtMs;
   robotArmed = true;
@@ -155,6 +157,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
   // position error = position - where the target has rolled to.
   r.drive_speed = r.drive_turn = 0;              // 0 unless armed and driving
   r.drive_speed_now = r.drive_turn_now = r.speed_pwm = 0;
+  r.spin_left_x10 = 0;
   if (!balance.armed) balance.speedPwm = 0;
   if (gainTrimLearn <= 0) balance.trimLearned = 0;  // tl 0 = off: forget it, exactly the 3.4 behavior
   if (balance.armed) {
@@ -165,7 +168,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     float turnsPerSec = balance.speedFiltered / COUNTS_PER_REV;
     float turns       = (float)(encNow - balance.encAtArm) / COUNTS_PER_REV;
     float diffTurns   = (float)((r.enc_r - r.enc_l) - balance.diffAtArm) / COUNTS_PER_REV;
-    driveUpdate(dt, turns, diffTurns, balance.outSaturated);
+    driveUpdate(dt, turns, diffTurns, balance.outSaturated, a.yawRate);
     // Encoder fault detector (config.h): going straight, both wheels should
     // read about the same. One near 0 while the other spins = not counting.
     float fastSide = max(abs(r.speed_l), abs(r.speed_r)), slowSide = min(abs(r.speed_l), abs(r.speed_r));
@@ -174,6 +177,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
     if (balance.encOddTicks >= (int)(ENC_FAULT_MS * LOOP_HZ / 1000) && !encoderFault) {
       encoderFault = abs(r.speed_l) < abs(r.speed_r) ? 1 : 2;            // sticky until the next arm
       driveUntilMs = 0;   // also end the command already running (up to 3 s): ramp to a stop now
+      spinUntilMs = 0;    // and a spin: it steers with the encoders too
     }
     if (encoderFault) r.flags |= FLAG_ENC_FAULT;
     if (drive.stopping) r.flags |= FLAG_DRIVE_STOPPING;
@@ -181,6 +185,7 @@ int balanceTick(const Angle &a, bool imuOk, bool overran, float dt, LogRecord &r
                   "drive_speed/drive_turn are int8 in 1/DRIVE_LOG_STEPS (turn: 1/DRIVE_TURN_LOG_STEPS) turns/s: widen them before raising the limits");
     r.drive_speed = driveLogValue(drive.wantSpeed);   // log the operator's command (the ramped target follows from it and the # drive_ settings)
     r.drive_turn  = driveTurnLogValue(drive.wantTurn);
+    r.spin_left_x10 = (int16_t)constrain(lroundf(spinLeftNow * 10), -32000L, 32000L);   // deg still to turn, x10 (log format 14)
     // Faster than asked -> lean back (negative); slower -> lean forward.
     // Drive speed I (sdi, config.h): while driving, keep adding lean for as
     // long as BB1 is slower than asked (less when faster). After a stop it

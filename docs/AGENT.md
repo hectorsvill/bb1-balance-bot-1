@@ -2,7 +2,7 @@
 
 You are an AI agent driving BB1, a small two-wheel self-balancing robot, over Wi-Fi. This file is everything you need. Read all of it before your first command, and follow the settings in the next section: they are your owner's rules for this session, and they win over anything else here.
 
-**Written for `/api` version: 8**
+**Written for `/api` version: 9**
 
 Your first command is always `api` (below). If its `"api"` number differs from the line above, stop and tell your owner: the firmware changed since this manual was written, and some of it may be wrong.
 
@@ -11,7 +11,7 @@ Your first command is always `api` (below). If its `"api"` number differs from t
 ```text
 host            = bb1.local       # BB1's address (the tool's default). 192.168.42.1 on BB1's own network "BB1"
 max_speed       = 0.3             # wheel turns/s, forward or back (firmware allows 3.0)
-max_turn        = 0.4             # turns/s of left-minus-right wheel difference (firmware allows 5.0; one full spin = 4.49)
+max_turn        = 0.4             # turns/s of left-minus-right wheel difference (firmware allows 5.0; one full spin on the spot = about 5.4)
 max_drive_s     = 3               # longest single drive command, seconds (tool allows 10)
 max_travel_m    = 0.5             # never end up farther than this from where you armed
 may_arm         = ask             # ask = ask your owner before every arm; yes = arm when needed
@@ -38,8 +38,8 @@ If a setting is missing, use the most careful choice: smaller numbers, ask first
 |---|---|---|
 | distance | wheel turns | 1 turn = 0.178 m, so 1 m = 5.6 turns |
 | speed | wheel turns/s | 0.3 turns/s = 0.053 m/s; 1.0 = 0.18 m/s; 3.0 (the firmware's top) = 0.53 m/s |
-| heading | turns of left-minus-right wheel difference | 1 turn = about 80 deg, so a 90 deg turn = 1.12 turns, a 360 = 4.5 |
-| turn rate | turns/s of difference | 0.4 = about 32 deg/s; the firmware allows 5.0 (a 360 in about 1 s), your cap is `max_turn` |
+| heading | turns of left-minus-right wheel difference | turning on the spot, 1 turn = about 67 deg, so a 90 deg turn = 1.35 turns, a 360 = 5.4 (re-measured 2026-11-03 with the gyro: the wheels scrub, so the 127 mm track's 80 deg per turn is too much) |
+| turn rate | turns/s of difference | 0.4 = about 27 deg/s; the firmware allows 5.0 (a 360 in about 1 s), your cap is `max_turn` |
 
 Positions count from power-on, so only differences mean anything. The numbers are measured, not exact: turns come out within about 10-20%, and BB1 rolls on up to about 0.5 turn after a stop.
 
@@ -153,7 +153,7 @@ These change how BB1 works or can damage it, and are only for your owner (`allow
 - motor tests (`/motor`): wheels must be off the floor
 - firmware updates (`/update`, `tools/flash.py --execute` or `--yes`). `tools/flash.py` with no `--execute` only prints a JSON plan and does not flash. Do not pass `--execute`, `--yes`, or `--force`.
 - Wi-Fi settings (`/wifi`, `/wifi/forget`): BB1 would restart and could drop off the network (refused with `409` while armed)
-- calling the HTTP API directly to get around the tool's limits
+- calling the HTTP API directly to get around the tool's limits. That includes `POST /spin` (exact-angle turns, firmware 3.10): `bb1.py` has no command for it yet, so turn with `drive --turn` as above
 - changing the MCP server's caps or how it is started (`claude mcp add` / `remove`, its `--max-*` options), or editing `tools/bb1.py` / `tools/bb1_mcp.py`: the caps are your owner's
 
 ## More

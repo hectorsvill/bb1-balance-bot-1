@@ -5,7 +5,7 @@ Everything the web pages do goes through this API, so anything else (curl, a Pyt
 - **Address:** `http://bb1.local` on the home network, or `http://192.168.42.1` on BB1's own network "BB1". (Some computers don't resolve `bb1.local`; use the IP from `wifi` on serial or the page's status bar.)
 - **Style:** plain HTTP. `GET` reads, `POST` does something. Arguments go in the query string or as a form body (`-d name=value`), never JSON. No login: anyone on the same network can drive BB1.
 - **One at a time:** the Pico serves one request at a time and closes each connection after answering. Keep requests short and don't open many in parallel. About 20 `/state` a second plus 10 `/drive` a second is what the page uses.
-- **Answers:** `/api`, `/state`, `/sys`, `/wifi` (GET) and `/drive` answer JSON. Older actions answer one line of plain text meant for a person. Errors use the status code: `400` bad argument, `409` not allowed right now (the text says why), `404` unknown path.
+- **Answers:** `/api`, `/state`, `/sys`, `/wifi` (GET), `/drive` and `/spin` answer JSON. Older actions answer one line of plain text meant for a person. Errors use the status code: `400` bad argument, `409` not allowed right now (the text says why), `404` unknown path.
 - **Units:** degrees, deg/s, PWM (-255..255, forward +), wheel turns per second (520 encoder counts = 1 turn, assumed). Forward and turn right are positive.
 
 ## Every endpoint with curl
@@ -37,7 +37,9 @@ curl -X POST $B/step                              # step test while armed: setpo
 curl -X POST $B/drive -d speed=0.3 -d ms=2000     # forward 0.3 wheel turns/s for 2 s
 curl -X POST $B/drive -d turn=0.5 -d ms=1000      # turn right on the spot for 1 s
 curl -X POST $B/drive -d speed=-0.3 -d turn=-0.2  # back and left, 500 ms (the default)
-curl -X POST $B/drive/stop                        # ramp to a stop, keep balancing
+curl -X POST $B/drive/stop                        # ramp to a stop, keep balancing (also ends a spin)
+curl -X POST $B/spin -d deg=90                    # turn 90 deg right on the spot, counted by the gyro
+curl -X POST $B/spin -d deg=-360 -d rate=4        # a full spin left, faster
 
 # Settings
 curl -X POST $B/gains -d sdi=2 -d dff=25          # change any of kp ki kd trim cap deadband sp si th auto dff sdi smode wsp wsi irelax aff dacc lmax tl (RAM only)
@@ -96,7 +98,20 @@ Driving needs the speed loop (`sp`, `si`) and heading hold (`th`) on. They are b
 
 ### `POST /drive/stop`
 
-Ramp to a stop now and keep balancing. Always allowed. Answers `{"ok":true,"speed":0,"turn":0,"ms":0}`.
+Ramp to a stop now and keep balancing. Always allowed. Also ends an exact-angle spin. Answers `{"ok":true,"speed":0,"turn":0,"ms":0}`.
+
+### `POST /spin` (firmware 3.10)
+
+Turn on the spot by an angle. BB1 counts the turn with its gyro and lands on it by itself, so one request is enough and Wi-Fi delays don't change the angle. Same checks as `/drive` (`409` unless balancing, or with an encoder fault).
+
+| Arg | Unit | Default | Limits | Sign |
+|---|---|---|---|---|
+| `deg` | degrees of real heading | required | at least 5 either way, at most ±1080 (`SPIN_MIN_DEG`, `SPIN_MAX_DEG`) | right +, left - |
+| `rate` | turns/s of left-minus-right wheel difference (the `/drive` turn unit) | 2.0 (about 130 deg/s) | 0.5 to 5.0 | none (the sign of `deg` sets the way) |
+
+Answers `{"ok":true,"deg":90.0,"rate":2.00,"timeout_ms":3363}`. `/state` `drive.spin_left` counts down to 0 (deg still to go, right +); 0 again = it has landed. A `/drive`, `/drive/stop`, a disarm, an encoder fault or the timeout (twice the planned time + 2 s) ends a spin early: it ramps to a stop wherever it is.
+
+How it lands (`drive.h` `spinUpdate()`): the turn target ramps down at 6 turns/s per second, so from yaw rate w the ramp-down turns about w x (turn / 6) / 2 more degrees. Every tick (200 per second) BB1 compares that with the angle still to go and starts the ramp-down when they meet. It uses the gyro, not the wheels: in a spin the wheels scrub sideways, and the gyro saw only 0.83 of the turn the encoders counted (runs 189-190, 2026-11-03), so a full spin on the spot is about 5.4 turns of wheel difference, not the 4.49 the track width says. The log's `spin_left` column (log format 14) records the angle still to go every tick.
 
 ### Examples
 
@@ -131,7 +146,7 @@ The newest values, as one JSON object. The page asks about 20 times a second. As
 | `p`, `i`, `d` | the PID terms right now (PWM) |
 | `enc_l`, `enc_r`, `speed_l`, `speed_r` | encoder counts since boot, wheel speed in counts/s (forward +) |
 | `pwm_l`, `pwm_r` | PWM sent to each motor this tick |
-| `drive` | `speed`, `turn`: the command in force (0 when none); `speed_now`, `turn_now`: the ramped targets BB1 aims for; `left_ms`: time left on the command; `commands`: accepted since boot; `max_speed`, `max_turn`: the limits |
+| `drive` | `speed`, `turn`: the command in force (0 when none); `speed_now`, `turn_now`: the ramped targets BB1 aims for; `left_ms`: time left on the command; `commands`: accepted since boot; `max_speed`, `max_turn`: the limits; `spin_left`: deg an exact-angle spin still has to turn (right +, 0 = none, firmware 3.10) |
 | `gains` | `ver` (counts every change), `kp`, `ki`, `kd`, `trim`, `cap`, `deadband`, `sp`, `si`, `th`, `auto`, `dff` (drive feedforward), `sdi` (drive speed I), `smode` (speed loop mode), `wsp`, `wsi` (wheel speed loop), `irelax` (I-term relax after a drive, s), `aff` (acceleration lean, deg per turn/s²), `dacc` (speed ramp, turns/s²), `lmax` (lean limit while driving, deg), `tl` (trim learn, deg per wheel turn) |
 | `batt_v`, `batt_ok`, `batt_warn_v`, `batt_low_v`, `batt_cells` | whole-pack volts; false = no sense wire; orange and red limits; 2 cells |
 | `test_running`, `tests_done`, `test_moved`, `test_ms` | motor test status and the last result |

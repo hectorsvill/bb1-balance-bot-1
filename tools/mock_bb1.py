@@ -41,7 +41,7 @@ LOG_MAX_PER_REQUEST = 1000
 ACCEL_PER_G = 16384.0
 GYRO_PER_DPS = 65.5
 CSV_HEADER = ("tick,t_us,work_us,mode,flag_bits,ax_raw,ay_raw,az_raw,temp_raw,gx_raw,gy_raw,gz_raw,pitch,pitch_rate,accel_pitch,"
-              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm")
+              "enc_l,enc_r,speed_l,speed_r,pwm_l,pwm_r,setpoint,p_term,i_term,d_term,gains_ver,reason,web_age_ms,batt_v,auto_state,drive_speed,drive_turn,drive_speed_now,drive_turn_now,speed_pwm,spin_left")
 MOTOR_TEST_MAX_PWM = 150
 MOTOR_TEST_MAX_MS = 3000
 DRIVE_MAX_SPEED, DRIVE_MAX_TURN = 3.0, 5.0   # config.h: wheel turns/s (speed 3.0 since firmware 3.6, turn 5.0 since 3.7)
@@ -58,6 +58,21 @@ reason = ""                       # why it last disarmed / refused, like disarmR
 arm_attempts = 0
 arm_until = None                  # tick the arm timer ends at, or None
 drive = {"speed": 0.0, "turn": 0.0, "until": 0.0, "commands": 0}   # like driveSpeedCmd / driveTurnCmd / driveUntilMs (time.time())
+# Exact-angle spin (drive.h, firmware 3.10). Mock: the angle counts down at the
+# rate x SPIN_DEG_PER_TURN deg/s, no ramp; /drive, /drive/stop and disarm end it.
+SPIN_MAX_DEG, SPIN_MIN_DEG, SPIN_MIN_RATE, SPIN_DEFAULT_RATE, SPIN_DEG_PER_TURN = 1080.0, 5.0, 0.5, 2.0, 66.0
+spin = {"deg": 0.0, "rate": 0.0, "start": 0.0, "arm": None}
+
+
+def spin_left():
+    """Deg still to turn (right +), 0 when no spin is running."""
+    if not spin["deg"] or armed_from is None or spin["arm"] != armed_from:
+        return 0.0
+    done = spin["rate"] * SPIN_DEG_PER_TURN * (time.time() - spin["start"])
+    if done >= abs(spin["deg"]):
+        spin["deg"] = 0.0
+        return 0.0
+    return math.copysign(abs(spin["deg"]) - done, spin["deg"])
 REASONS = {"disarmed by you": 1, "not upright: hold it near the balance point to arm": 6,
            "the page was hidden (tab switched or screen locked)": 10, "arm time finished": 11,
            "picked up (wheels spinning in the air)": 12,
@@ -144,13 +159,13 @@ def csv_line(r):
     return (f'{r["tick"]},{r["t_us"]},{r["work_us"]},{r["mode"]},{r["flag_bits"]},{raw},'
             f'{r["pitch"]:.3f},{r["pitch_rate"]:.3f},{r["accel_pitch"]:.3f},'
             f'{r["enc"][0]},{r["enc"][1]},{r["speed"][0]},{r["speed"][1]},{r["pwm"][0]},{r["pwm"][1]},'
-            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10},{mock_battery(r["tick"]):.2f},{6 if r["mode"] == 4 else 1},0.000,0.000,0.000,0.000,0\n')
+            f'{r["ctl"][0]:.2f},{r["ctl"][1]:.1f},{r["ctl"][2]:.1f},{r["ctl"][3]:.1f},{gains["ver"]},{REASONS.get(reason, 0)},{r["tick"] % 6 * 10},{mock_battery(r["tick"]):.2f},{6 if r["mode"] == 4 else 1},0.000,0.000,0.000,0.000,0,0.0\n')
 
 
 def meta_lines():
     return ("# firmware,bb1 MOCK (tools/mock_bb1.py)\n"
             "# firmware_version,MOCK,build_id,MOCK\n"
-            "# log_format,13\n"
+            "# log_format,14\n"
             "# imu_start,tries,1,bus_pulses,0\n"
             f"# gyro_bias_dps,{bias[0]:.3f},{bias[1]:.3f},{bias[2]:.3f}\n"
             f"# alpha,{alpha:.3f},loop_hz,{LOOP_HZ},accel_lsb_per_g,{ACCEL_PER_G:.1f},gyro_lsb_per_dps,{GYRO_PER_DPS:.1f}\n"
@@ -173,7 +188,8 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
     ("POST", "/arm", "seconds,heartbeat", "text", True, "start balancing; refused unless within arm_angle of trim; result in /state armed, reason"),
     ("POST", "/disarm", "why", "text", False, "stop balancing; auto-arm off until the next arm"),
     ("POST", "/drive", "speed,turn,ms", "json", True, "drive while balancing; runs out after ms, then ramps to a stop"),
-    ("POST", "/drive/stop", "", "json", False, "ramp to a stop now, keep balancing"),
+    ("POST", "/drive/stop", "", "json", False, "ramp to a stop now, keep balancing (also ends a spin)"),
+    ("POST", "/spin", "deg,rate", "json", True, "turn on the spot by deg (right +), counted by the gyro; rate in turn units; progress in /state drive.spin_left"),
     ("POST", "/motor/stop", "", "text", False, "STOP: end a motor test and disarm"),
     ("POST", "/step", "", "text", True, "step test while armed: setpoint +2 deg for 1 s"),
     ("POST", "/gains", ",".join(GAIN_LIMITS), "text", False, "change settings (see gains for limits)"),
@@ -193,13 +209,15 @@ API_ENDPOINTS = [   # method, path, args, answer, moves, does
 
 def api_list():
     return {
-        "api": 8, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 13,
+        "api": 9, "firmware": "bb1 MOCK", "version": "MOCK", "build_id": "MOCK", "log_format": 14,
         "units": {"angle": "deg (forward +)", "speed": "wheel turns/s (forward +)",
                   "turn": "wheel turns/s left minus right (right +)", "pwm": "-255..255 (forward +)", "counts_per_rev": 520},
         "limits": {"drive_max_speed": DRIVE_MAX_SPEED, "drive_max_turn": DRIVE_MAX_TURN, "drive_hold_ms": DRIVE_HOLD_MS,
                    "drive_hold_max_ms": DRIVE_HOLD_MAX_MS, "arm_seconds_max": 600, "arm_angle": 10.0, "fall_angle": 45.0,
                    "heartbeat_ms": 2000, "motor_test_max_pwm": MOTOR_TEST_MAX_PWM, "motor_test_max_ms": MOTOR_TEST_MAX_MS,
-                   "alpha": [0.9, 0.999], "log_max_per_request": LOG_MAX_PER_REQUEST},
+                   "alpha": [0.9, 0.999], "log_max_per_request": LOG_MAX_PER_REQUEST,
+                   "spin_max_deg": SPIN_MAX_DEG, "spin_min_deg": SPIN_MIN_DEG, "spin_min_rate": SPIN_MIN_RATE,
+                   "spin_default_rate": SPIN_DEFAULT_RATE},
         "gains": {k: list(v) for k, v in GAIN_LIMITS.items()},
         "endpoints": [{"method": m, "path": p, "args": a.split(",") if a else [], "answer": ans, "moves": mv, "does": d}
                       for m, p, a, ans, mv, d in API_ENDPOINTS],
@@ -249,7 +267,8 @@ class Handler(BaseHTTPRequestHandler):
                 "p": round(r["ctl"][1], 1), "i": 0.0, "d": round(r["ctl"][3], 1), "gains": gains,
                 "drive": {"speed": drive_now()[0], "turn": drive_now()[1], "speed_now": drive_now()[0], "turn_now": drive_now()[1],
                           "left_ms": max(0, int((drive["until"] - time.time()) * 1000)) if drive_now() != (0.0, 0.0) else 0,
-                          "commands": drive["commands"], "max_speed": DRIVE_MAX_SPEED, "max_turn": DRIVE_MAX_TURN},
+                          "commands": drive["commands"], "max_speed": DRIVE_MAX_SPEED, "max_turn": DRIVE_MAX_TURN,
+                          "spin_left": round(spin_left(), 1)},
                 "enc_fault": 0,
                 "trim_learned": 0.0 if gains["tl"] <= 0 else 0.42,   # mock: a fixed learned trim (firmware 3.5)
                 "batt_v": mock_battery(r["tick"]), "batt_ok": True, "batt_warn_v": 7.0, "batt_low_v": 6.6, "batt_cells": 2,
@@ -363,11 +382,32 @@ class Handler(BaseHTTPRequestHandler):
             speed = max(-DRIVE_MAX_SPEED, min(DRIVE_MAX_SPEED, speed))
             turn = max(-DRIVE_MAX_TURN, min(DRIVE_MAX_TURN, turn))
             ms = int(max(0, min(DRIVE_HOLD_MAX_MS, int(num("ms", DRIVE_HOLD_MS)))))
+            spin["deg"] = 0.0                                   # a drive command takes over from a spin
             drive.update(speed=speed, turn=turn, until=time.time() + ms / 1000 if ms else 0.0,
                          commands=drive["commands"] + 1, arm=armed_from)
             self.reply(json.dumps({"ok": True, "speed": speed, "turn": turn, "ms": ms}), "application/json")
+        elif self.path == "/spin":
+            # Same rules as handleSpin() in web.h.
+            if armed_from is None:
+                return self.reply('{"ok":false,"error":"not balancing: arm first (POST /arm)"}', "application/json", 409)
+            if form.get("deg") is None:
+                return self.reply('{"ok":false,"error":"need deg (right +, left -)"}', "application/json", 400)
+            try:
+                deg = float(form.get("deg"))
+                rate = float(form.get("rate") or SPIN_DEFAULT_RATE)
+            except ValueError:
+                deg, rate = float("nan"), 0.0
+            if not (math.isfinite(deg) and math.isfinite(rate)) or abs(deg) < SPIN_MIN_DEG:
+                return self.reply('{"ok":false,"error":"deg must be a number, at least 5 either way"}', "application/json", 400)
+            deg = max(-SPIN_MAX_DEG, min(SPIN_MAX_DEG, deg))
+            rate = max(SPIN_MIN_RATE, min(DRIVE_MAX_TURN, abs(rate)))
+            timeout = int(2000 * abs(deg) / (rate * SPIN_DEG_PER_TURN)) + 2000
+            drive["until"] = 0.0
+            spin.update(deg=deg, rate=rate, start=time.time(), arm=armed_from)
+            self.reply(json.dumps({"ok": True, "deg": round(deg, 1), "rate": round(rate, 2), "timeout_ms": timeout}), "application/json")
         elif self.path == "/drive/stop":
             drive["until"] = 0.0
+            spin["deg"] = 0.0
             self.reply('{"ok":true,"speed":0,"turn":0,"ms":0}', "application/json")
         elif self.path == "/motor/stop":
             if armed_from is not None:

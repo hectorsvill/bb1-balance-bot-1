@@ -55,7 +55,7 @@ LOGS = REPO / "logs"
 DB = LOGS / "runs.sqlite"
 LOOP_HZ = 200
 COUNTS_PER_REV = 520        # config.h
-SCHEMA_VERSION = 4          # bump when the tables change: build (and catalog) then start over by itself
+SCHEMA_VERSION = 5          # bump when the tables change: build (and catalog) then start over by itself
                             # 4 = runs and gains get tl (trim learn, firmware 3.5)
 
 # Reason codes in the log's reason column (control.h enum Reason; docs/CALIBRATION_AND_LOGS.md)
@@ -80,7 +80,7 @@ TICK_FIELDS = ["tick", "t_us", "work_us", "mode", "flag_bits", "ax_raw", "ay_raw
                "gx_raw", "gy_raw", "gz_raw", "pitch", "pitch_rate", "accel_pitch", "enc_l", "enc_r",
                "speed_l", "speed_r", "pwm_l", "pwm_r", "setpoint", "p_term", "i_term", "d_term", "gains_ver",
                "reason", "web_age_ms", "batt_v", "auto_state", "drive_speed", "drive_turn", "drive_speed_now",
-               "drive_turn_now", "speed_pwm"]
+               "drive_turn_now", "speed_pwm", "spin_left"]   # spin_left: format 14 (firmware 3.10), deg still to turn
 # Added by us: seconds into the file, and the wheels in the same units as /drive
 # (turns/s; turn = left minus right, right +), fixed for logs before format 10.
 TICK_ADDED = ["t_s", "speed_tps", "turn_tps"]

@@ -218,6 +218,7 @@ Since firmware 3.9 the header also has `# imu_start,tries,N,bus_pulses,M`: how m
 | `drive_speed_now` | turns/s | the ramped speed target BB1 really aims for this tick (follows `drive_speed` at `# drive_accel`). The controller's own state, for training (log format 11, 2026-10-26). Can be lower than `drive_speed` when a speed guard holds it back (`drive.h` `speedCeiling()`: PWM reserve, saturation back-off, firmware 3.6). Same steps as `drive_speed` |
 | `drive_turn_now` | turns/s | the ramped turn target (log format 11); same storage as `drive_turn` |
 | `speed_pwm` | PWM | what the wheel speed loop added to both wheels this tick (`smode 1`; always 0 in `smode 0`). Not in `p_term`/`i_term`/`d_term`; `pwm_l`/`pwm_r` include it (log format 11) |
+| `spin_left` | deg | an exact-angle spin's angle still to go, right + (0 = no spin running), counted down by the gyro yaw (`POST /spin`, firmware 3.10, log format 14). Its first non-zero value is the asked angle; it reaches about 0 when BB1 has landed. Stored in 2 bytes the record had as padding, so it costs no RAM |
 
 Raw values are kept on purpose: a better filter, or a model, can be re-run on them later. Step 5 added the six wheel columns (log format 2), step 6 the five controller columns (log format 3); later steps add the speed loop and drive commands at the end.
 
