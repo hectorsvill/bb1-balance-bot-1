@@ -77,7 +77,7 @@ void handleState() {
   // On core 0's small stack (4 KB), so sized to fit, not generous: with every
   // number and text at its widest the answer is about 1470 bytes (estimated
   // 2026-10-29: 1440 with aff/dacc/lmax, + 31 for trim_learned and tl;
-  // was 1390 before aff, with 1400 here; + 20 for spin_left, 2026-11-03).
+  // was 1390 before aff, with 1400 here; + 20 for spin_left, + 20 for yaw_deg, 2026-11-03).
   // snprintf cuts it off rather than overflow, but cut JSON won't parse.
   char json[1600];
   snprintf(json, sizeof(json),
@@ -88,7 +88,7 @@ void handleState() {
            "\"enc_l\":%ld,\"enc_r\":%ld,\"speed_l\":%d,\"speed_r\":%d,\"pwm_l\":%d,\"pwm_r\":%d,"
            "\"test_running\":%s,\"tests_done\":%lu,\"test_moved\":[%ld,%ld],\"test_ms\":%lu,"
            "\"armed\":%s,\"reason\":\"%s\",\"arm_attempts\":%lu,\"arm_ms\":%lu,\"arm_left_ms\":%ld,\"step\":%s,\"auto_state\":\"%s\",\"p\":%.1f,\"i\":%.1f,\"d\":%.1f,"
-           "\"enc_fault\":%u,\"trim_learned\":%.2f,"
+           "\"enc_fault\":%u,\"trim_learned\":%.2f,\"yaw_deg\":%.1f,"
            "\"drive\":{\"speed\":%.2f,\"turn\":%.2f,\"speed_now\":%.2f,\"turn_now\":%.2f,\"left_ms\":%ld,\"commands\":%lu,\"max_speed\":%.2f,\"max_turn\":%.2f,\"spin_left\":%.1f},"
            "\"batt_v\":%.2f,\"batt_ok\":%s,\"batt_warn_v\":%.2f,\"batt_low_v\":%.2f,\"batt_cells\":%d,"
            "\"gains\":{\"ver\":%lu,\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f,\"trim\":%.2f,\"cap\":%.0f,\"deadband\":%.0f,\"sp\":%.2f,\"si\":%.2f,\"th\":%.1f,\"auto\":%d,\"dff\":%.0f,\"sdi\":%.2f,\"smode\":%d,\"wsp\":%.1f,\"wsi\":%.1f,\"irelax\":%.2f,\"aff\":%.2f,\"dacc\":%.2f,\"lmax\":%.1f,\"tl\":%.2f}}",
@@ -108,7 +108,7 @@ void handleState() {
            (long)lastTestMovedL, (long)lastTestMovedR, (unsigned long)lastTestRanMs,
            robotArmed ? "true" : "false", reasonText(disarmReason), (unsigned long)armAttempts, (unsigned long)armTimeMs, armLeftMs, stepActive ? "true" : "false", autoStateText(autoArmState),
            have ? r.p_x10 / 10.0 : 0.0, have ? r.i_x10 / 10.0 : 0.0, have ? r.d_x10 / 10.0 : 0.0,
-           encoderFault, trimLearnedNow,
+           encoderFault, trimLearnedNow, yawDegNow,
            driveLeftMs > 0 ? driveSpeedCmd : 0.0, driveLeftMs > 0 ? driveTurnCmd : 0.0, driveSpeedNow, driveTurnNow, driveLeftMs,
            (unsigned long)driveCommands, DRIVE_MAX_SPEED, DRIVE_MAX_TURN, spinLeftNow,
            batteryMv / 1000.0, batteryPresent() ? "true" : "false", BATTERY_WARN_V, BATTERY_LOW_V, BATTERY_CELLS,

@@ -2,7 +2,7 @@
 
 You are an AI agent driving BB1, a small two-wheel self-balancing robot, over Wi-Fi. This file is everything you need. Read all of it before your first command, and follow the settings in the next section: they are your owner's rules for this session, and they win over anything else here.
 
-**Written for `/api` version: 9**
+**Written for `/api` version: 10**
 
 Your first command is always `api` (below). If its `"api"` number differs from the line above, stop and tell your owner: the firmware changed since this manual was written, and some of it may be wrong.
 
@@ -17,8 +17,8 @@ max_travel_m    = 0.5             # never end up farther than this from where yo
 may_arm         = ask             # ask = ask your owner before every arm; yes = arm when needed
 person_present  = required        # required = only drive while your owner says they are watching
 surface         = unknown         # the floor: wood, carpet... (your owner says; it goes in the log)
-allowed         = state, api, arm, drive, stop, disarm, log   # everything else is off limits (see Never)
-                  # through MCP the same are: bb1_state, bb1_api, bb1_arm, bb1_drive, bb1_stop, bb1_disarm, bb1_log,
+allowed         = state, api, arm, drive, spin, stop, disarm, log   # everything else is off limits (see Never)
+                  # through MCP the same are: bb1_state, bb1_api, bb1_arm, bb1_drive, bb1_spin, bb1_stop, bb1_disarm, bb1_log,
                   # plus the read-only logs_schema, logs_runs, logs_show, logs_ticks, logs_sql
 ```
 
@@ -53,7 +53,8 @@ tools/venv/bin/python tools/bb1.py api                          # firmware versi
 tools/venv/bin/python tools/bb1.py state                        # what BB1 is doing now
 tools/venv/bin/python tools/bb1.py arm                          # start balancing (it must be standing near upright)
 tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2 --max 0.3 --max-turn 0.4 --max-for 3   # forward 0.3 turns/s for 2 s, then stop
-tools/venv/bin/python tools/bb1.py drive --turn 0.4 --for 2 --max 0.3 --max-turn 0.4 --max-for 3    # spin right on the spot for 2 s
+tools/venv/bin/python tools/bb1.py drive --turn 0.4 --for 2 --max 0.3 --max-turn 0.4 --max-for 3    # turn right on the spot for 2 s
+tools/venv/bin/python tools/bb1.py spin --deg 90 --max-turn 0.4                # turn exactly 90 deg right on the spot (left: --deg -90)
 tools/venv/bin/python tools/bb1.py stop                         # stop driving, keep balancing
 tools/venv/bin/python tools/bb1.py disarm                       # motors off: BB1 FALLS OVER
 tools/venv/bin/python tools/bb1.py log start --surface wood -n "square"   # label this session's log
@@ -61,6 +62,8 @@ tools/venv/bin/python tools/bb1.py log stop                     # save the log n
 ```
 
 Always pass your settings as the caps: `--max` = `max_speed`, `--max-turn` = `max_turn`, `--max-for` = `max_drive_s`. `drive` blocks until it is done and BB1 has settled (or 2 s have passed). A drive with `--speed` and `--turn` both 0 is refused. If the tool cut anything you asked for (`--speed` past `--max`, `--turn` past `--max-turn`, `--for` past `--max-for` or 10 s), the answer's `cut` list says so: plan with what you got, not what you asked.
+
+`spin --deg N` turns on the spot by N degrees (right +, at most 360 per command; pass `--max-turn` = `max_turn`). BB1 counts the turn with its own gyro and lands on it by itself, within about ±5 deg on wood; the tool waits until it has. The answer has `turned_deg` (the gyro's count of what it really turned), `error_deg`, `landed` and `state`. For a heading, prefer `spin` over `drive --turn`: a timed turn's angle depends on the floor and Wi-Fi, a spin's doesn't.
 
 ### Through MCP instead
 
@@ -71,6 +74,7 @@ Your owner may have connected BB1 as MCP tools instead (`tools/bb1_mcp.py`; to c
 | `bb1_api`, `bb1_state(full)` | `api`, `state [--full]` |
 | `bb1_arm(seconds)` | `arm` (ask first if `may_arm` = ask) |
 | `bb1_drive(speed, turn, secs)` | `drive`; the caps are set when the server is added, so you don't pass them (the tool's description shows them) |
+| `bb1_spin(deg)` | `spin --deg`; the turn cap is the server's |
 | `bb1_stop`, `bb1_disarm` | `stop`, `disarm` |
 | `bb1_log(action, note, surface)` | `log status` / `start` / `stop` |
 | `logs_schema`, `logs_runs`, `logs_show`, `logs_ticks`, `logs_sql` | `tools/logs.py` (read only) |
@@ -90,7 +94,7 @@ To see what happened (your commands, BB1's runs, every tick), use `tools/venv/bi
 ```json
 {"ok": true, "state": {"armed": true, "reason": "", "auto_state": "balancing", "pitch_deg": -0.4,
  "speed": 0.0, "position_turns": 12.31, "drive": {"speed": 0.0, "turn": 0.0, "left_ms": 0},
- "enc_fault": 0, "trim_learned_deg": 1.25, "batt_v_per_cell": 3.92, "ip": "192.168.1.240"}}
+ "enc_fault": 0, "trim_learned_deg": 1.25, "yaw_deg": 93.4, "batt_v_per_cell": 3.92, "ip": "192.168.1.240"}}
 ```
 
 | Field | Meaning | Act on it |
@@ -103,9 +107,10 @@ To see what happened (your commands, BB1's runs, every tick), use `tools/venv/bi
 | `position_turns` | wheel position since power-on | subtract to get distance |
 | `enc_fault` | 0 ok; 1 left, 2 right wheel sensor not counting | not 0: stop, tell your owner (a wire) |
 | `trim_learned_deg` | deg BB1 has learned to add to its balance point while standing still (trim learn `tl`, firmware 3.5; null before). Kept across drives and stops, cleared at power-on | nothing to do. Report it at the end of a session. Stuck at ±3 (the limit): tell your owner, the trim is far off |
+| `yaw_deg` | heading from the gyro since power-on, deg, right + (firmware 3.11; null before). Drifts a few deg a minute | subtract two readings to know how far it turned; better than `turned_turns`, which the wheels' scrub inflates |
 | `batt_v_per_cell` | battery, volts per cell (null = not measured) | under 3.5: finish up and tell your owner; under 3.3 BB1 stops itself |
 
-`drive` answers with `moved_turns` and `turned_turns` (how far it really went), `settled` and a fresh `state`.
+`drive` answers with `moved_turns` and `turned_turns` (how far it really went), `turned_deg` (the gyro's angle, firmware 3.11), `settled` and a fresh `state`.
 
 ### Reasons it stops or refuses
 
@@ -133,7 +138,7 @@ Work in small steps and look after every one:
 6. Compare with what you asked. Short is normal, and the floor matters: on wood forward reaches about 60-90% of the asked speed; on carpet much less (3 s at 0.3 moved anywhere from −0.06 to +0.29 turns, back reached a third of the asked speed, 1 s turns at 0.4 gave 0.27, and it often hadn't settled after 2 s). Correct with the next step, but don't expect to land on a target: five tries on carpet reached half of a 1-turn target. Wrong direction, or `ok: false`: stop and think before the next move.
 7. Repeat from step 5. When done: `stop`, leave it balancing unless your owner says otherwise, then `log stop` and give your owner the `run_id`.
 
-Turning on the spot: `--speed 0 --turn 0.4`. Curves: both at once. To go back where you started, drive the same distance the other way: there's no position target yet, so expect some error.
+Turning on the spot to a heading: `spin --deg 90` (exact, by the gyro). A timed turn: `drive --speed 0 --turn 0.4`. Curves: `drive` with both at once. To go back where you started, drive the same distance the other way: there's no position target yet, so expect some error.
 
 ## Safety rules
 
@@ -153,7 +158,7 @@ These change how BB1 works or can damage it, and are only for your owner (`allow
 - motor tests (`/motor`): wheels must be off the floor
 - firmware updates (`/update`, `tools/flash.py --execute` or `--yes`). `tools/flash.py` with no `--execute` only prints a JSON plan and does not flash. Do not pass `--execute`, `--yes`, or `--force`.
 - Wi-Fi settings (`/wifi`, `/wifi/forget`): BB1 would restart and could drop off the network (refused with `409` while armed)
-- calling the HTTP API directly to get around the tool's limits. That includes `POST /spin` (exact-angle turns, firmware 3.10): `bb1.py` has no command for it yet, so turn with `drive --turn` as above
+- calling the HTTP API directly to get around the tool's limits (use `bb1.py spin`, not `POST /spin`)
 - changing the MCP server's caps or how it is started (`claude mcp add` / `remove`, its `--max-*` options), or editing `tools/bb1.py` / `tools/bb1_mcp.py`: the caps are your owner's
 
 ## More

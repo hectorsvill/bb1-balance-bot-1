@@ -2,6 +2,14 @@
 
 Newest first.
 
+## 2026-11-03 - Spin settle, gyro heading, `bb1.py spin` (firmware 3.11, not flashed yet)
+
+- **Spin settle (`drive.h`):** 3.10 lands the turn target within 2 deg, but the body coasts on 0-4 deg (10 on a 90 at turn 4), because the heading hold grabs the wheels wherever they are. Now, for up to `SPIN_SETTLE_S` (1 s) after landing, a P correction on the gyro angle still to go steers it back: turn = `SPIN_SETTLE_GAIN` (0.02) x deg off, at most 0.4, done within 1.5 deg and under 15 deg/s. `SPIN_SETTLE_S` 0 = the 3.10 behavior. Settings in the `# spin_max_deg` header line
+- **Gyro heading:** `angle.h` adds up the yaw rate (`yaw`, deg, right +, since power-on); `/state` `yaw_deg`. Drifts a few deg a minute (gyro bias), so tools subtract two readings. The first piece of "odometry in `/state`" (API.md wish list)
+- `SPIN_MIN_RATE` 0.5 -> 0.3, so an agent with AGENT.md's default turn cap (0.4) can spin
+- **`bb1.py spin --deg N`** (rate capped at `--max-turn`, angle at `--max-deg` <= 360): one `/spin`, waits for the landing with the same safety checks as `drive`, answers `turned_deg` (gyro) and `error_deg`. `drive` answers `turned_deg` too, and the summary state has `yaw_deg`. MCP tool `bb1_spin(deg)`. Tests on the mock
+- `GET /api` version 10 (`/state` field, limit); `docs/AGENT.md` version line 10, `spin` allowed, `yaw_deg`; API.md, TOOLS.md; mock (api 10, `yaw_deg`, min rate 0.3)
+
 ## 2026-11-03 - Exact-angle spins: POST /spin (firmware 3.10, flashed 2026-11-03)
 
 - **Why (runs 188-192, 2026-11-03, Claude driving 3.9 on wood):** spins held their turn rate, but the angle came out 334-398 deg for a planned 360. Two causes: (1) the Mac timed each spin over Wi-Fi, and the stop arrived late (2.25 s steps ran 2.58-2.71 s, 1.00 s steps 1.22-1.45 s); (2) the wheels scrub sideways in a spin, so the gyro saw only **0.83** of the turn the encoders counted, the same in all four spins: a full spin on the spot is about 5.4 turns of wheel difference, not the 4.49 the 127 mm track says

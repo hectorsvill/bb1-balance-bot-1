@@ -10,6 +10,8 @@ Usage (BB1 on Wi-Fi; set BB1_HOST once to skip --host):
     tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 2   # forward 0.3 wheel turns/s for 2 s
     tools/venv/bin/python tools/bb1.py drive --turn -0.4 --for 1   # turn left on the spot for 1 s
     tools/venv/bin/python tools/bb1.py drive --speed 0.3 --for 5 --max 0.3 --max-turn 0.4 --max-for 3   # an owner's caps
+    tools/venv/bin/python tools/bb1.py spin --deg 90                # turn 90 deg right on the spot, counted by BB1's gyro
+    tools/venv/bin/python tools/bb1.py spin --deg -360 --max-turn 0.4 --max-deg 360   # a full turn left, an owner's caps
     tools/venv/bin/python tools/bb1.py stop                        # stop driving, keep balancing
     tools/venv/bin/python tools/bb1.py disarm                      # motors off: BB1 falls over!
     tools/venv/bin/python tools/bb1.py log status                  # is BB1's telemetry being recorded?
@@ -37,6 +39,12 @@ Safety (an agent can make mistakes, so the tool checks for it):
     any speed: at 3 turns/s a drive ends after about 1 s, and BB1 rolls on
     up to about 3 more turns (0.5 s between /state checks + a 1 s stop)
   - Ctrl-C sends /drive/stop
+  - spin (firmware 3.11, POST /spin) has the same checks: armed, no encoder
+    fault, the rate capped at --max-turn (default 0.5), the angle at --max-deg
+    (can only lower MAX_SPIN_DEG, 360). BB1 lands on the angle by itself with
+    its gyro; this tool waits for /state to say it has, watching for a fall,
+    a disarm or an encoder fault like drive does, and stops it if it hasn't
+    landed in time. The answer's turned_deg is the gyro's own count
 
 Exit codes: 0 done, 1 BB1 refused or a safety check ended it, 2 BB1 didn't answer
 or the arguments were wrong. Ctrl-C is 1 here (this tool's contract is only
@@ -78,6 +86,9 @@ MAX_FOR_S = 10.0         # longest single drive
 MAX_TRAVEL = 3.0         # wheel turns (about 0.53 m) from where the drive started: stop
 STALL_S = 2.0            # no answer at all from BB1 for this long: stop and give up
 SETTLE_S = 2.0           # after a drive, wait up to this long for the wheels to stop before answering
+MAX_SPIN_DEG = 360.0     # biggest single spin this tool sends (the firmware allows 1080)
+SPIN_RATE = 2.0          # default spin rate, turns/s of wheel difference (then capped at --max-turn)
+SPIN_MIN_RATE = 0.3      # the firmware's lowest spin rate (config.h SPIN_MIN_RATE, firmware 3.11)
 SETTLED_SPEED = 0.05     # wheel turns/s: slower than this counts as stopped
 ARM_WAIT_S = 1.5         # how long to wait for an arm to be accepted or refused
 COMMAND_LOG = Path(__file__).resolve().parent.parent / "logs" / "agent_commands.csv"
@@ -170,6 +181,7 @@ def summary(s):
         "drive": {k: s["drive"][k] for k in ("speed", "turn", "left_ms")},
         "enc_fault": s["enc_fault"],
         "trim_learned_deg": s.get("trim_learned"),   # firmware 3.5 on; None before
+        "yaw_deg": s.get("yaw_deg"),              # gyro heading since power-on, right + (firmware 3.11 on; None before)
         "batt_v_per_cell": round(s["batt_v"] / cells, 2) if s.get("batt_ok") else None,
         "ip": s.get("ip"),
     }
@@ -243,7 +255,7 @@ def cmd_drive(base, args):
         out(ok=False, error=f"encoder fault {s['enc_fault']}: check that encoder's wires")
         return 1
 
-    start, start_diff = turns(s), diff(s)
+    start, start_diff, start_yaw = turns(s), diff(s), s.get("yaw_deg")
     end = time.time() + secs
     next_check = 0.0
     last_answer = time.time()
@@ -287,7 +299,82 @@ def cmd_drive(base, args):
         s = read_state(base)
     out(ok=why is None, error=why, asked={"speed": speed, "turn": turn, "secs": secs}, cut=cut,
         moved_turns=round(turns(s) - start, 2), turned_turns=round(diff(s) - start_diff, 2),
+        turned_deg=yaw_change(start_yaw, s),
         settled=abs(wheel_speed(s)) <= SETTLED_SPEED, state=summary(s))
+    return 0 if why is None else 1
+
+
+def yaw_change(start_yaw, s):
+    """Degrees the gyro says BB1 turned (right +), or None on firmware before 3.11."""
+    if start_yaw is None or s.get("yaw_deg") is None:
+        return None
+    return round(s["yaw_deg"] - start_yaw, 1)
+
+
+def cmd_spin(base, args):
+    """Turn on the spot by an angle (POST /spin). BB1 counts it with its gyro and
+    lands on it by itself; this waits for that, with the same checks as drive."""
+    max_turn = args.max_turn
+    max_deg = min(MAX_SPIN_DEG, args.max_deg)            # --max-deg can lower 360, never raise it
+    deg = max(-max_deg, min(max_deg, args.deg))
+    rate = min(abs(args.rate) if args.rate is not None else SPIN_RATE, max_turn)
+    cut = [f"{name} {asked:g} cut to {got:g}" for name, asked, got in
+           (("--deg", args.deg, deg), ("--rate", args.rate if args.rate is not None else SPIN_RATE, rate)) if asked != got]
+    if abs(deg) < 5:
+        out(ok=False, error="spin at least 5 deg either way (right +, left -)")
+        return 1
+    if rate < SPIN_MIN_RATE:
+        out(ok=False, error=f"--max-turn {max_turn:g} is below BB1's slowest spin ({SPIN_MIN_RATE:g}): use drive --turn instead")
+        return 1
+    s = read_state(base)
+    if not s["armed"]:
+        out(ok=False, error="not balancing: run 'arm' first", reason=s["reason"])
+        return 1
+    if s["enc_fault"]:
+        out(ok=False, error=f"encoder fault {s['enc_fault']}: check that encoder's wires")
+        return 1
+    if "yaw_deg" not in s:
+        out(ok=False, error="this firmware has no exact-angle spins (needs 3.11): use drive --turn")
+        return 1
+    start, start_diff, start_yaw = turns(s), diff(s), s["yaw_deg"]
+    try:
+        answer_json = json.loads(post(f"{base}/spin", deg=f"{deg:.1f}", rate=f"{rate:.2f}"))
+    except urllib.error.HTTPError as e:                  # 409 / 400: BB1 says why
+        out(ok=False, error=json.loads(e.read().decode() or "{}").get("error", f"HTTP {e.code}"))
+        return 1
+    deadline = time.time() + answer_json.get("timeout_ms", 10000) / 1000 + 1
+    began = time.time()
+    why, landed = None, False
+    try:
+        while time.time() < deadline:
+            time.sleep(0.2)
+            s = read_state(base)
+            if not s["armed"]:
+                why = f"disarmed: {s['reason']}"
+                break
+            if s["enc_fault"]:
+                why = f"encoder fault {s['enc_fault']}"
+                break
+            if abs(turns(s) - start) > MAX_TRAVEL:
+                why = f"travelled more than {MAX_TRAVEL:g} wheel turns"
+                break
+            if time.time() - began > 0.4 and not s["drive"].get("spin_left"):
+                landed = True                            # BB1 says it's there (and has settled)
+                break
+        else:
+            why = "didn't land in time"
+    finally:
+        if not landed:                                   # a safety stop, a timeout, an error or Ctrl-C
+            try:
+                post(f"{base}/drive/stop")
+            except OSError:
+                pass
+    time.sleep(0.3)
+    s = read_state(base)
+    turned = yaw_change(start_yaw, s)
+    out(ok=why is None, error=why, asked={"deg": deg, "rate": rate}, cut=cut, landed=landed,
+        turned_deg=turned, error_deg=round(turned - deg, 1) if turned is not None else None,
+        turned_turns=round(diff(s) - start_diff, 2), moved_turns=round(turns(s) - start, 2), state=summary(s))
     return 0 if why is None else 1
 
 
@@ -310,6 +397,11 @@ def parser():
     p.add_argument("--max", type=float, default=0.5, help="cap on speed (and turn, unless --max-turn) (default 0.5)")
     p.add_argument("--max-turn", type=float, help="cap on turn (default: --max)")
     p.add_argument("--max-for", type=float, default=MAX_FOR_S, help=f"cap on --for; can only lower {MAX_FOR_S:g} s")
+    p = sub.add_parser("spin", help="turn on the spot by an angle; BB1 lands on it with its gyro (firmware 3.11)")
+    p.add_argument("--deg", type=float, required=True, help=f"degrees, right + (max {MAX_SPIN_DEG:g})")
+    p.add_argument("--rate", type=float, help=f"turns/s of left-minus-right (default {SPIN_RATE:g}, then capped at --max-turn)")
+    p.add_argument("--max-turn", type=float, default=0.5, help="cap on the rate (default 0.5)")
+    p.add_argument("--max-deg", type=float, default=MAX_SPIN_DEG, help=f"cap on --deg; can only lower {MAX_SPIN_DEG:g}")
     p = sub.add_parser("log", help="BB1's telemetry recording (automatic): status, start (label it), stop (save now)")
     p.add_argument("action", choices=("status", "start", "stop"))
     p.add_argument("-n", "--note", help="start: a note saved in the log and its file name")
@@ -337,7 +429,8 @@ def cmd_log(host, args):
     return 0
 
 
-COMMANDS = {"api": cmd_api, "state": cmd_state, "arm": cmd_arm, "disarm": cmd_disarm, "stop": cmd_stop, "drive": cmd_drive}
+COMMANDS = {"api": cmd_api, "state": cmd_state, "arm": cmd_arm, "disarm": cmd_disarm, "stop": cmd_stop, "drive": cmd_drive,
+            "spin": cmd_spin}
 
 
 def run(argv, print_answer=True, via=None):
@@ -378,7 +471,7 @@ def auto_record(base, args):
     try:
         session_log.touch_command()
         balancing = answer.get("armed") or (answer.get("state") or {}).get("armed")
-        if args.cmd in ("arm", "drive") and balancing:
+        if args.cmd in ("arm", "drive", "spin") and balancing:
             session_log.ensure(base, args.host)
     except Exception as e:
         print(f"bb1.py: telemetry recorder: {e}", file=sys.stderr)

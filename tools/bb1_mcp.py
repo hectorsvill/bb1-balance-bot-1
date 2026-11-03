@@ -93,7 +93,8 @@ def make_server(host, max_speed=0.3, max_turn=0.4, max_for=3.0, db=None):
     def bb1_state(full: bool = False) -> dict[str, Any]:
         """What BB1 is doing now: armed, reason (why it last stopped or refused), auto_state,
         pitch_deg, speed (wheel turns/s), position_turns (since power-on: subtract two readings),
-        drive, enc_fault (0 = ok), batt_v_per_cell. full=true returns every /state field."""
+        drive, enc_fault (0 = ok), batt_v_per_cell, yaw_deg (gyro heading since power-on, right +:
+        subtract two readings). full=true returns every /state field."""
         return robot("state", *(["--full"] if full else []))
 
     @server.tool(annotations=MOVES, structured_output=True)
@@ -115,6 +116,14 @@ def make_server(host, max_speed=0.3, max_turn=0.4, max_for=3.0, db=None):
         return robot("drive", "--speed", repr(float(speed)), "--turn", repr(float(turn)),
                      "--for", repr(float(secs)), "--max", repr(max_speed), "--max-turn", repr(max_turn),
                      "--max-for", repr(max_for))
+
+    @server.tool(annotations=MOVES, structured_output=True, description=(
+        f"Turn on the spot by an angle while balancing (firmware 3.11): deg, right +, at most 360. "
+        f"BB1 counts the turn with its gyro and lands on it by itself (about +/-5 deg); the rate is "
+        f"capped at {max_turn:g} turns/s. Blocks until it has landed. Read turned_deg (the gyro's own "
+        f"count), error_deg, landed, cut and state. Refused unless armed with no encoder fault."))
+    def bb1_spin(deg: float) -> dict[str, Any]:
+        return robot("spin", "--deg", repr(float(deg)), "--max-turn", repr(max_turn))
 
     @server.tool(annotations=MOVES, structured_output=True)
     def bb1_stop() -> dict[str, Any]:

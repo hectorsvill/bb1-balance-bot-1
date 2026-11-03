@@ -107,11 +107,13 @@ Turn on the spot by an angle. BB1 counts the turn with its gyro and lands on it 
 | Arg | Unit | Default | Limits | Sign |
 |---|---|---|---|---|
 | `deg` | degrees of real heading | required | at least 5 either way, at most ±1080 (`SPIN_MIN_DEG`, `SPIN_MAX_DEG`) | right +, left - |
-| `rate` | turns/s of left-minus-right wheel difference (the `/drive` turn unit) | 2.0 (about 130 deg/s) | 0.5 to 5.0 | none (the sign of `deg` sets the way) |
+| `rate` | turns/s of left-minus-right wheel difference (the `/drive` turn unit) | 2.0 (about 130 deg/s) | 0.3 to 5.0 (0.5 in 3.10) | none (the sign of `deg` sets the way) |
 
 Answers `{"ok":true,"deg":90.0,"rate":2.00,"timeout_ms":3363}`. `/state` `drive.spin_left` counts down to 0 (deg still to go, right +); 0 again = it has landed. A `/drive`, `/drive/stop`, a disarm, an encoder fault or the timeout (twice the planned time + 2 s) ends a spin early: it ramps to a stop wherever it is.
 
 How it lands (`drive.h` `spinUpdate()`): the turn target ramps down at 6 turns/s per second, so from yaw rate w the ramp-down turns about w x (turn / 6) / 2 more degrees. Every tick (200 per second) BB1 compares that with the angle still to go and starts the ramp-down when they meet. It uses the gyro, not the wheels: in a spin the wheels scrub sideways, and the gyro saw only 0.83 of the turn the encoders counted (runs 189-190, 2026-11-03), so a full spin on the spot is about 5.4 turns of wheel difference, not the 4.49 the track width says. The log's `spin_left` column (log format 14) records the angle still to go every tick.
+
+**Settle (firmware 3.11).** Once the turn target has ramped down, the body can still turn on a few degrees (3.10 tests: 0-4 deg, 10 on a fast 90), because the heading hold takes the wheels wherever they are. For up to 1 s after that, BB1 steers back by the gyro: turn = 0.02 x deg off (at most 0.4), until it is within 1.5 deg and turning slower than 15 deg/s (`SPIN_SETTLE_*` in `config.h`; `spin_left` stays non-zero until then).
 
 ### Examples
 
@@ -139,6 +141,7 @@ The newest values, as one JSON object. The page asks about 20 times a second. As
 | `mode` | 0 boot, 1 calibrating, 2 running (motors off), 3 motor test, 4 armed (balancing), 5 fallen |
 | `flag_bits` | 1 IMU error, 2 loop overran, 4 no gyro calibration yet, 8 PID at the PWM cap, 16 drive command ran out (stopping), 32 encoder fault, 64 I term draining after a drive (`irelax`) |
 | `trim_learned` | deg trim learn (`tl`) adds to the setpoint now (+ = forward), ±3 at most; kept across drives, stops and arms, 0 after a restart or `tl=0` (firmware 3.5) |
+| `yaw_deg` | heading from the gyro since power-on, deg, right + (firmware 3.11): the body's real rotation, wheel scrub or not. Drifts a few deg a minute (the gyro bias isn't perfect), so subtract two readings close together |
 | `enc_fault` | 0 ok; 1 the left encoder, 2 the right one, is not counting while armed (one wheel reads near 0 while the other spins for 0.3 s). Heading hold is off and `/drive` answers 409 until the next arm. Check that encoder's wires |
 | `pitch`, `accel_pitch`, `pitch_rate` | deg (forward +), deg from the accelerometer only, deg/s |
 | `armed`, `reason`, `auto_state` | balancing or not; why it last stopped or refused (text, empty if none); what auto-arm is doing (text) |

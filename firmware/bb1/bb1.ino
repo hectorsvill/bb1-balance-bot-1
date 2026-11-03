@@ -190,6 +190,7 @@ void loop1() {
   bool imuOk = imuRead(s);
   if (imuOk) {
     angleUpdate(angle, s, dt);
+    yawDegNow = angle.yaw;                     // /state yaw_deg (core 0 reads it)
   } else {
     r.flags |= FLAG_IMU_ERROR;
   }
